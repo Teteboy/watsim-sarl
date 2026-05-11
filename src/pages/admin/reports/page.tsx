@@ -22,6 +22,13 @@ const kpiSummary = [
   { label: 'Litiges Ouverts', value: '4', change: '-2', up: true },
 ];
 
+const costKPIs = [
+  { label: 'Frais de Stockage', value: '2,4 M FCFA', change: '+5.1%', up: false },
+  { label: 'Frais d\'Ouverture Compte', value: '1,2 M FCFA', change: '+8.3%', up: false },
+  { label: 'Marge Catégorie Moyenne', value: '22,5%', change: '+1.2%', up: true },
+  { label: 'Frais de Livraison', value: '3,8 M FCFA', change: '+12.4%', up: false },
+];
+
 export default function AdminReportsPage() {
   const [period, setPeriod] = useState('month');
   const [generating, setGenerating] = useState<string | null>(null);
@@ -62,6 +69,22 @@ export default function AdminReportsPage() {
               </span>
             </div>
           ))}
+        </div>
+
+        {/* Cost KPIs */}
+        <div>
+          <h2 className="text-lg font-bold text-white mb-4" style={{ fontFamily: 'Montserrat, sans-serif' }}>Coûts et Marges Opérationnelles</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {costKPIs.map((kpi) => (
+              <div key={kpi.label} className="rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)', border: '1px solid rgba(212,175,55,0.12)' }}>
+                <p className="text-lg font-bold text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>{kpi.value}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>{kpi.label}</p>
+                <span className="text-xs font-medium mt-1 inline-block" style={{ color: kpi.up ? '#22C55E' : '#EF4444' }}>
+                  <i className={`${kpi.up ? 'ri-arrow-up-line' : 'ri-arrow-down-line'} mr-0.5`} />{kpi.change}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Chart */}
