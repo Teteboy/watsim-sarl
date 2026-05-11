@@ -11,6 +11,7 @@ export const adminTransactions = [
   { id: 'TXN-78892', user: 'Mbassi Hortense', userId: 'USR-010', type: 'bnpl_purchase', amount: 78000, status: 'completed', merchant: 'PharmaCare Santé', date: '2026-04-26 15:05', method: 'BNPL', description: 'Produits cosmétiques premium' },
   { id: 'TXN-78891', user: 'Kouam Jean-Baptiste', userId: 'USR-001', type: 'transfer', amount: 10000, status: 'completed', merchant: 'Talla Rodrigue', date: '2026-04-26 14:00', method: 'Wallet', description: 'Transfert personnel' },
   { id: 'TXN-78890', user: 'Ateba Christelle', userId: 'USR-012', type: 'wallet_deposit', amount: 5000, status: 'completed', merchant: 'Orange Money', date: '2026-04-26 12:30', method: 'Mobile Money', description: 'Dépôt wallet' },
+  { id: 'TXN-78889', user: 'Nguele Marie', userId: 'USR-013', type: 'wallet_deposit', amount: 20000, status: 'pending', merchant: 'Cash', date: '2026-04-26 11:15', method: 'Cash', description: 'Dépôt cash en agence' },
 ];
 
 export const transactionTypes = [

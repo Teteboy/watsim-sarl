@@ -28,20 +28,21 @@ const statusColors: Record<string, string> = { completed: '#22C55E', pending: '#
 const statusLabels: Record<string, string> = { completed: 'Complété', pending: 'En cours', failed: 'Échoué' };
 
 export default function AdminTransactionsPage() {
+  const [transactions, setTransactions] = useState(adminTransactions);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTxn, setSelectedTxn] = useState<typeof adminTransactions[0] | null>(null);
   const { toasts, addToast, removeToast } = useToast();
 
-  const filtered = adminTransactions.filter((t) => {
+  const filtered = transactions.filter((t) => {
     const matchSearch = t.id.toLowerCase().includes(search.toLowerCase()) || t.user.toLowerCase().includes(search.toLowerCase()) || t.merchant.toLowerCase().includes(search.toLowerCase());
     const matchType = typeFilter === 'all' || t.type === typeFilter;
     const matchStatus = statusFilter === 'all' || t.status === statusFilter;
     return matchSearch && matchType && matchStatus;
   });
 
-  const totalVolume = adminTransactions.filter(t => t.status === 'completed').reduce((acc, t) => acc + t.amount, 0);
+  const totalVolume = transactions.filter(t => t.status === 'completed').reduce((acc, t) => acc + t.amount, 0);
 
   const handleExport = () => {
     const headers = ['ID', 'Utilisateur', 'Type', 'Montant', 'Marchand', 'Méthode', 'Date', 'Statut'];
@@ -52,6 +53,11 @@ export default function AdminTransactionsPage() {
     const a = document.createElement('a'); a.href = url; a.download = 'watsim_transactions.csv'; a.click();
     URL.revokeObjectURL(url);
     addToast('success', 'Export réussi', `${filtered.length} transactions exportées en CSV.`);
+  };
+
+  const handleApproveCash = (txn: typeof adminTransactions[0]) => {
+    setTransactions(prev => prev.map(t => t.id === txn.id ? { ...t, status: 'completed' } : t));
+    addToast('success', 'Transaction approuvée', `Transaction ${txn.id} marquée comme complétée.`);
   };
 
   const handleDownloadReceipt = () => {
@@ -82,9 +88,9 @@ export default function AdminTransactionsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { label: 'Volume Total', value: `${(totalVolume / 1000000).toFixed(2)}M FCFA`, icon: 'ri-exchange-line', color: '#D4AF37' },
-            { label: 'Complétées', value: adminTransactions.filter(t => t.status === 'completed').length, icon: 'ri-checkbox-circle-line', color: '#22C55E' },
-            { label: 'En cours', value: adminTransactions.filter(t => t.status === 'pending').length, icon: 'ri-time-line', color: '#F97316' },
-            { label: 'Échouées', value: adminTransactions.filter(t => t.status === 'failed').length, icon: 'ri-close-circle-line', color: '#EF4444' },
+            { label: 'Complétées', value: transactions.filter(t => t.status === 'completed').length, icon: 'ri-checkbox-circle-line', color: '#22C55E' },
+            { label: 'En cours', value: transactions.filter(t => t.status === 'pending').length, icon: 'ri-time-line', color: '#F97316' },
+            { label: 'Échouées', value: transactions.filter(t => t.status === 'failed').length, icon: 'ri-close-circle-line', color: '#EF4444' },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)', border: '1px solid rgba(212,175,55,0.12)' }}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${s.color}20` }}>
@@ -158,9 +164,16 @@ export default function AdminTransactionsPage() {
                       <span className="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap" style={{ background: `${statusColors[txn.status]}20`, color: statusColors[txn.status] }}>{statusLabels[txn.status]}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => setSelectedTxn(txn)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                        <i className="ri-eye-line text-sm" style={{ color: '#D4AF37' }} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setSelectedTxn(txn)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                          <i className="ri-eye-line text-sm" style={{ color: '#D4AF37' }} />
+                        </button>
+                        {txn.method === 'Cash' && txn.status === 'pending' && (
+                          <button onClick={() => handleApproveCash(txn)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-green-500/10 transition-colors cursor-pointer" title="Approuver paiement cash">
+                            <i className="ri-checkbox-circle-line text-sm" style={{ color: '#22C55E' }} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
