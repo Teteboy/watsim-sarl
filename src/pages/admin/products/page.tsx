@@ -4,11 +4,27 @@ import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
 import { adminProducts as initialProducts } from '@/mocks/adminProducts';
 
-type Product = typeof initialProducts[0];
+type Product = typeof initialProducts[0] & {
+  buyPrice?: number;
+  sellPrice?: number;
+  description?: string;
+};
 
 const statusColors: Record<string, string> = { active: '#22C55E', out_of_stock: '#EF4444', inactive: '#6B7280' };
 const statusLabels: Record<string, string> = { active: 'Actif', out_of_stock: 'Rupture', inactive: 'Inactif' };
 const productCategories = ['Électronique', 'Mode & Vêtements', 'Alimentation', 'Maison & Déco', 'Santé & Beauté', 'Automobile', 'Éducation', 'Sport & Loisirs', 'Électroménager'];
+
+const categoryMargins: Record<string, number> = {
+  'Électronique': 0.20,
+  'Mode & Vêtements': 0.30,
+  'Alimentation': 0.15,
+  'Maison & Déco': 0.25,
+  'Santé & Beauté': 0.35,
+  'Automobile': 0.18,
+  'Éducation': 0.10,
+  'Sport & Loisirs': 0.22,
+  'Électroménager': 0.20,
+};
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState(initialProducts);
@@ -20,7 +36,7 @@ export default function AdminProductsPage() {
   const [editForm, setEditForm] = useState({ name: '', price: '', stock: '', bnplEligible: false });
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ name: '', merchant: '', category: 'Électronique', price: '', stock: '', bnplEligible: true });
+  const [addForm, setAddForm] = useState({ name: '', merchant: '', category: 'Électronique', buyPrice: '', description: '', stock: '', bnplEligible: true });
   const { toasts, addToast, removeToast } = useToast();
 
   const allCategories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
@@ -32,7 +48,14 @@ export default function AdminProductsPage() {
     return matchSearch && matchCat && matchStatus && matchBnpl;
   });
 
-  const totalRevenue = products.reduce((acc, p) => acc + p.price * p.sold, 0);
+  const totalRevenue = products.reduce((acc, p) => acc + (p.buyPrice || p.price) * p.sold, 0);
+
+  const calculateSellPrice = (buyPrice: string, category: string) => {
+    const price = Number(buyPrice);
+    if (!price) return '';
+    const margin = categoryMargins[category] || 0;
+    return Math.round(price * (1 + margin));
+  };
 
   const openEdit = (p: Product) => {
     setEditProduct(p);
@@ -60,18 +83,18 @@ export default function AdminProductsPage() {
   };
 
   const handleAddProduct = () => {
-    if (!addForm.name || !addForm.price) { addToast('error', 'Champs requis', 'Veuillez remplir le nom et le prix.'); return; }
+    if (!addForm.name || !addForm.buyPrice || !addForm.stock) { addToast('error', 'Champs requis', 'Veuillez remplir le nom, le prix d\'achat et la quantité.'); return; }
     const newProduct: Product = {
       id: `PRD-${String(products.length + 1).padStart(3, '0')}`,
       name: addForm.name, merchant: addForm.merchant || 'Non assigné', merchantId: 'MCH-000',
-      category: addForm.category, price: Number(addForm.price), stock: Number(addForm.stock),
+      category: addForm.category, buyPrice: Number(addForm.buyPrice), sellPrice: calculateSellPrice(addForm.buyPrice, addForm.category), description: addForm.description, stock: Number(addForm.stock),
       sold: 0, status: Number(addForm.stock) > 0 ? 'active' : 'out_of_stock',
       bnplEligible: addForm.bnplEligible,
       image: `https://readdy.ai/api/search-image?query=$%7BencodeURIComponent%28addForm.name%29%7D%20product%20white%20background%20studio&width=80&height=80&seq=new${products.length}&orientation=squarish`,
     };
     setProducts(prev => [newProduct, ...prev]);
     setShowAddModal(false);
-    setAddForm({ name: '', merchant: '', category: 'Électronique', price: '', stock: '', bnplEligible: true });
+    setAddForm({ name: '', merchant: '', category: 'Électronique', buyPrice: '', description: '', stock: '', bnplEligible: true });
     addToast('success', 'Produit ajouté', `${addForm.name} a été ajouté au catalogue.`);
   };
 
@@ -134,7 +157,7 @@ export default function AdminProductsPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  {['Produit', 'Commercial', 'Catégorie', 'Prix', 'Stock', 'Vendus', 'BNPL', 'Statut', 'Actions'].map(h => (
+                   {['Produit', 'Commercial', 'Catégorie', 'Prix de vente', 'Stock', 'Vendus', 'BNPL', 'Statut', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>{h}</th>
                   ))}
                 </tr>
@@ -155,7 +178,7 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>{p.merchant}</td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>{p.category}</td>
-                    <td className="px-4 py-3 text-sm font-medium whitespace-nowrap" style={{ color: '#D4AF37', fontFamily: 'Poppins, sans-serif' }}>{p.price.toLocaleString('fr-FR')} FCFA</td>
+                     <td className="px-4 py-3 text-sm font-medium whitespace-nowrap" style={{ color: '#D4AF37', fontFamily: 'Poppins, sans-serif' }}>{(p.sellPrice || p.price).toLocaleString('fr-FR')} FCFA</td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-medium" style={{ color: p.stock === 0 ? '#EF4444' : p.stock < 10 ? '#F97316' : 'rgba(255,255,255,0.7)', fontFamily: 'Poppins, sans-serif' }}>{p.stock}</span>
                     </td>
@@ -241,7 +264,12 @@ export default function AdminProductsPage() {
               </button>
             </div>
             <div className="space-y-3">
-              {[{ label: 'Nom du produit *', key: 'name', type: 'text' }, { label: 'Commercial', key: 'merchant', type: 'text' }, { label: 'Prix (FCFA) *', key: 'price', type: 'number' }, { label: 'Stock initial', key: 'stock', type: 'number' }].map(field => (
+              {[
+                { label: 'Nom du produit *', key: 'name', type: 'text' },
+                { label: 'Commercial', key: 'merchant', type: 'text' },
+                { label: 'Prix d\'achat (FCFA) *', key: 'buyPrice', type: 'number', onChange: (value: string) => setAddForm(prev => ({ ...prev, buyPrice: value, sellPrice: calculateSellPrice(value, prev.category) })) },
+                { label: 'Quantité *', key: 'stock', type: 'number' },
+              ].map(field => (
                 <div key={field.key}>
                   <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>{field.label}</label>
                   <input type={field.type} value={addForm[field.key as keyof typeof addForm] as string} onChange={e => setAddForm(prev => ({ ...prev, [field.key]: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none" style={inputStyle} />
@@ -252,6 +280,14 @@ export default function AdminProductsPage() {
                 <select value={addForm.category} onChange={e => setAddForm(prev => ({ ...prev, category: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none cursor-pointer" style={inputStyle}>
                   {productCategories.map(c => <option key={c} value={c} style={{ background: '#0D1B2A' }}>{c}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Prix de vente (FCFA)</label>
+                <input type="number" value={calculateSellPrice(addForm.buyPrice, addForm.category)} readOnly className="w-full px-3 py-2.5 rounded-lg text-sm outline-none" style={{ ...inputStyle, background: 'rgba(255,255,255,0.06)', opacity: 0.7 }} />
+              </div>
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Description</label>
+                <textarea value={addForm.description} onChange={e => setAddForm(prev => ({ ...prev, description: e.target.value }))} rows={3} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none resize-none" style={inputStyle} />
               </div>
               <div className="flex items-center justify-between py-1">
                 <p className="text-sm text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>Éligible BNPL</p>
