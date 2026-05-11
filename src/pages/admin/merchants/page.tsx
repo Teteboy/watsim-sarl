@@ -4,7 +4,7 @@ import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
 import { adminMerchants as initialMerchants } from '@/mocks/adminMerchants';
 
-type Merchant = typeof initialMerchants[0];
+type Merchant = typeof initialMerchants[0] & { password?: string };
 
 const statusColors: Record<string, string> = { active: '#22C55E', pending: '#F97316', suspended: '#EF4444' };
 const statusLabels: Record<string, string> = { active: 'Actif', pending: 'En attente', suspended: 'Suspendu' };
@@ -24,7 +24,7 @@ export default function AdminMerchantsPage() {
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [confirmAction, setConfirmAction] = useState<{ merchant: Merchant; action: 'approve' | 'reject' | 'suspend' } | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ name: '', owner: '', email: '', phone: '', category: 'Électronique', city: '', operatingMarket: '' });
+  const [addForm, setAddForm] = useState({ name: '', owner: '', email: '', password: '', phone: '', category: 'Électronique', city: '', operatingMarket: '' });
   const { toasts, addToast, removeToast } = useToast();
 
   const filtered = merchants.filter(m => {
@@ -48,16 +48,16 @@ export default function AdminMerchantsPage() {
   };
 
   const handleAddMerchant = () => {
-    if (!addForm.name || !addForm.owner || !addForm.email) { addToast('error', 'Champs requis', 'Veuillez remplir tous les champs obligatoires.'); return; }
+    if (!addForm.name || !addForm.owner || !addForm.email || !addForm.password) { addToast('error', 'Champs requis', 'Veuillez remplir tous les champs obligatoires.'); return; }
     const newMerchant: Merchant = {
       id: `MCH-${String(merchants.length + 1).padStart(3, '0')}`,
-      name: addForm.name, owner: addForm.owner, email: addForm.email, phone: addForm.phone,
+      name: addForm.name, owner: addForm.owner, email: addForm.email, password: addForm.password, phone: addForm.phone,
       category: addForm.category, city: addForm.city, operatingMarket: addForm.operatingMarket || 'Non spécifié', status: 'pending', verified: false,
       products: 0, orders: 0, revenue: 0, joinedAt: new Date().toISOString().split('T')[0], rating: 0,
     };
     setMerchants(prev => [newMerchant, ...prev]);
     setShowAddModal(false);
-    setAddForm({ name: '', owner: '', email: '', phone: '', category: 'Électronique', city: '', operatingMarket: '' });
+    setAddForm({ name: '', owner: '', email: '', password: '', phone: '', category: 'Électronique', city: '', operatingMarket: '' });
     addToast('success', 'Commercial ajouté', `${addForm.name} a été ajouté en attente de validation.`);
   };
 
@@ -281,6 +281,7 @@ export default function AdminMerchantsPage() {
                 { label: 'Nom de la boutique *', key: 'name', type: 'text' },
                 { label: 'Propriétaire *', key: 'owner', type: 'text' },
                 { label: 'Email *', key: 'email', type: 'email' },
+                { label: 'Mot de passe *', key: 'password', type: 'password' },
                 { label: 'Téléphone', key: 'phone', type: 'text' },
                 { label: 'Ville', key: 'city', type: 'text' },
                 { label: 'Marché d\'opération', key: 'operatingMarket', type: 'text' },
