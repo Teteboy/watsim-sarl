@@ -70,12 +70,7 @@ export default function BnplSettingsPanel() {
     setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const updateRate = (plan: 'plan2m' | 'plan3m' | 'plan6m', value: number) => {
-    setEditForm(prev => ({
-      ...prev,
-      rates: { ...(prev.rates || {}), [plan]: value },
-    }));
-  };
+
 
   const activeCount = categories.filter(c => c.enabled).length;
   const totalMaxCredit = categories.reduce((sum, c) => sum + c.maxCredit, 0);
@@ -88,7 +83,7 @@ export default function BnplSettingsPanel() {
           { label: 'Catégories actives', value: activeCount.toString(), icon: 'ri-checkbox-circle-line', color: '#22C55E' },
           { label: 'Catégories inactives', value: (categories.length - activeCount).toString(), icon: 'ri-close-circle-line', color: '#EF4444' },
           { label: 'Crédit max total', value: `${(totalMaxCredit / 1000000).toFixed(1)}M FCFA`, icon: 'ri-money-cny-circle-line', color: '#D4AF37' },
-          { label: 'Taux moyen 3 mois', value: `${(categories.reduce((s, c) => s + c.rates.plan3m, 0) / categories.length).toFixed(1)}%`, icon: 'ri-percent-line', color: '#4A9EFF' },
+          { label: 'Commission moyenne', value: `${(categories.reduce((s, c) => s + c.merchantCommission, 0) / categories.length).toFixed(1)}%`, icon: 'ri-percent-line', color: '#4A9EFF' },
         ].map(card => (
           <div key={card.label} className="rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)', border: '1px solid rgba(212,175,55,0.12)' }}>
             <div className="flex items-center gap-2 mb-2">
@@ -167,7 +162,7 @@ export default function BnplSettingsPanel() {
                   </div>
 
                   {/* Fields Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {/* Max Credit */}
                     <div>
                       <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Plafond crédit max (FCFA)</label>
@@ -197,107 +192,6 @@ export default function BnplSettingsPanel() {
                         />
                       ) : (
                         <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.minScore} pts</p>
-                      )}
-                    </div>
-
-                    {/* Down Payment */}
-                    <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Acompte minimum (%)</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={editForm.downPaymentPercent ?? cat.downPaymentPercent}
-                          onChange={e => updateEditField('downPaymentPercent', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-white"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
-                        />
-                      ) : (
-                        <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.downPaymentPercent}%</p>
-                      )}
-                    </div>
-
-                    {/* Rate 2M */}
-                    <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Taux 2 mois (%)</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={editForm.rates?.plan2m ?? cat.rates.plan2m}
-                          onChange={e => updateRate('plan2m', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-white"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
-                        />
-                      ) : (
-                        <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.rates.plan2m}%</p>
-                      )}
-                    </div>
-
-                    {/* Rate 3M */}
-                    <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Taux 3 mois (%)</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={editForm.rates?.plan3m ?? cat.rates.plan3m}
-                          onChange={e => updateRate('plan3m', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-white"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
-                        />
-                      ) : (
-                        <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.rates.plan3m}%</p>
-                      )}
-                    </div>
-
-                    {/* Rate 6M */}
-                    <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Taux 6 mois (%)</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={editForm.rates?.plan6m ?? cat.rates.plan6m}
-                          onChange={e => updateRate('plan6m', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-white"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
-                        />
-                      ) : (
-                        <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.rates.plan6m}%</p>
-                      )}
-                    </div>
-
-                    {/* Grace Period */}
-                    <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Délai de grâce (jours)</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          value={editForm.gracePeriodDays ?? cat.gracePeriodDays}
-                          onChange={e => updateEditField('gracePeriodDays', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-white"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
-                        />
-                      ) : (
-                        <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.gracePeriodDays} jours</p>
-                      )}
-                    </div>
-
-                    {/* Penalty Rate */}
-                    <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Taux pénalité retard (%)</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={editForm.penaltyRate ?? cat.penaltyRate}
-                          onChange={e => updateEditField('penaltyRate', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-white"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
-                        />
-                      ) : (
-                        <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.penaltyRate}%</p>
                       )}
                     </div>
 
