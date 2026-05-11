@@ -33,6 +33,10 @@ export default function AdminTransactionsPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTxn, setSelectedTxn] = useState<typeof adminTransactions[0] | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({
+    user: '', userId: '', type: 'wallet_deposit', amount: '', merchant: '', method: 'Mobile Money', description: ''
+  });
   const { toasts, addToast, removeToast } = useToast();
 
   const filtered = transactions.filter((t) => {
@@ -60,6 +64,30 @@ export default function AdminTransactionsPage() {
     addToast('success', 'Transaction approuvée', `Transaction ${txn.id} marquée comme complétée.`);
   };
 
+  const handleAddTransaction = () => {
+    if (!addForm.user || !addForm.amount || !addForm.description) {
+      addToast('error', 'Champs requis', 'Veuillez remplir les champs obligatoires.');
+      return;
+    }
+    const status = addForm.method === 'Cash' ? 'pending' : 'completed';
+    const newTxn: typeof adminTransactions[0] = {
+      id: `TXN-${String(Math.max(...transactions.map(t => parseInt(t.id.split('-')[1]))) + 1).padStart(5, '0')}`,
+      user: addForm.user,
+      userId: addForm.userId || `USR-${String(Math.max(...transactions.map(t => parseInt(t.userId.split('-')[1]))) + 1).padStart(3, '0')}`,
+      type: addForm.type as any,
+      amount: Number(addForm.amount),
+      status: status as any,
+      merchant: addForm.merchant,
+      date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      method: addForm.method,
+      description: addForm.description,
+    };
+    setTransactions(prev => [newTxn, ...prev]);
+    setShowAddModal(false);
+    setAddForm({ user: '', userId: '', type: 'wallet_deposit', amount: '', merchant: '', method: 'Mobile Money', description: '' });
+    addToast('success', 'Transaction ajoutée', `Transaction ${newTxn.id} ajoutée avec succès.`);
+  };
+
   const handleDownloadReceipt = () => {
     if (!selectedTxn) return;
     const content = `REÇU WATSIM\n${'='.repeat(40)}\nID: ${selectedTxn.id}\nUtilisateur: ${selectedTxn.user}\nMontant: ${selectedTxn.amount.toLocaleString('fr-FR')} FCFA\nType: ${selectedTxn.type}\nMarchand: ${selectedTxn.merchant}\nMéthode: ${selectedTxn.method}\nDate: ${selectedTxn.date}\nStatut: ${selectedTxn.status}\n${'='.repeat(40)}\nWATSIM — Buy Now Pay Later Cameroun`;
@@ -70,6 +98,8 @@ export default function AdminTransactionsPage() {
     addToast('success', 'Reçu téléchargé', `Reçu ${selectedTxn.id} téléchargé.`);
   };
 
+  const inputStyle = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontFamily: 'Poppins, sans-serif' };
+
   return (
     <AdminLayout breadcrumb={['WATSIM', 'Finance', 'Transactions']}>
       <div className="space-y-6">
@@ -79,9 +109,14 @@ export default function AdminTransactionsPage() {
             <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>Transactions</h1>
             <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>Historique complet des transactions</p>
           </div>
-          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', color: '#0A1628', fontFamily: 'Poppins, sans-serif' }}>
-            <i className="ri-download-2-line" /> Exporter
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', color: '#0A1628', fontFamily: 'Poppins, sans-serif' }}>
+              <i className="ri-add-line" /> Ajouter Transaction
+            </button>
+            <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'Poppins, sans-serif' }}>
+              <i className="ri-download-2-line" /> Exporter
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -222,6 +257,53 @@ export default function AdminTransactionsPage() {
           </div>
         </div>
       )}
+
+      {/* Add Transaction Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setShowAddModal(false)}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-5" style={{ background: '#0D1B2A', border: '1px solid rgba(212,175,55,0.25)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>Ajouter une Transaction</h2>
+              <button onClick={() => setShowAddModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 cursor-pointer" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <i className="ri-close-line text-lg" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: 'Utilisateur *', key: 'user', type: 'text', placeholder: 'Nom de l\'utilisateur' },
+                { label: 'ID Utilisateur', key: 'userId', type: 'text', placeholder: 'Auto-généré si vide' },
+                { label: 'Montant (FCFA) *', key: 'amount', type: 'number', placeholder: '0' },
+                { label: 'Marchand / Destinataire', key: 'merchant', type: 'text', placeholder: 'Nom du marchand' },
+                { label: 'Description *', key: 'description', type: 'text', placeholder: 'Détails de la transaction' },
+              ].map(field => (
+                <div key={field.key}>
+                  <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>{field.label}</label>
+                  <input type={field.type} placeholder={field.placeholder} value={addForm[field.key as keyof typeof addForm] as string} onChange={e => setAddForm(prev => ({ ...prev, [field.key]: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none" style={inputStyle} />
+                </div>
+              ))}
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Type de Transaction</label>
+                <select value={addForm.type} onChange={e => setAddForm(prev => ({ ...prev, type: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none cursor-pointer" style={inputStyle}>
+                  {transactionTypes.slice(1).map(t => <option key={t.value} value={t.value} style={{ background: '#0D1B2A' }}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Méthode de Paiement</label>
+                <select value={addForm.method} onChange={e => setAddForm(prev => ({ ...prev, method: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none cursor-pointer" style={inputStyle}>
+                  {['Mobile Money', 'Wallet', 'BNPL', 'Cash'].map(m => <option key={m} value={m} style={{ background: '#0D1B2A' }}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}>Annuler</button>
+              <button onClick={handleAddTransaction} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', color: '#0A1628', fontFamily: 'Poppins, sans-serif' }}>
+                <i className="ri-add-line mr-2" />Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Toast toasts={toasts} onRemove={removeToast} />
     </AdminLayout>
   );
