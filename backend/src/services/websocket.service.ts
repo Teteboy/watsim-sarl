@@ -146,7 +146,7 @@ class WebSocketService {
 
       // Touch conversation updatedAt
       await prisma.conversation.update({
-        where: { id: data.conversationId },
+        where: { id: data.conversationId as string },
         data: { updatedAt: new Date() },
       });
 
@@ -162,12 +162,12 @@ class WebSocketService {
           createdAt: newMessage.createdAt,
           sender: newMessage.sender,
         },
-        conversationId: data.conversationId,
+        conversationId: data.conversationId as string,
         userId: client.userId,
         timestamp: newMessage.createdAt.toISOString(),
       };
 
-      this.broadcastToConversation(data.conversationId, broadcastMessage);
+      this.broadcastToConversation(data.conversationId as string, broadcastMessage);
 
     } catch (error) {
       console.error('Error handling new message:', error);
