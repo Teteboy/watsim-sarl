@@ -1,11 +1,9 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { WebSocket } from '@fastify/websocket';
 import { prisma } from '../config/db';
-import { authenticate } from '../middleware/authenticate';
-
 interface WSMessage {
-  type: 'message' | 'typing' | 'read' | 'online_status';
-  data: any;
+  type: 'message' | 'typing' | 'read' | 'online_status' | 'subscribe' | 'unsubscribe' | 'conversation_list' | 'error';
+  data: Record<string, unknown>;
   conversationId?: string;
   userId?: string;
   timestamp: string;
@@ -37,7 +35,7 @@ class WebSocketService {
     try {
       // Authenticate WebSocket connection - accept token from header or query param
       const headerToken = request.headers.authorization?.replace('Bearer ', '');
-      const queryToken = (request.query as any)?.token;
+      const queryToken = (request.query as Record<string, string>)?.token;
       const token = headerToken || queryToken;
       if (!token) {
         connection.socket.close(1008, 'No token provided');
@@ -124,16 +122,16 @@ class WebSocketService {
     }
   }
 
-  private async handleNewMessage(client: ConnectedClient, data: any) {
+  private async handleNewMessage(client: ConnectedClient, data: Record<string, unknown>) {
     try {
       // Create message in database
       const newMessage = await prisma.message.create({
         data: {
-          conversationId: data.conversationId,
+          conversationId: data.conversationId as string,
           senderId: client.userId,
-          content: data.content,
-          type: data.type || 'TEXT',
-          attachmentUrl: data.attachmentUrl,
+          text: (data.content ?? data.text) as string | undefined,
+          attachmentUrl: data.attachmentUrl as string | undefined,
+          attachmentType: data.attachmentType as string | undefined,
         },
         include: {
           sender: {
@@ -146,13 +144,10 @@ class WebSocketService {
         },
       });
 
-      // Update conversation's last message
+      // Touch conversation updatedAt
       await prisma.conversation.update({
         where: { id: data.conversationId },
-        data: {
-          lastMessageId: newMessage.id,
-          updatedAt: new Date(),
-        },
+        data: { updatedAt: new Date() },
       });
 
       // Broadcast to all clients in conversation
@@ -161,9 +156,9 @@ class WebSocketService {
         data: {
           id: newMessage.id,
           conversationId: newMessage.conversationId,
-          content: newMessage.content,
-          type: newMessage.type,
+          text: newMessage.text,
           attachmentUrl: newMessage.attachmentUrl,
+          attachmentType: newMessage.attachmentType,
           createdAt: newMessage.createdAt,
           sender: newMessage.sender,
         },
@@ -185,22 +180,19 @@ class WebSocketService {
     }
   }
 
-  private async handleReadReceipt(client: ConnectedClient, data: any) {
+  private async handleReadReceipt(client: ConnectedClient, data: Record<string, unknown>) {
     try {
-      // Mark messages as read
-      await prisma.message.updateMany({
+      // Mark conversation as read via participant lastReadAt
+      await prisma.conversationParticipant.updateMany({
         where: {
-          conversationId: data.conversationId,
-          senderId: { not: client.userId },
-          readAt: null,
+          conversationId: data.conversationId as string,
+          userId: client.userId,
         },
-        data: {
-          readAt: new Date(),
-        },
+        data: { lastReadAt: new Date() },
       });
 
       // Broadcast read status
-      this.broadcastToConversation(data.conversationId, {
+      this.broadcastToConversation(data.conversationId as string, {
         type: 'read',
         data: {
           conversationId: data.conversationId,
@@ -237,24 +229,9 @@ class WebSocketService {
               },
             },
           },
-          lastMessage: {
-            include: {
-              sender: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
-              },
-            },
-          },
           _count: {
             select: {
-              messages: {
-                where: {
-                  senderId: { not: client.userId },
-                  readAt: null,
-                },
-              },
+              messages: true,
             },
           },
         },

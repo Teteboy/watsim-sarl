@@ -115,7 +115,7 @@ export async function createPurchase(userId: string, input: {
         data: {
           userId,
           purchaseId: purchase.id,
-          type: 'DOWN_PAYMENT',
+          type: 'PURCHASE',
           amount: input.downPayment ?? 0,
           status: 'PENDING',
           provider: input.paymentProvider,

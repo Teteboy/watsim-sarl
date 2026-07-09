@@ -177,7 +177,7 @@ export async function checkAndAwardBadges(userId: string): Promise<string[]> {
           userId,
           badgeId: def.id,
           progress: def.threshold,
-          metadata: { awardedAutomatically: true, stats },
+          metadata: { awardedAutomatically: true, stats } as object,
         },
       });
       awarded.push(def.slug);

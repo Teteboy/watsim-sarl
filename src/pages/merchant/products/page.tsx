@@ -111,7 +111,7 @@ export default function MerchantProductsPage() {
 
   useEffect(() => {
     loadProducts(1);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load platform categories for assignment dropdown
   useEffect(() => {

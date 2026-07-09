@@ -5,7 +5,7 @@ let connection: Redis | null = null;
 
 interface MockRedis {
   get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<string>;
+  set(key: string, value: string, exFlag?: string, ttl?: number): Promise<string>;
   del(key: string): Promise<number>;
   quit(): Promise<string>;
 }
@@ -15,8 +15,9 @@ function createMockRedis(): MockRedis {
 
   return {
     get: async (key: string) => store.get(key) ?? null,
-    set: async (key: string, value: string) => {
+    set: async (key: string, value: string, _exFlag?: string, ttl?: number) => {
       store.set(key, value);
+      if (ttl) setTimeout(() => store.delete(key), ttl * 1000);
       return 'OK';
     },
     del: async (key: string) => {

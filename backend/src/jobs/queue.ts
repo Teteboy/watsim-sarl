@@ -1,5 +1,6 @@
 import { Queue, Worker, QueueEvents, JobsOptions } from 'bullmq';
 import { getRedis } from '../config/redis';
+import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { processRepaymentJob } from './repayment.job';
 import { processScoreUpdateJob } from './score-update.job';
@@ -15,8 +16,12 @@ let queues: Record<string, Queue> = {};
 let workers: Worker[] = [];
 let events: QueueEvents[] = [];
 
+function getBullConnection() {
+  return { url: env.REDIS_URL };
+}
+
 function makeQueue(name: string): Queue {
-  if (!queues[name]) queues[name] = new Queue(name, { connection: getRedis() });
+  if (!queues[name]) queues[name] = new Queue(name, { connection: getBullConnection() });
   return queues[name];
 }
 
@@ -33,13 +38,14 @@ export async function enqueueRepaymentScan(opts?: JobsOptions): Promise<void> {
 }
 
 export async function startWorkers(): Promise<void> {
-  const connection = getRedis();
-  const isMock = !connection || typeof (connection as any).defineCommand !== 'function';
+  const redis = getRedis();
+  const isMock = !redis || !('defineCommand' in redis);
   if (isMock) {
     logger.info('BullMQ workers skipped (no Redis)');
     return;
   }
 
+  const connection = getBullConnection();
   workers.push(new Worker(QUEUE_NAMES.SCORE_UPDATE, async (job) => processScoreUpdateJob(job.data as { userId: string }), { connection }));
   workers.push(new Worker(QUEUE_NAMES.KYC_VERIFY, async (job) => processKycVerifyJob(job.data as { docId: string }), { connection }));
   workers.push(new Worker(QUEUE_NAMES.REPAYMENT, async () => processRepaymentJob(), { connection }));
@@ -57,7 +63,7 @@ export async function startWorkers(): Promise<void> {
     { repeat: { pattern: '0 6 * * *', tz: 'Africa/Douala' }, jobId: 'daily-repayment-scan' },
   );
 
-  events.push(new QueueEvents(QUEUE_NAMES.REPAYMENT, { connection }));
+  events.push(new QueueEvents(QUEUE_NAMES.REPAYMENT, { connection: getBullConnection() }));
   logger.info('BullMQ workers started');
 }
 

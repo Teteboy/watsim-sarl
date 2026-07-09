@@ -98,7 +98,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     const tx = await prisma.transaction.create({
       data: {
         userId: req.authUser!.id,
-        type: 'TRANSFER',
+        type: 'TRANSFER_OUT',
         amount,
         status: 'PENDING',
         provider,
@@ -188,7 +188,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       });
 
       return { success: true, imageUrl: storedPath, fullUrl: resolveImageUrl(storedPath, requestBaseUrl) };
-    } catch (e) {
+    } catch {
       return reply.code(500).send({ error: 'UploadFailed', message: 'Failed to upload image' });
     }
   });
@@ -198,7 +198,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     try {
       const result = await recomputeScore(req.authUser!.id);
       return result;
-    } catch (e) {
+    } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       req.log.error(e, 'Credit score computation failed');
       return reply.code(500).send({
@@ -213,7 +213,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       const { limit = 10 } = req.query as { limit?: number };
       const history = await getScoreHistory(req.authUser!.id, Number(limit));
       return history;
-    } catch (e) {
+    } catch {
       return reply.code(500).send({ error: 'HistoryFetchFailed', message: 'Failed to fetch score history' });
     }
   });
@@ -222,7 +222,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     try {
       const tips = await getScoreTips(req.authUser!.id);
       return { tips };
-    } catch (e) {
+    } catch {
       return reply.code(500).send({ error: 'TipsFetchFailed', message: 'Failed to fetch score tips' });
     }
   });
@@ -237,11 +237,11 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
 
   // ── Rewards & Cashback ───────────────────────────────────────────────────
   // GET /users/me/rewards - Fetch rewards summary with history
-  app.get('/me/rewards', async (req, reply) => {
+  app.get('/me/rewards', async (req) => {
     const userId = req.authUser!.id;
     
     // Get wallet to check referral reward balance (transactions with provider 'REFERRAL')
-    const wallet = await prisma.wallet.findUnique({
+    await prisma.wallet.findUnique({
       where: { userId },
     });
 
