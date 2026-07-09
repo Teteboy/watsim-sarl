@@ -1,0 +1,1185 @@
+import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
+import '../widgets/shared_widgets.dart';
+import 'bnpl_simulator_screen.dart';
+import '../notification_state.dart';
+import 'notifications_screen.dart';
+import 'messaging_screen.dart';
+import 'wallet_screen.dart';
+
+// ─── Product model ─────────────────────────────────────────────────────────
+class Product {
+  final String name;
+  final String price;
+  final String monthlyPrice;
+  final IconData icon;
+  final String category;
+  final double cashback;
+  final Color color;
+  final String imageUrl;
+  final List<Color> imageGradient;
+  final List<String> imageUrls; // multiple images for detail gallery
+
+  const Product({
+    required this.name,
+    required this.price,
+    required this.monthlyPrice,
+    required this.icon,
+    required this.category,
+    required this.cashback,
+    required this.color,
+    required this.imageUrl,
+    required this.imageGradient,
+    this.imageUrls = const [],
+  });
+}
+
+final _products = [
+  const Product(
+    name: 'Sony WH-1000XM5',
+    price: '249,000 FCFA',
+    monthlyPrice: 'from 41,500 FCFA/month',
+    icon: Icons.headphones_rounded,
+    category: 'Electronics',
+    cashback: 5,
+    color: Color(0xFF1A2A2A),
+    imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80',
+    imageGradient: [Color(0xFF1A2A3A), Color(0xFF2A4A5A)],
+    imageUrls: [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80',
+      'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=600&q=80',
+      'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600&q=80',
+      'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=600&q=80',
+    ],
+  ),
+  const Product(
+    name: 'Classic Leather Watch',
+    price: '85,000 FCFA',
+    monthlyPrice: 'from 14,200 FCFA/month',
+    icon: Icons.watch_rounded,
+    category: 'Accessories',
+    cashback: 0,
+    color: Color(0xFF2A1A10),
+    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80',
+    imageGradient: [Color(0xFF3D2010), Color(0xFF5C3520)],
+    imageUrls: [
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80',
+      'https://images.unsplash.com/photo-1434056886845-dac89ffe9b56?w=600&q=80',
+      'https://images.unsplash.com/photo-1533139502658-0198f920d8e8?w=600&q=80',
+      'https://images.unsplash.com/photo-1495856458515-0637185db551?w=600&q=80',
+    ],
+  ),
+  const Product(
+    name: 'Samsung QLED 55"',
+    price: '450,000 FCFA',
+    monthlyPrice: 'from 75,000 FCFA/month',
+    icon: Icons.tv_rounded,
+    category: 'Electronics',
+    cashback: 10,
+    color: Color(0xFF0A1A2A),
+    imageUrl: 'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=400&q=80',
+    imageGradient: [Color(0xFF0A1A2A), Color(0xFF1A3550)],
+    imageUrls: [
+      'https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=600&q=80',
+      'https://images.unsplash.com/photo-1461151304267-38535e780c79?w=600&q=80',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
+      'https://images.unsplash.com/photo-1567690187548-f07b1d7bf5a9?w=600&q=80',
+    ],
+  ),
+  const Product(
+    name: 'Nespresso Vertuo',
+    price: '155,000 FCFA',
+    monthlyPrice: 'from 25,800 FCFA/month',
+    icon: Icons.coffee_rounded,
+    category: 'Kitchen',
+    cashback: 0,
+    color: Color(0xFF2A1A00),
+    imageUrl: 'https://images.unsplash.com/photo-1610889556528-9a770e32642f?w=400&q=80',
+    imageGradient: [Color(0xFF2A1500), Color(0xFF4A2800)],
+    imageUrls: [
+      'https://images.unsplash.com/photo-1610889556528-9a770e32642f?w=600&q=80',
+      'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=600&q=80',
+      'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80',
+      'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&q=80',
+    ],
+  ),
+  const Product(
+    name: 'MacBook Pro M2',
+    price: '1,200,000 FCFA',
+    monthlyPrice: 'from 200,000 FCFA/month',
+    icon: Icons.laptop_mac_rounded,
+    category: 'Electronics',
+    cashback: 2,
+    color: Color(0xFF1A1A2A),
+    imageUrl: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&q=80',
+    imageGradient: [Color(0xFF1A1A2A), Color(0xFF2E2E4A)],
+    imageUrls: [
+      'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&q=80',
+      'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=600&q=80',
+      'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=600&q=80',
+      'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=600&q=80',
+    ],
+  ),
+  const Product(
+    name: 'Nike Air Zoom',
+    price: '95,000 FCFA',
+    monthlyPrice: 'from 15,800 FCFA/month',
+    icon: Icons.sports_outlined,
+    category: 'Sports',
+    cashback: 0,
+    color: Color(0xFF2A0A0A),
+    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80',
+    imageGradient: [Color(0xFF2A0A0A), Color(0xFF4A1515)],
+    imageUrls: [
+      'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80',
+      'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=600&q=80',
+      'https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=600&q=80',
+      'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=600&q=80',
+    ],
+  ),
+  const Product(
+    name: 'iPhone 15 Pro',
+    price: '850,000 FCFA',
+    monthlyPrice: 'from 141,700 FCFA/month',
+    icon: Icons.phone_iphone_rounded,
+    category: 'Electronics',
+    cashback: 3,
+    color: Color(0xFF1C1C1E),
+    imageUrl: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&q=80',
+    imageGradient: [Color(0xFF1C1C1E), Color(0xFF3A3A40)],
+    imageUrls: [
+      'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=600&q=80',
+      'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=600&q=80',
+      'https://images.unsplash.com/photo-1565536421961-1f53bdbfed1a?w=600&q=80',
+      'https://images.unsplash.com/photo-1574768921540-cf3c9ccd62e1?w=600&q=80',
+    ],
+  ),
+  const Product(
+    name: 'Yoga Mat Pro',
+    price: '35,000 FCFA',
+    monthlyPrice: 'from 5,800 FCFA/month',
+    icon: Icons.fitness_center_rounded,
+    category: 'Sports',
+    cashback: 0,
+    color: Color(0xFF0A2A10),
+    imageUrl: 'https://images.unsplash.com/photo-1601925228536-26a9d30f653e?w=400&q=80',
+    imageGradient: [Color(0xFF0A2A10), Color(0xFF155025)],
+    imageUrls: [
+      'https://images.unsplash.com/photo-1601925228536-26a9d30f653e?w=600&q=80',
+      'https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b?w=600&q=80',
+      'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&q=80',
+      'https://images.unsplash.com/photo-1588286840104-8957b019727f?w=600&q=80',
+    ],
+  ),
+];
+
+
+
+// ─── Catalogue Screen ──────────────────────────────────────────────────────
+class CatalogueScreen extends StatefulWidget {
+  const CatalogueScreen({super.key});
+
+  @override
+  State<CatalogueScreen> createState() => _CatalogueScreenState();
+}
+
+class _CatalogueScreenState extends State<CatalogueScreen> {
+  String _category = 'All';
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+  final _categories = ['All', 'Electronics', 'Accessories', 'Kitchen', 'Sports'];
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationState.instance.addListener(_rebuild);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    NotificationState.instance.removeListener(_rebuild);
+    super.dispose();
+  }
+
+  void _rebuild() => setState(() {});
+
+  List<Product> get _filtered {
+    var list = _category == 'All'
+        ? _products
+        : _products.where((p) => p.category == _category).toList();
+
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list
+          .where((p) =>
+              p.name.toLowerCase().contains(q) ||
+              p.category.toLowerCase().contains(q) ||
+              p.price.toLowerCase().contains(q))
+          .toList();
+    }
+
+    return list;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final results = _filtered;
+    final notifCount = NotificationState.instance.unreadCount;
+
+    return Scaffold(
+      backgroundColor: AppColors.offWhite,
+      appBar: AppBar(
+        backgroundColor: AppColors.primaryDark,
+        automaticallyImplyLeading: false,
+        // ── Logo only, no border, no text, larger ───────────────
+        title: Image.asset(
+          'assets/images/logo_green.png',
+          height: 44,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const Text('W',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800)),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet_outlined,
+                color: Colors.white),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const WalletScreen()),
+            ),
+          ),
+          // ── Notification bell with badge ──────────────────────
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined,
+                      color: Colors.white),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen()),
+                  ),
+                ),
+                if (notifCount > 0)
+                  Positioned(
+                    right: 4,
+                    top: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryGreen,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints:
+                          const BoxConstraints(minWidth: 18, minHeight: 18),
+                      child: Text(
+                        '$notifCount',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // ── Search bar ──────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (v) => setState(() => _searchQuery = v),
+              decoration: InputDecoration(
+                hintText: 'Search for a product...',
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: AppColors.textMuted),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded,
+                            color: AppColors.textMuted, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                fillColor: AppColors.white,
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFFD0E8E5)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFFD0E8E5)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide:
+                      const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Category chips ──────────────────────────────────────
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final c = _categories[i];
+                final sel = c == _category;
+                return GestureDetector(
+                  onTap: () => setState(() => _category = c),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: sel ? AppColors.primaryGreen : AppColors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: sel
+                            ? AppColors.primaryGreen
+                            : const Color(0xFFD0E8E5),
+                      ),
+                    ),
+                    child: Text(c,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                sel ? Colors.white : AppColors.textSecondary)),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          // ── Results count ───────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                Text(
+                  _searchQuery.isNotEmpty
+                      ? '${results.length} result${results.length != 1 ? 's' : ''} for "$_searchQuery"'
+                      : '${results.length} product${results.length != 1 ? 's' : ''}',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Product grid or empty state ─────────────────────────
+          Expanded(
+            child: results.isEmpty
+                ? _EmptySearchState(query: _searchQuery)
+                : GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.68,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: results.length,
+                    itemBuilder: (_, i) => _ProductCard(product: results[i]),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Empty Search State ────────────────────────────────────────────────────
+class _EmptySearchState extends StatelessWidget {
+  final String query;
+  const _EmptySearchState({required this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.primaryGreen.withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.search_off_rounded,
+                size: 40, color: AppColors.primaryGreen),
+          ),
+          const SizedBox(height: 16),
+          Text('No results for "$query"',
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 6),
+          const Text('Try a different keyword',
+              style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Product Card ──────────────────────────────────────────────────────────
+class _ProductCard extends StatefulWidget {
+  final Product product;
+  const _ProductCard({required this.product});
+
+  @override
+  State<_ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<_ProductCard> {
+  @override
+  Widget build(BuildContext context) {
+    final product = widget.product;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => ProductDetailScreen(product: product))),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryDark.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Product image ───────────────────────────────────
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+              child: _ProductImage(product: product, height: 130),
+            ),
+
+            // ── Info ────────────────────────────────────────────
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(product.name,
+                        style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Text(product.price,
+                        style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryGreen)),
+                    const SizedBox(height: 1),
+                    Text(product.monthlyPrice,
+                        style: const TextStyle(
+                            fontSize: 9.5, color: AppColors.textMuted),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    const Spacer(),
+                    // ── Buy Now button ───────────────────────────
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductDetailScreen(product: product),
+                        ),
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'BUY NOW',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Product Image (real photo, fallback to gradient) ─────────────────────
+class _ProductImage extends StatelessWidget {
+  final Product product;
+  final double height;
+  const _ProductImage({required this.product, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: Stack(
+        children: [
+          // Real product image
+          Positioned.fill(
+            child: Image.network(
+              product.imageUrl,
+              fit: BoxFit.cover,
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: product.imageGradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                        color: Colors.white38, strokeWidth: 2),
+                  ),
+                );
+              },
+              errorBuilder: (_, __, ___) => Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: product.imageGradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Icon(product.icon,
+                    size: height * 0.4, color: Colors.white38),
+              ),
+            ),
+          ),
+
+          // Dark gradient overlay at bottom for readability
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: height * 0.45,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.45),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // BNPL tag
+          const Positioned(
+            top: 10,
+            left: 10,
+            child: BnplTag(),
+          ),
+
+
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Product Detail Screen ─────────────────────────────────────────────────
+class ProductDetailScreen extends StatefulWidget {
+  final Product product;
+  const ProductDetailScreen({super.key, required this.product});
+
+  @override
+  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  int _currentImageIndex = 0;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _rebuild() => setState(() {});
+
+  List<String> get _images {
+    final urls = widget.product.imageUrls;
+    return urls.isNotEmpty ? urls : [widget.product.imageUrl];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final product = widget.product;
+    final images = _images;
+
+    return Scaffold(
+      backgroundColor: AppColors.offWhite,
+      body: CustomScrollView(
+        slivers: [
+          // ── Collapsing image gallery header ──────────────────────
+          SliverAppBar(
+            expandedHeight: 320,
+            pinned: true,
+            backgroundColor: AppColors.primaryDark,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white, size: 20),
+              onPressed: () => Navigator.pop(context),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: _ImageGallery(
+                images: images,
+                product: product,
+                pageController: _pageController,
+                currentIndex: _currentImageIndex,
+                onPageChanged: (i) => setState(() => _currentImageIndex = i),
+              ),
+            ),
+          ),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Dot indicators ──────────────────────────────
+                  if (images.length > 1)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            images.length,
+                            (i) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              width: i == _currentImageIndex ? 20 : 7,
+                              height: 7,
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              decoration: BoxDecoration(
+                                color: i == _currentImageIndex
+                                    ? AppColors.primaryGreen
+                                    : AppColors.primaryGreen.withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // ── Thumbnail strip ─────────────────────────────
+                  if (images.length > 1) ...[
+                    SizedBox(
+                      height: 64,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: images.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, i) {
+                          final selected = i == _currentImageIndex;
+                          return GestureDetector(
+                            onTap: () {
+                              _pageController.animateToPage(i,
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 64,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: selected
+                                      ? AppColors.primaryGreen
+                                      : Colors.transparent,
+                                  width: 2,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  images[i],
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: product.imageGradient.first,
+                                    child: Icon(product.icon,
+                                        size: 24, color: Colors.white38),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // ── Tags row ────────────────────────────────────
+                  Row(
+                    children: [
+                      const BnplTag(),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(product.name,
+                      style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary)),
+                  const SizedBox(height: 8),
+                  Text(product.price,
+                      style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryGreen)),
+                  Text(product.monthlyPrice,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary)),
+                  const SizedBox(height: 20),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        _feature(Icons.check_circle_rounded,
+                            'Free delivery included'),
+                        _feature(Icons.shield_rounded, '12-month warranty'),
+                        _feature(Icons.autorenew_rounded,
+                            'Returns accepted within 7 days'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('Description',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enjoy ${product.name} with Watsim BNPL payment. Spread your purchase over 2, 3 or 6 interest-free instalments. Fast delivery and dedicated customer service.',
+                    style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                        height: 1.6),
+                  ),
+                  const SizedBox(height: 28),
+                  ElevatedButton(
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                BnplSimulatorScreen(product: product))),
+                    child: const Text('Simulate my BNPL financing'),
+                  ),
+                  const SizedBox(height: 12),
+                  // ── Buy Now button ──────────────────────────
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BnplSimulatorScreen(product: product),
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 52),
+                      side: const BorderSide(
+                          color: AppColors.primaryGreen, width: 1.5),
+                      backgroundColor:
+                          AppColors.primaryGreen.withOpacity(0.05),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    icon: const Icon(
+                      Icons.shopping_bag_outlined,
+                      color: AppColors.primaryGreen,
+                      size: 18,
+                    ),
+                    label: const Text(
+                      'Buy Now',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryGreen),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _feature(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.primaryGreen),
+          const SizedBox(width: 10),
+          Text(text,
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Image Gallery (swipeable, full-width) ────────────────────────────────
+class _ImageGallery extends StatelessWidget {
+  final List<String> images;
+  final Product product;
+  final PageController pageController;
+  final int currentIndex;
+  final ValueChanged<int> onPageChanged;
+
+  const _ImageGallery({
+    required this.images,
+    required this.product,
+    required this.pageController,
+    required this.currentIndex,
+    required this.onPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Swipeable image pages
+        PageView.builder(
+          controller: pageController,
+          onPageChanged: onPageChanged,
+          itemCount: images.length,
+          itemBuilder: (_, i) => Image.network(
+            images[i],
+            fit: BoxFit.cover,
+            width: double.infinity,
+            loadingBuilder: (_, child, progress) {
+              if (progress == null) return child;
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: product.imageGradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                      color: Colors.white38, strokeWidth: 2),
+                ),
+              );
+            },
+            errorBuilder: (_, __, ___) => Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: product.imageGradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Icon(product.icon, size: 80, color: Colors.white38),
+            ),
+          ),
+        ),
+
+        // Bottom gradient for readability
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 120,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.5),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Image counter badge
+        if (images.length > 1)
+          Positioned(
+            bottom: 14,
+            right: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.55),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.photo_library_outlined,
+                      color: Colors.white70, size: 13),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${currentIndex + 1} / ${images.length}',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // BNPL tag
+        const Positioned(
+          top: 10,
+          left: 10,
+          child: BnplTag(),
+        ),
+
+
+      ],
+    );
+  }
+}
+
+// ─── BNPL Orders Screen ────────────────────────────────────────────────────
+class BnplOrdersScreen extends StatefulWidget {
+  const BnplOrdersScreen({super.key});
+
+  @override
+  State<BnplOrdersScreen> createState() => _BnplOrdersScreenState();
+}
+
+class _BnplOrdersScreenState extends State<BnplOrdersScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.offWhite,
+      appBar: AppBar(
+        backgroundColor: AppColors.primaryDark,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Colors.white, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('My BNPL Orders'),
+        bottom: TabBar(
+          controller: _tabs,
+          indicatorColor: AppColors.primaryGreen,
+          labelColor: AppColors.primaryGreen,
+          unselectedLabelColor: Colors.white60,
+          tabs: const [
+            Tab(text: 'Active'),
+            Tab(text: 'Completed'),
+            Tab(text: 'Cancelled'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabs,
+        children: [
+          _orderList(active: true),
+          _orderList(active: false),
+          _emptyState('No cancelled orders'),
+        ],
+      ),
+    );
+  }
+
+  Widget _orderList({required bool active}) {
+    final orders = active
+        ? [
+            _OrderData('Smartphone Samsung S23', '6/12', '15 000 FCFA',
+                AppColors.warning, 'IN PROGRESS'),
+            _OrderData('MacBook Air M2', '1/12', '45 000 FCFA',
+                AppColors.primaryGreen, 'ACTIVE'),
+            _OrderData('Sony WH-1000XM5', '2/3', '83 000 FCFA',
+                AppColors.primaryGreen, 'ACTIVE'),
+          ]
+        : [
+            _OrderData('Nike Air Zoom', '6/6', '95,000 FCFA',
+                AppColors.secondaryGreen, 'SETTLED'),
+            _OrderData('Nespresso Vertuo', '4/4', '155,000 FCFA',
+                AppColors.secondaryGreen, 'SETTLED'),
+          ];
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: orders.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, i) => _OrderCard(order: orders[i]),
+    );
+  }
+
+  Widget _emptyState(String msg) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.inventory_2_outlined,
+              size: 56, color: AppColors.textMuted.withOpacity(0.5)),
+          const SizedBox(height: 12),
+          Text(msg,
+              style: const TextStyle(
+                  color: AppColors.textMuted, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderData {
+  final String name;
+  final String progress;
+  final String amount;
+  final Color color;
+  final String status;
+  const _OrderData(
+      this.name, this.progress, this.amount, this.color, this.status);
+}
+
+class _OrderCard extends StatelessWidget {
+  final _OrderData order;
+  const _OrderCard({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = order.progress.split('/');
+    final current = int.parse(parts[0]);
+    final total = int.parse(parts[1]);
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(order.name,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary)),
+              ),
+              StatusChip(
+                label: order.status,
+                color: order.color.withOpacity(0.12),
+                textColor: order.color,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Instalment $current / $total',
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary)),
+              Text(order.amount,
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          AppProgressBar(
+            value: current / total,
+            color: order.color,
+          ),
+          const SizedBox(height: 4),
+          Text('$current of $total payments made',
+              style: const TextStyle(
+                  fontSize: 11, color: AppColors.textMuted)),
+        ],
+      ),
+    );
+  }
+}

@@ -1,26 +1,30 @@
-import { howItWorks } from '@/mocks/landing';
-
 export default function HowItWorksSection() {
+  const howItWorks = [
+    { step: '1', title: 'Inscrivez-vous', desc: 'Créez votre compte en 2 minutes.' },
+    { step: '2', title: 'Vérifiez votre identité', desc: 'Complétez le KYC pour débloquer le crédit.' },
+    { step: '3', title: 'Achetez chez nos partenaires', desc: 'Choisissez vos produits et payez en plusieurs fois.' },
+    { step: '4', title: 'Remboursez facilement', desc: 'Suivez vos échéances depuis votre tableau de bord.' },
+  ];
   return (
-    <section id="how-it-works" className="py-24" style={{ background: '#0A1628' }}>
+    <section id="how-it-works" className="py-24" style={{ background: '#FAFEF9' }}>
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           {/* Left: Text */}
           <div>
             <span
               className="inline-block text-xs uppercase tracking-widest px-4 py-1.5 rounded-full mb-4"
-              style={{ background: 'rgba(212,175,55,0.12)', color: '#D4AF37', fontFamily: 'Poppins, sans-serif', border: '1px solid rgba(212,175,55,0.25)' }}
+              style={{ background: 'rgba(77,176,89,0.12)', color: '#4DB049', fontFamily: 'Poppins, sans-serif', border: '1px solid rgba(77,176,89,0.25)' }}
             >
               Comment ça marche
             </span>
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
               Simple, Rapide,
               <br />
-              <span style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <span style={{ background: 'linear-gradient(135deg, #4DB049, #196D43)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Accessible à Tous
               </span>
             </h2>
-            <p className="text-base mb-10" style={{ color: 'rgba(255,255,255,0.55)', fontFamily: 'Poppins, sans-serif', lineHeight: '1.8' }}>
+            <p className="text-base mb-10" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif', lineHeight: '1.8' }}>
               En quelques étapes simples, accédez au crédit BNPL et gérez vos finances depuis votre smartphone.
             </p>
 
@@ -31,20 +35,20 @@ export default function HowItWorksSection() {
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm"
                     style={{
-                      background: idx === 0 ? 'linear-gradient(135deg, #D4AF37, #F5D76E)' : 'rgba(212,175,55,0.12)',
-                      color: idx === 0 ? '#0A1628' : '#D4AF37',
+                      background: idx === 0 ? '#4DB049' : 'rgba(77,176,89,0.12)',
+                      color: idx === 0 ? '#FFFFFF' : '#4DB049',
                       fontFamily: 'Montserrat, sans-serif',
-                      border: idx !== 0 ? '1px solid rgba(212,175,55,0.25)' : 'none',
+                      border: idx !== 0 ? '1px solid rgba(77,176,89,0.25)' : 'none',
                     }}
                   >
                     {step.step}
                   </div>
                   <div>
-                    <h4 className="text-white font-semibold mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                    <h4 className="font-semibold mb-1" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
                       {step.title}
                     </h4>
-                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif', lineHeight: '1.7' }}>
-                      {step.description}
+                    <p className="text-sm" style={{ color: 'rgba(10,36,32,0.5)', fontFamily: 'Poppins, sans-serif', lineHeight: '1.7' }}>
+                      {step.desc}
                     </p>
                   </div>
                 </div>
@@ -58,15 +62,15 @@ export default function HowItWorksSection() {
               {/* Glow */}
               <div
                 className="absolute inset-0 rounded-3xl blur-3xl opacity-30"
-                style={{ background: 'radial-gradient(circle, #D4AF37, transparent)' }}
+                style={{ background: 'radial-gradient(circle, #4DB049, transparent)' }}
               />
               {/* Phone frame */}
               <div
                 className="relative w-72 rounded-3xl overflow-hidden"
-                style={{ border: '2px solid rgba(212,175,55,0.3)', background: '#0D1B2A' }}
+                style={{ border: '2px solid rgba(77,176,89,0.3)', background: '#014945' }}
               >
                 {/* Status bar */}
-                <div className="flex items-center justify-between px-5 py-3" style={{ background: '#0A1628' }}>
+                <div className="flex items-center justify-between px-5 py-3" style={{ background: '#014A41' }}>
                   <span className="text-xs text-white/60" style={{ fontFamily: 'Poppins, sans-serif' }}>9:41</span>
                   <div className="flex items-center gap-1">
                     <i className="ri-wifi-line text-xs text-white/60" />
@@ -79,12 +83,12 @@ export default function HowItWorksSection() {
                   {/* Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>Bonjour,</p>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>Bonsoir,</p>
                       <p className="text-white font-semibold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Jean-Baptiste 👋</p>
                     </div>
                     <div
                       className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
-                      style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', color: '#0A1628', fontFamily: 'Montserrat, sans-serif' }}
+                      style={{ background: '#4DB049', color: '#FFFFFF', fontFamily: 'Montserrat, sans-serif' }}
                     >
                       JB
                     </div>
@@ -93,13 +97,13 @@ export default function HowItWorksSection() {
                   {/* Balance Card */}
                   <div
                     className="rounded-2xl p-4 mb-4"
-                    style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)' }}
+                    style={{ background: 'linear-gradient(135deg, #4DB049, #196D43)' }}
                   >
-                    <p className="text-xs mb-1" style={{ color: 'rgba(10,22,40,0.6)', fontFamily: 'Poppins, sans-serif' }}>Solde Wallet</p>
-                    <p className="text-2xl font-bold" style={{ color: '#0A1628', fontFamily: 'Montserrat, sans-serif' }}>125 000 FCFA</p>
+                    <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>Solde Wallet</p>
+                    <p className="text-2xl font-bold" style={{ color: '#FFFFFF', fontFamily: 'Montserrat, sans-serif' }}>125 000 FCFA</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs" style={{ color: 'rgba(10,22,40,0.6)', fontFamily: 'Poppins, sans-serif' }}>Crédit BNPL disponible :</span>
-                      <span className="text-xs font-semibold" style={{ color: '#0A1628', fontFamily: 'Montserrat, sans-serif' }}>375 000 FCFA</span>
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>Crédit BNPL disponible :</span>
+                      <span className="text-xs font-semibold" style={{ color: '#FFFFFF', fontFamily: 'Montserrat, sans-serif' }}>375 000 FCFA</span>
                     </div>
                   </div>
 
@@ -114,9 +118,9 @@ export default function HowItWorksSection() {
                       <div key={action.label} className="flex flex-col items-center gap-1">
                         <div
                           className="w-10 h-10 rounded-xl flex items-center justify-center"
-                          style={{ background: 'rgba(212,175,55,0.12)' }}
+                          style={{ background: 'rgba(77,176,89,0.12)' }}
                         >
-                          <i className={`${action.icon} text-sm`} style={{ color: '#D4AF37' }} />
+                          <i className={`${action.icon} text-sm`} style={{ color: '#4DB049' }} />
                         </div>
                         <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>
                           {action.label}
@@ -130,9 +134,9 @@ export default function HowItWorksSection() {
                     Transactions récentes
                   </p>
                   {[
-                    { name: 'TechShop Yaoundé', amount: '-45 000', type: 'BNPL', icon: 'ri-shopping-bag-line', color: '#EF4444' },
-                    { name: 'Orange Money', amount: '+50 000', type: 'Dépôt', icon: 'ri-phone-line', color: '#22C55E' },
-                    { name: 'Remboursement', amount: '-15 000', type: 'BNPL', icon: 'ri-bank-card-line', color: '#F97316' },
+                    { name: 'TechShop Yaoundé', amount: '-45 000', type: 'BNPL', icon: 'ri-shopping-bag-line', color: '#E53935' },
+                    { name: 'Orange Money', amount: '+50 000', type: 'Dépôt', icon: 'ri-phone-line', color: '#4DB049' },
+                    { name: 'Remboursement', amount: '-15 000', type: 'BNPL', icon: 'ri-bank-card-line', color: '#FFA726' },
                   ].map((tx) => (
                     <div key={tx.name} className="flex items-center gap-3 py-2 border-b border-white/5">
                       <div

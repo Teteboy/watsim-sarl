@@ -1,0 +1,143 @@
+import Fastify, { FastifyInstance } from 'fastify';
+import cors from '@fastify/cors';
+// import helmet from '@fastify/helmet'; // Temporarily disabled due to version mismatch
+import jwt from '@fastify/jwt';
+import multipart from '@fastify/multipart';
+import websocket from '@fastify/websocket';
+import staticFiles from '@fastify/static';
+import { resolve } from 'path';
+import { env } from './config/env';
+import { getBackendBaseUrl } from './services/storage-local.service';
+import { registerRateLimit } from './middleware/rate-limit';
+import { authenticate } from './middleware/authenticate';
+import { authRoutes } from './modules/auth/auth.routes';
+import { userRoutes } from './modules/users/users.routes';
+import { bnplRoutes } from './modules/bnpl/bnpl.routes';
+import { merchantPublicRoutes, merchantSelfRoutes } from './modules/merchants/merchants.routes';
+import { productRoutes } from './modules/products/products.routes';
+import { paymentRoutes } from './modules/payments/payments.routes';
+import { adminRoutes } from './modules/admin/admin.routes';
+import { accountingRoutes } from './modules/accounting/accounting.routes';
+import { publicityRoutes } from './modules/publicities/publicities.routes';
+import { messagingRoutes } from './modules/messaging/messaging.routes';
+import { securityRoutes } from './modules/users/security.routes';
+import { supportRoutes } from './modules/users/support.routes';
+import { WebSocketService } from './services/websocket.service';
+
+export async function buildApp(): Promise<FastifyInstance> {
+  const app = Fastify({
+    logger: {
+      level: env.LOG_LEVEL,
+      transport:
+        env.NODE_ENV === 'development'
+          ? { target: 'pino-pretty', options: { colorize: true, translateTime: 'SYS:standard' } }
+          : undefined,
+    },
+    trustProxy: true,
+    bodyLimit: 10 * 1024 * 1024,
+  });
+
+  // await app.register(helmet, { contentSecurityPolicy: false }); // Temporarily disabled due to version mismatch
+  await app.register(cors, {
+    origin: env.NODE_ENV === 'production' ? [env.FRONTEND_URL] : true,
+    credentials: true,
+  });
+  await app.register(jwt, {
+    secret: { private: env.JWT_ACCESS_SECRET, public: env.JWT_ACCESS_SECRET },
+    sign: { expiresIn: env.JWT_ACCESS_EXPIRY },
+  });
+  await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+  await app.register(websocket);
+  await registerRateLimit(app);
+
+  // Static file serving for uploads
+  await app.register(staticFiles, {
+    root: resolve(process.cwd(), 'uploads'),
+    prefix: '/uploads/',
+  });
+
+  // Initialize WebSocket service
+  const wsService = new WebSocketService(app);
+  (app as any).wsService = wsService;
+
+  app.get('/health', async () => ({ status: 'ok', service: 'watsim-backend', timestamp: new Date().toISOString() }));
+
+  // Diagnostic endpoint for network testing
+  app.get('/network-test', async (req) => {
+    return {
+      status: 'ok',
+      yourIp: req.ip,
+      timestamp: new Date().toISOString(),
+      message: 'If you see this, network connection is working!',
+    };
+  });
+
+  const prefix = env.API_PREFIX;
+  await app.register(authRoutes, { prefix: `${prefix}/auth` });
+  await app.register(userRoutes, { prefix: `${prefix}/users` });
+  await app.register(securityRoutes, { prefix: `${prefix}/users` });
+  await app.register(supportRoutes, { prefix: `${prefix}/users` });
+  await app.register(bnplRoutes, { prefix: `${prefix}/bnpl` });
+  await app.register(merchantPublicRoutes, { prefix: `${prefix}/merchants` });
+  await app.register(merchantSelfRoutes, { prefix: `${prefix}/merchant` });
+  await app.register(productRoutes, { prefix: `${prefix}/products` });
+  await app.register(paymentRoutes, { prefix: `${prefix}/payments` });
+  await app.register(adminRoutes, { prefix: `${prefix}/admin` });
+  await app.register(accountingRoutes, { prefix: `${prefix}/admin/accounting` });
+  await app.register(publicityRoutes, { prefix: `${prefix}/admin/publicities` });
+  
+  // Public publicity routes (no auth required)
+  app.get(`${prefix}/publicities/active`, async (req, reply) => {
+    const { listPublicities } = await import('./modules/publicities/publicities.service');
+    const activePublicities = await listPublicities({
+      page: 1,
+      limit: 10,
+      status: 'ACTIVE'
+    });
+    return reply.send({ publicities: activePublicities.items });
+  });
+
+  // Image upload endpoint
+  app.post(`${prefix}/upload/image`, { preHandler: [authenticate] }, async (req, reply) => {
+    const data = await req.file();
+    if (!data) {
+      return reply.code(400).send({ error: 'No file uploaded' });
+    }
+    
+    const { extname } = await import('path');
+    const { writeFile } = await import('fs/promises');
+    const { randomUUID } = await import('crypto');
+    const { mkdir } = await import('fs/promises');
+    
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(data.mimetype)) {
+      return reply.code(400).send({ error: 'Invalid file type. Only images allowed.' });
+    }
+    
+    const ext = extname(data.filename) || '.jpg';
+    const filename = `${randomUUID()}${ext}`;
+    const uploadDir = resolve(process.cwd(), 'uploads');
+    await mkdir(uploadDir, { recursive: true });
+    const filepath = resolve(uploadDir, filename);
+
+    const buffer = await data.toBuffer();
+    await writeFile(filepath, buffer);
+
+    const url = `/uploads/${filename}`;
+    const fullUrl = `${getBackendBaseUrl()}${url}`;
+    return reply.send({ url, fullUrl, filename });
+  });
+
+  await app.register(messagingRoutes, { prefix: `${prefix}/messages` });
+
+  app.setErrorHandler((err, _req, reply) => {
+    app.log.error(err);
+    const status = err.statusCode ?? 500;
+    reply.code(status).send({
+      error: err.name || 'InternalServerError',
+      message: status >= 500 ? 'Internal server error' : err.message,
+    });
+  });
+
+  return app;
+}

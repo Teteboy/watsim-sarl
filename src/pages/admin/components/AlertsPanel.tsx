@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { recentAlerts } from '@/mocks/dashboard';
 
 const alertStyles: Record<string, { border: string; icon: string; bg: string }> = {
   high: { border: '#EF4444', icon: 'text-red-400', bg: 'rgba(239,68,68,0.08)' },
@@ -8,7 +7,7 @@ const alertStyles: Record<string, { border: string; icon: string; bg: string }> 
 };
 
 export default function AlertsPanel() {
-  const [alerts, setAlerts] = useState(recentAlerts);
+  const [alerts, setAlerts] = useState<any[]>([]);
 
   const dismiss = (id: string) => {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
@@ -18,14 +17,14 @@ export default function AlertsPanel() {
     <div
       className="rounded-2xl p-5"
       style={{
-        background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)',
-        border: '1px solid rgba(212,175,55,0.15)',
+        background: '#FFFFFF',
+        border: '1px solid #E8F2F1',
       }}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <i className="ri-alarm-warning-line text-lg" style={{ color: '#D4AF37' }} />
-          <h3 className="text-white font-semibold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+          <i className="ri-alarm-warning-line text-lg" style={{ color: '#4DB049' }} />
+          <h3 className="font-semibold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
             Alertes Système
           </h3>
         </div>
@@ -41,7 +40,7 @@ export default function AlertsPanel() {
         {alerts.length === 0 ? (
           <div className="text-center py-8">
             <i className="ri-checkbox-circle-line text-3xl" style={{ color: '#22C55E' }} />
-            <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>
+            <p className="text-sm mt-2" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
               Aucune alerte active
             </p>
           </div>
@@ -61,18 +60,18 @@ export default function AlertsPanel() {
                   <i className={`${alert.icon} text-sm ${style.icon}`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.8)', fontFamily: 'Poppins, sans-serif' }}>
+                  <p className="text-sm" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>
                     {alert.message}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+                  <p className="text-xs mt-0.5" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
                     {alert.time}
                   </p>
                 </div>
                 <button
                   onClick={() => dismiss(alert.id)}
-                  className="w-5 h-5 flex items-center justify-center flex-shrink-0 rounded hover:bg-white/10 transition-colors cursor-pointer"
+                  className="w-5 h-5 flex items-center justify-center flex-shrink-0 rounded hover:bg-gray-100 transition-colors cursor-pointer"
                 >
-                  <i className="ri-close-line text-xs" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                  <i className="ri-close-line text-xs" style={{ color: '#9CA3AF' }} />
                 </button>
               </div>
             );
@@ -83,9 +82,9 @@ export default function AlertsPanel() {
       <button
         className="w-full mt-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer"
         style={{
-          background: 'rgba(212,175,55,0.08)',
-          border: '1px solid rgba(212,175,55,0.2)',
-          color: '#D4AF37',
+          background: 'rgba(77,176,89,0.08)',
+          border: '1px solid rgba(77,176,89,0.2)',
+          color: '#4DB049',
           fontFamily: 'Poppins, sans-serif',
         }}
       >

@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import CustomerAuthModal from '@/components/feature/CustomerAuthModal';
+import { useCustomerAuth, getCustomerAuthState } from '@/hooks/useCustomerAuth';
 
 export default function LandingNav() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const { logout } = useCustomerAuth();
+  const [authState, setAuthState] = useState(getCustomerAuthState);
+  const refreshAuth = () => setAuthState(getCustomerAuthState());
+  const handleLogout = async () => { await logout(); refreshAuth(); };
+  const openAuth = (mode: 'login' | 'register') => { setAuthMode(mode); setAuthOpen(true); };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -24,19 +33,25 @@ export default function LandingNav() {
         scrolled ? 'py-3' : 'py-5'
       }`}
       style={{
-        background: scrolled ? 'rgba(10,22,40,0.97)' : 'transparent',
+        background: scrolled ? 'rgba(1,73,69,0.97)' : 'transparent',
         backdropFilter: scrolled ? 'blur(16px)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(212,175,55,0.15)' : 'none',
+        borderBottom: scrolled ? '1px solid rgba(77,176,89,0.15)' : 'none',
       }}
     >
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         {/* Logo */}
         <a href="#" className="flex items-center gap-2.5">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)' }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden"
           >
-            <i className="ri-exchange-funds-line text-[#0A1628] text-lg font-bold" />
+            <img
+              src="/src/assets/images/logo_white.png"
+              alt="WATSIM"
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
           </div>
           <span className="text-white font-bold text-xl tracking-wide" style={{ fontFamily: 'Montserrat, sans-serif' }}>
             WATSIM
@@ -64,23 +79,34 @@ export default function LandingNav() {
             className="text-sm px-4 py-2 rounded-lg transition-all duration-200 cursor-pointer whitespace-nowrap"
             style={{
               color: 'rgba(255,255,255,0.7)',
-              border: '1px solid rgba(255,255,255,0.15)',
+              border: '1px solid rgba(77,176,89,0.2)',
               fontFamily: 'Poppins, sans-serif',
             }}
           >
             Espace Admin
           </Link>
-          <a
-            href="#download"
-            className="text-sm px-5 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer whitespace-nowrap"
-            style={{
-              background: 'linear-gradient(135deg, #D4AF37, #F5D76E)',
-              color: '#0A1628',
-              fontFamily: 'Poppins, sans-serif',
-            }}
-          >
-            Télécharger l&apos;App
-          </a>
+          {authState.isAuthenticated ? (
+            <>
+              <span className="text-sm px-3 py-2" style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins, sans-serif' }}>
+                <i className="ri-user-line mr-1" />{authState.fullName ?? authState.customerEmail}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="text-sm px-4 py-2 rounded-lg cursor-pointer whitespace-nowrap"
+                style={{ color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(77,176,89,0.2)', fontFamily: 'Poppins, sans-serif' }}
+              >
+                Déconnexion
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => openAuth('login')}
+              className="text-sm px-5 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer whitespace-nowrap"
+              style={{ background: '#4DB049', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}
+            >
+              <i className="ri-login-box-line mr-1" />Connexion / Inscription
+            </button>
+          )}
         </div>
 
         {/* Hamburger */}
@@ -96,7 +122,7 @@ export default function LandingNav() {
       {menuOpen && (
         <div
           className="md:hidden mt-2 mx-4 rounded-2xl p-4 space-y-2"
-          style={{ background: '#0D1B2A', border: '1px solid rgba(212,175,55,0.2)' }}
+          style={{ background: '#014945', border: '1px solid rgba(77,176,89,0.2)' }}
         >
           {navLinks.map((link) => (
             <a
@@ -113,20 +139,31 @@ export default function LandingNav() {
             <Link
               to="/admin"
               className="text-center text-sm px-4 py-2.5 rounded-lg"
-              style={{ color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)', fontFamily: 'Poppins, sans-serif' }}
+              style={{ color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(77,176,89,0.2)', fontFamily: 'Poppins, sans-serif' }}
             >
               Espace Admin
             </Link>
-            <a
-              href="#download"
-              className="text-center text-sm px-4 py-2.5 rounded-lg font-medium"
-              style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', color: '#0A1628', fontFamily: 'Poppins, sans-serif' }}
-            >
-              Télécharger l&apos;App
-            </a>
+            {authState.isAuthenticated ? (
+              <button
+                onClick={() => { handleLogout(); setMenuOpen(false); }}
+                className="text-center text-sm px-4 py-2.5 rounded-lg"
+                style={{ color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(77,176,89,0.2)', fontFamily: 'Poppins, sans-serif' }}
+              >
+                Déconnexion ({authState.fullName ?? authState.customerEmail})
+              </button>
+            ) : (
+              <button
+                onClick={() => { openAuth('login'); setMenuOpen(false); }}
+                className="text-center text-sm px-4 py-2.5 rounded-lg font-medium cursor-pointer"
+                style={{ background: '#4DB049', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}
+              >
+                Connexion / Inscription
+              </button>
+            )}
           </div>
         </div>
       )}
+      <CustomerAuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={refreshAuth} initialMode={authMode} />
     </nav>
   );
 }

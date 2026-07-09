@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { tokenStore } from '@/lib/api';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -11,8 +12,19 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children, breadcrumb }: AdminLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [adminProfile, setAdminProfile] = useState<{ fullName?: string; imageUrl?: string }>({});
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const user = tokenStore.getUser();
+    if (user) {
+      setAdminProfile({
+        fullName: user.fullName || user.email,
+        imageUrl: user.imageUrl,
+      });
+    }
+  }, []);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -20,13 +32,13 @@ export default function AdminLayout({ children, breadcrumb }: AdminLayoutProps) 
   }, [logout, navigate]);
 
   return (
-    <div className="min-h-screen" style={{ background: '#050B16' }}>
+    <div className="min-h-screen" style={{ background: '#FAFEF9' }}>
       <AdminSidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((v) => !v)}
         onLogout={handleLogout}
       />
-      <AdminHeader sidebarCollapsed={sidebarCollapsed} breadcrumb={breadcrumb} onLogout={handleLogout} />
+      <AdminHeader sidebarCollapsed={sidebarCollapsed} breadcrumb={breadcrumb} onLogout={handleLogout} adminProfile={adminProfile} />
       <main
         className="transition-all duration-300 pt-16"
         style={{ marginLeft: sidebarCollapsed ? '72px' : '260px' }}

@@ -1,0 +1,545 @@
+import { FastifyInstance } from 'fastify';
+import { authenticate } from '../../middleware/authenticate';
+import { getProfile, listUserPurchases, listUserTransactions, updateProfile } from './users.service';
+import { paginationSchema, updateProfileSchema } from './users.schema';
+import { prisma } from '../../config/db';
+import { uploadProfilePicture, resolveImageUrl } from '../../services/storage-local.service';
+import { recomputeScore, getScoreHistory, getScoreTips } from '../../services/credit-scoring.service';
+import { ensureUserReferralCode, getReferralStats } from '../../services/referral.service';
+import { getUserBadges, checkAndAwardBadges } from '../../services/badge.service';
+import { processWithdrawal, WithdrawalProvider } from '../../services/withdrawal.service';
+import { processTransfer, getTransferHistory } from '../../services/transfer.service';
+
+export async function userRoutes(app: FastifyInstance): Promise<void> {
+  app.addHook('preHandler', authenticate);
+
+  app.get('/me', async (req, reply) => {
+    // Build base URL from request for correct image URLs on mobile
+    const protocol = (req.headers['x-forwarded-proto'] as string) || 'http';
+    const host = req.headers['host'] || `localhost:${process.env.PORT || 3001}`;
+    const requestBaseUrl = `${protocol}://${host}`;
+    
+    const profile = await getProfile(req.authUser!.id, requestBaseUrl);
+    if (!profile) return reply.code(404).send({ error: 'NotFound' });
+    return profile;
+  });
+
+  app.put('/me', { schema: updateProfileSchema }, async (req) => {
+    const body = req.body as { fullName?: string; phone?: string };
+    const user = await updateProfile(req.authUser!.id, body);
+    return { id: user.id, fullName: user.fullName, phone: user.phone };
+  });
+
+  app.get('/me/transactions', { schema: paginationSchema }, async (req) => {
+    const { page = 1, limit = 20 } = req.query as { page?: number; limit?: number };
+    return listUserTransactions(req.authUser!.id, page, limit);
+  });
+
+  app.get('/me/purchases', async (req) => {
+    const purchases = await listUserPurchases(req.authUser!.id);
+    return { items: purchases };
+  });
+
+  // ── Wallet ──────────────────────────────────────────────────────────────
+  app.get('/me/wallet', async (req) => {
+    const wallet = await prisma.wallet.upsert({
+      where: { userId: req.authUser!.id },
+      create: { userId: req.authUser!.id, balance: 0 },
+      update: {},
+    });
+    return { balance: wallet.balance, currency: wallet.currency };
+  });
+
+  // ── Create a DEPOSIT transaction (used before calling /payments/initiate) ─
+  app.post('/me/transactions/deposit', async (req, reply) => {
+    const { amount, provider } = req.body as { amount: number; provider: string };
+    if (!amount || amount < 1) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'amount must be >= 1' });
+    }
+    const tx = await prisma.transaction.create({
+      data: {
+        userId: req.authUser!.id,
+        type: 'DEPOSIT',
+        amount,
+        status: 'PENDING',
+        provider,
+      },
+    });
+    return { transactionId: tx.id };
+  });
+
+  // ── Create a WITHDRAWAL transaction (used before calling /payments/initiate) ─
+  app.post('/me/transactions/withdrawal', async (req, reply) => {
+    const { amount, provider } = req.body as { amount: number; provider: string };
+    if (!amount || amount < 1) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'amount must be >= 1' });
+    }
+    const tx = await prisma.transaction.create({
+      data: {
+        userId: req.authUser!.id,
+        type: 'WITHDRAWAL',
+        amount,
+        status: 'PENDING',
+        provider,
+      },
+    });
+    return { transactionId: tx.id };
+  });
+
+  // ── Create a TRANSFER transaction (used before calling /payments/initiate) ─
+  app.post('/me/transactions/transfer', async (req, reply) => {
+    const { amount, provider, recipientName } = req.body as { amount: number; provider: string; recipientName: string };
+    if (!amount || amount < 1) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'amount must be >= 1' });
+    }
+    if (!recipientName || recipientName.trim().length === 0) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'recipientName is required' });
+    }
+    const tx = await prisma.transaction.create({
+      data: {
+        userId: req.authUser!.id,
+        type: 'TRANSFER',
+        amount,
+        status: 'PENDING',
+        provider,
+        metadata: {
+          recipientName: recipientName.trim()
+        }
+      },
+    });
+    return { transactionId: tx.id };
+  });
+
+  // ── Notifications inbox ─────────────────────────────────────────────────
+  app.get('/me/notifications', async (req) => {
+    const { page = 1, limit = 20 } = req.query as { page?: number; limit?: number };
+    const [items, total] = await Promise.all([
+      prisma.userNotification.findMany({
+        where: { userId: req.authUser!.id },
+        orderBy: { createdAt: 'desc' },
+        skip: (Number(page) - 1) * Number(limit),
+        take: Number(limit),
+      }),
+      prisma.userNotification.count({ where: { userId: req.authUser!.id } }),
+    ]);
+    return { items, total };
+  });
+
+  app.get('/me/notifications/unread-count', async (req) => {
+    const count = await prisma.userNotification.count({
+      where: { userId: req.authUser!.id, isRead: false },
+    });
+    return { count };
+  });
+
+  app.put('/me/notifications/:id/read', async (req) => {
+    const { id } = req.params as { id: string };
+    await prisma.userNotification.updateMany({
+      where: { id, userId: req.authUser!.id },
+      data: { isRead: true },
+    });
+    return { success: true };
+  });
+
+  // ── Profile Picture Upload ───────────────────────────────────────────────
+  app.post('/me/profile-picture', async (req, reply) => {
+    const parts = req.parts();
+    let fileBuffer: Buffer | null = null;
+    let contentType = 'image/jpeg';
+
+    for await (const part of parts) {
+      if (part.type === 'file' && part.fieldname === 'image') {
+        const chunks: Buffer[] = [];
+        for await (const chunk of part.file) {
+          chunks.push(chunk);
+        }
+        fileBuffer = Buffer.concat(chunks);
+        contentType = part.mimetype;
+      }
+    }
+
+    if (!fileBuffer) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'Image file required' });
+    }
+
+    // Validate file size (max 5MB)
+    if (fileBuffer.length > 5 * 1024 * 1024) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'File too large (max 5MB)' });
+    }
+
+    // Validate content type
+    if (!contentType.startsWith('image/')) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'Only image files allowed' });
+    }
+
+    // Build base URL from request for correct image URLs on mobile
+    const protocol = (req.headers['x-forwarded-proto'] as string) || 'http';
+    const host = req.headers['host'] || `localhost:${process.env.PORT || 3001}`;
+    const requestBaseUrl = `${protocol}://${host}`;
+
+    try {
+      const filename = await uploadProfilePicture(req.authUser!.id, fileBuffer, contentType);
+      const storedPath = `/uploads/${filename}`;
+
+      // Update user with stored path (folder URL)
+      await prisma.user.update({
+        where: { id: req.authUser!.id },
+        data: { imageUrl: storedPath },
+      });
+
+      return { success: true, imageUrl: storedPath, fullUrl: resolveImageUrl(storedPath, requestBaseUrl) };
+    } catch (e) {
+      return reply.code(500).send({ error: 'UploadFailed', message: 'Failed to upload image' });
+    }
+  });
+
+  // ── Credit Score ───────────────────────────────────────────────────────────
+  app.get('/me/credit-score', async (req, reply) => {
+    try {
+      const result = await recomputeScore(req.authUser!.id);
+      return result;
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      req.log.error(e, 'Credit score computation failed');
+      return reply.code(500).send({
+        error: 'ScoreComputationFailed',
+        message: `Failed to compute credit score: ${errorMessage}`,
+      });
+    }
+  });
+
+  app.get('/me/credit-score/history', async (req, reply) => {
+    try {
+      const { limit = 10 } = req.query as { limit?: number };
+      const history = await getScoreHistory(req.authUser!.id, Number(limit));
+      return history;
+    } catch (e) {
+      return reply.code(500).send({ error: 'HistoryFetchFailed', message: 'Failed to fetch score history' });
+    }
+  });
+
+  app.get('/me/credit-score/tips', async (req, reply) => {
+    try {
+      const tips = await getScoreTips(req.authUser!.id);
+      return { tips };
+    } catch (e) {
+      return reply.code(500).send({ error: 'TipsFetchFailed', message: 'Failed to fetch score tips' });
+    }
+  });
+
+  // ── Referral ───────────────────────────────────────────────────────────
+  app.get('/me/referral', async (req) => {
+    const userId = req.authUser!.id;
+    const code = await ensureUserReferralCode(userId);
+    const stats = await getReferralStats(userId);
+    return { code, ...stats };
+  });
+
+  // ── Rewards & Cashback ───────────────────────────────────────────────────
+  // GET /users/me/rewards - Fetch rewards summary with history
+  app.get('/me/rewards', async (req, reply) => {
+    const userId = req.authUser!.id;
+    
+    // Get wallet to check referral reward balance (transactions with provider 'REFERRAL')
+    const wallet = await prisma.wallet.findUnique({
+      where: { userId },
+    });
+
+    // Get all referral-related transactions for history
+    const referralTransactions = await prisma.transaction.findMany({
+      where: { 
+        userId,
+        provider: 'REFERRAL',
+        status: 'COMPLETED',
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    // Calculate available (completed) vs pending
+    const completedReferrals = await prisma.referral.findMany({
+      where: { 
+        referrerId: userId,
+        firstRewardPaid: true,
+      },
+    });
+
+    const pendingReferrals = await prisma.referral.findMany({
+      where: { 
+        referrerId: userId,
+        firstRewardPaid: false,
+        status: 'PENDING',
+      },
+    });
+
+    const totalFirstRewards = completedReferrals.reduce((sum, r) => sum + r.firstRewardAmount, 0);
+    const totalSecondRewards = completedReferrals.reduce((sum, r) => sum + r.secondRewardAmount, 0);
+    const pendingAmount = pendingReferrals.reduce((sum, r) => sum + r.firstRewardAmount, 0);
+
+    // Map transactions to history format
+    const history = referralTransactions.map(t => {
+      const meta = t.metadata as Record<string, unknown> || {};
+      return {
+        id: t.id,
+        title: meta.rewardType === 'FIRST' 
+          ? `Referral Bonus - ${meta.referredUserId ? 'Friend' : 'New User'}`
+          : `BNPL Cashback - Purchase`,
+        amount: t.amount,
+        type: meta.rewardType === 'FIRST' ? 'REFERRAL_FIRST' : 'REFERRAL_SECOND',
+        percentage: meta.rewardType === 'FIRST' ? '500 FCFA' : '0.6%',
+        createdAt: t.createdAt,
+      };
+    });
+
+    return {
+      availableBalance: totalFirstRewards + totalSecondRewards,
+      pendingBalance: pendingAmount,
+      totalFirstRewards,
+      totalSecondRewards,
+      completedReferrals: completedReferrals.length,
+      pendingReferrals: pendingReferrals.length,
+      history,
+    };
+  });
+
+  // POST /users/me/rewards/withdraw - Withdraw rewards to mobile money
+  app.post('/me/rewards/withdraw', async (req, reply) => {
+    const userId = req.authUser!.id;
+    const { amount, phoneNumber, method } = req.body as {
+      amount: number;
+      phoneNumber: string;
+      method: 'mtn' | 'orange' | 'wave';
+    };
+
+    // Validate inputs
+    if (!amount || amount < 500) {
+      return reply.code(400).send({ error: 'InvalidAmount', message: 'Minimum withdrawal is 500 FCFA' });
+    }
+    if (!phoneNumber || phoneNumber.length < 9) {
+      return reply.code(400).send({ error: 'InvalidPhone', message: 'Valid phone number required' });
+    }
+    if (!['mtn', 'orange', 'wave'].includes(method)) {
+      return reply.code(400).send({ error: 'InvalidMethod', message: 'Method must be mtn, orange, or wave' });
+    }
+
+    // Check available balance via referral stats
+    const completedReferrals = await prisma.referral.findMany({
+      where: { 
+        referrerId: userId,
+        firstRewardPaid: true,
+      },
+    });
+    const totalRewards = completedReferrals.reduce((sum, r) => sum + r.firstRewardAmount + r.secondRewardAmount, 0);
+
+    if (amount > totalRewards) {
+      return reply.code(400).send({ error: 'InsufficientBalance', message: 'Insufficient rewards balance' });
+    }
+
+    // Create withdrawal transaction
+    const withdrawal = await prisma.transaction.create({
+      data: {
+        userId,
+        type: 'WITHDRAWAL',
+        amount: -amount, // Negative for withdrawal
+        status: 'PENDING',
+        provider: method.toUpperCase(),
+        providerRef: `REWARDS_WITHDRAW_${Date.now()}`,
+        metadata: { 
+          phoneNumber, 
+          method, 
+          source: 'REWARDS',
+          requestedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    // Process withdrawal via mobile money API
+    const withdrawalResult = await processWithdrawal({
+      userId,
+      amount,
+      phoneNumber,
+      provider: method.toUpperCase() as WithdrawalProvider,
+      reference: withdrawal.id,
+      metadata: {
+        source: 'REWARDS',
+        originalTransactionId: withdrawal.id,
+      },
+    });
+
+    // Update transaction with result
+    await prisma.transaction.update({
+      where: { id: withdrawal.id },
+      data: {
+        status: withdrawalResult.status,
+        providerRef: withdrawalResult.providerRef,
+        metadata: {
+          phoneNumber,
+          method,
+          source: 'REWARDS',
+          requestedAt: new Date().toISOString(),
+          payoutResult: {
+            success: withdrawalResult.success,
+            providerRef: withdrawalResult.providerRef,
+            status: withdrawalResult.status,
+            message: withdrawalResult.message,
+            ussdCode: withdrawalResult.ussdCode,
+          },
+        },
+      },
+    });
+
+    // Award badges if withdrawal successful
+    if (withdrawalResult.success) {
+      await checkAndAwardBadges(userId);
+    }
+
+    return {
+      success: withdrawalResult.success,
+      withdrawalId: withdrawal.id,
+      method,
+      phoneNumber,
+      status: 'PENDING',
+      message: 'Withdrawal request submitted and is being processed',
+    };
+  });
+
+  // POST /users/me/rewards/convert - Convert rewards to wallet balance
+  app.post('/me/rewards/convert', async (req, reply) => {
+    const userId = req.authUser!.id;
+    const { amount } = req.body as { amount: number };
+
+    if (!amount || amount <= 0) {
+      return reply.code(400).send({ error: 'InvalidAmount', message: 'Amount must be greater than 0' });
+    }
+
+    // Check available balance
+    const completedReferrals = await prisma.referral.findMany({
+      where: { 
+        referrerId: userId,
+        firstRewardPaid: true,
+      },
+    });
+    const totalRewards = completedReferrals.reduce((sum, r) => sum + r.firstRewardAmount + r.secondRewardAmount, 0);
+
+    if (amount > totalRewards) {
+      return reply.code(400).send({ error: 'InsufficientBalance', message: 'Insufficient rewards balance' });
+    }
+
+    // Get or create wallet
+    let wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      wallet = await prisma.wallet.create({
+        data: { userId, balance: 0, currency: 'XAF' },
+      });
+    }
+
+    // Update wallet balance
+    await prisma.wallet.update({
+      where: { userId },
+      data: { balance: { increment: amount } },
+    });
+
+    // Create deposit transaction record
+    await prisma.transaction.create({
+      data: {
+        userId,
+        type: 'DEPOSIT',
+        amount,
+        status: 'COMPLETED',
+        provider: 'WALLET',
+        providerRef: `REWARDS_CONVERT_${Date.now()}`,
+        metadata: { 
+          source: 'REWARDS_CONVERSION',
+          convertedAt: new Date().toISOString(),
+          previousBalance: wallet.balance,
+          newBalance: wallet.balance + amount,
+        },
+      },
+    });
+
+    return {
+      success: true,
+      amount,
+      convertedToWallet: true,
+      newWalletBalance: wallet.balance + amount,
+    };
+  });
+
+  // ── Badges ────────────────────────────────────────────────────────────────
+  // GET /users/me/badges - Fetch all badges with earned status
+  app.get('/me/badges', async (req) => {
+    const userId = req.authUser!.id;
+    const badges = await getUserBadges(userId);
+    return { badges };
+  });
+
+  // POST /users/me/badges/check - Check and award new badges
+  app.post('/me/badges/check', async (req) => {
+    const userId = req.authUser!.id;
+    const awarded = await checkAndAwardBadges(userId);
+    return { awarded, count: awarded.length };
+  });
+
+  // ===== Wallet Transfers =====
+  // POST /users/me/wallet/transfer - Transfer money to another user
+  app.post('/me/wallet/transfer', async (req, reply) => {
+    const userId = req.authUser!.id;
+    const { recipientIdentifier, amount, note } = req.body as {
+      recipientIdentifier: string;
+      amount: number;
+      note?: string;
+    };
+
+    // Validate inputs
+    if (!recipientIdentifier || recipientIdentifier.trim().length < 3) {
+      return reply.code(400).send({
+        error: 'InvalidRecipient',
+        message: 'Valid recipient phone number, email, or user ID required',
+      });
+    }
+
+    if (!amount || amount < 100) {
+      return reply.code(400).send({
+        error: 'InvalidAmount',
+        message: 'Minimum transfer amount is 100 FCFA',
+      });
+    }
+
+    // Process the transfer
+    const result = await processTransfer({
+      senderId: userId,
+      recipientIdentifier: recipientIdentifier.trim(),
+      amount,
+      note: note?.trim(),
+    });
+
+    if (!result.success) {
+      return reply.code(400).send({
+        error: 'TransferFailed',
+        message: result.message,
+      });
+    }
+
+    return {
+      success: true,
+      transferId: result.transferId,
+      message: result.message,
+      senderBalance: result.senderBalance,
+      recipientName: result.recipientName,
+    };
+  });
+
+  // GET /users/me/wallet/transfers - Get transfer history
+  app.get('/me/wallet/transfers', async (req) => {
+    const userId = req.authUser!.id;
+    const q = req.query as { limit?: string };
+    const limit = parseInt(q.limit || '20', 10);
+
+    const transfers = await getTransferHistory(userId, limit);
+
+    return {
+      transfers,
+      count: transfers.length,
+    };
+  });
+}

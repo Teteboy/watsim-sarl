@@ -11,7 +11,7 @@ import LandingFooter from './components/LandingFooter';
 
 export default function HomePage() {
   return (
-    <div style={{ background: '#050B16' }}>
+    <div style={{ background: '#FAFEF9' }}>
       <LandingNav />
       <HeroSection />
       <PartnerSection />

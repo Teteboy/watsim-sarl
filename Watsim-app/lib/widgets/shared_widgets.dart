@@ -1,0 +1,993 @@
+import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
+import '../screens/notifications_screen.dart';
+import '../notification_state.dart';
+import '../services/language_service.dart';
+
+// ─── App Bar (greeting + wallet icon) ────────────────────────────────────
+class WatsimAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final String title;
+  final bool showBack;
+  final List<Widget>? actions;
+
+  const WatsimAppBar({
+    super.key,
+    required this.title,
+    this.showBack = false,
+    this.actions,
+  });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(60);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: AppColors.primaryDark,
+      automaticallyImplyLeading: false,
+      leading: showBack
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  size: 20, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            )
+          : Padding(
+              padding: const EdgeInsets.only(left: 14),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.primaryGreen.withOpacity(0.2),
+                child: const Icon(Icons.person,
+                    color: AppColors.primaryGreen, size: 20),
+              ),
+            ),
+      leadingWidth: showBack ? 52 : 54,
+      title: showBack
+          ? Text(title,
+              style: const TextStyle(
+                  color: AppColors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700))
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Hello, $title',
+                    style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600)),
+                const Text('Welcome back',
+                    style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400)),
+              ],
+            ),
+      actions: actions ??
+          [
+            _LanguageSwitcher(),
+            _NotifBell(),
+            const SizedBox(width: 4),
+          ],
+    );
+  }
+}
+
+// ─── Live notification bell with badge ────────────────────────────────────
+class _NotifBell extends StatefulWidget {
+  @override
+  State<_NotifBell> createState() => _NotifBellState();
+}
+
+class _NotifBellState extends State<_NotifBell> {
+  int _count = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _count = NotificationState.instance.unreadCount;
+    NotificationState.instance.addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    NotificationState.instance.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() => _count = NotificationState.instance.unreadCount);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined,
+              color: AppColors.white, size: 24),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+          ),
+        ),
+        if (_count > 0)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(
+                color: AppColors.primaryGreen,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              child: Text(
+                _count > 9 ? '9+' : '$_count',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Language Switcher Widget ─────────────────────────────────────────────
+class _LanguageSwitcher extends StatefulWidget {
+  @override
+  State<_LanguageSwitcher> createState() => _LanguageSwitcherState();
+}
+
+class _LanguageSwitcherState extends State<_LanguageSwitcher> {
+  @override
+  void initState() {
+    super.initState();
+    LanguageService().addListener(_onChanged);
+  }
+
+  @override
+  void dispose() {
+    LanguageService().removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = LanguageProvider.of(context);
+    return TextButton.icon(
+      onPressed: () {
+        LanguageService().toggle();
+      },
+      icon: const Icon(Icons.language, color: AppColors.white, size: 18),
+      label: Text(
+        lang.isFrench ? 'FR' : 'EN',
+        style: const TextStyle(
+          color: AppColors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        minimumSize: const Size(40, 40),
+      ),
+    );
+  }
+}
+
+// ─── Logo App Bar ─────────────────────────────────────────────────────────
+class WatsimLogoAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final List<Widget>? actions;
+  const WatsimLogoAppBar({super.key, this.actions});
+
+  @override
+  Size get preferredSize => const Size.fromHeight(60);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: AppColors.primaryDark,
+      title: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/images/logo_white.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Center(
+                  child: Text('W',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text('WATSIM',
+              style: TextStyle(
+                  color: AppColors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5)),
+        ],
+      ),
+      actions: actions ??
+          [
+            _LanguageSwitcher(),
+            _NotifBell(),
+            const SizedBox(width: 4),
+          ],
+    );
+  }
+}
+
+// ─── Section Header ────────────────────────────────────────────────────────
+class SectionHeader extends StatelessWidget {
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const SectionHeader({
+    super.key,
+    required this.title,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary)),
+        if (actionLabel != null)
+          GestureDetector(
+            onTap: onAction,
+            child: Text(actionLabel!,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryGreen)),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── App Card ─────────────────────────────────────────────────────────────
+class AppCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets? padding;
+  final Color? color;
+  final VoidCallback? onTap;
+
+  const AppCard({
+    super.key,
+    required this.child,
+    this.padding,
+    this.color,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: padding ?? const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color ?? AppColors.cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.divider),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryDark.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+// ─── Gradient Balance Card ─────────────────────────────────────────────────
+class GradientCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets? padding;
+
+  const GradientCard({super.key, required this.child, this.padding});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding ?? const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primaryDark, AppColors.secondaryGreen],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryDark.withOpacity(0.30),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+// ─── Quick Action Button ───────────────────────────────────────────────────
+class QuickActionBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  const QuickActionBtn({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.primaryGreen.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: AppColors.primaryGreen, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Status Chip ──────────────────────────────────────────────────────────
+class StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color textColor;
+
+  const StatusChip({
+    super.key,
+    required this.label,
+    required this.color,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w600, color: textColor)),
+    );
+  }
+}
+
+// ─── Product Stock Badge ────────────────────────────────────────────────────
+class ProductStockBadge extends StatelessWidget {
+  final int? stock;
+  final double? fontSize;
+
+  const ProductStockBadge({
+    super.key,
+    required this.stock,
+    this.fontSize = 10,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = stock == null
+        ? 'Stock: --'
+        : stock! <= 0
+            ? 'Out of stock'
+            : stock! <= 5
+                ? 'Low stock: $stock'
+                : 'In stock: $stock';
+    final color = stock == null
+        ? AppColors.textSecondary
+        : stock! <= 0
+            ? const Color(0xFFD32F2F)
+            : stock! <= 5
+                ? const Color(0xFFF57C00)
+                : AppColors.primaryGreen;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(color == AppColors.primaryGreen ? 0.12 : 0.14),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── BNPL Tag ──────────────────────────────────────────────────────────────
+class BnplTag extends StatelessWidget {
+  const BnplTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primaryGreen,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text('BNPL',
+          style: TextStyle(
+              fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white)),
+    );
+  }
+}
+
+// ─── Transaction Row ──────────────────────────────────────────────────────
+class TransactionRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String title;
+  final String subtitle;
+  final String amount;
+  final bool isCredit;
+  final String? tag;
+
+  const TransactionRow({
+    super.key,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    required this.isCredit,
+    this.tag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textMuted)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 110),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${isCredit ? '+' : '-'} $amount',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isCredit
+                          ? AppColors.primaryGreen
+                          : AppColors.error),
+                ),
+                if (tag != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(tag!,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: isCredit
+                                ? AppColors.primaryGreen
+                                : AppColors.textMuted)),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Amount Chip ──────────────────────────────────────────────────────────
+class AmountChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const AmountChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primaryGreen : AppColors.offWhite,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: selected ? AppColors.primaryGreen : AppColors.divider),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color:
+                    selected ? Colors.white : AppColors.textSecondary)),
+      ),
+    );
+  }
+}
+
+// ─── Operator Card ────────────────────────────────────────────────────────
+class OperatorCard extends StatelessWidget {
+  final String name;
+  final String subtitle;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+  final String? logoAsset;
+
+  const OperatorCard({
+    super.key,
+    required this.name,
+    required this.subtitle,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+    this.logoAsset,
+  });
+
+  String? _resolvedLogo() {
+    if (logoAsset != null) return logoAsset;
+    final n = name.toLowerCase();
+    if (n.contains('mtn') || n.contains('momo')) return 'assets/images/momo.png';
+    if (n.contains('orange')) return 'assets/images/orange-money.png';
+    if (n.contains('cash')) return null;
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logo = _resolvedLogo();
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primaryGreen.withOpacity(0.06)
+              : AppColors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppColors.primaryGreen : AppColors.divider,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10)),
+              child: Center(
+                child: logo != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          logo,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Text(name[0],
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: color)),
+                        ),
+                      )
+                    : Text(name[0],
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: color)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary)),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.textMuted)),
+                ],
+              ),
+            ),
+            Radio<bool>(
+              value: true,
+              groupValue: selected,
+              onChanged: (_) => onTap(),
+              activeColor: AppColors.primaryGreen,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── PIN Dots ──────────────────────────────────────────────────────────────
+class PinDots extends StatelessWidget {
+  final int filled;
+  final int total;
+
+  const PinDots({super.key, required this.filled, this.total = 6});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final dotSize = ((availableWidth - (total - 1) * 10) / total).clamp(36.0, 52.0);
+        final dotHeight = (dotSize * 1.08).clamp(38.0, 56.0);
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(total, (i) {
+            final isFilled = i < filled;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 5),
+              width: dotSize,
+              height: dotHeight,
+              decoration: BoxDecoration(
+                color: isFilled
+                    ? AppColors.primaryGreen.withOpacity(0.1)
+                    : AppColors.offWhite,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isFilled ? AppColors.primaryGreen : AppColors.divider,
+                  width: isFilled ? 2 : 1,
+                ),
+              ),
+              child: isFilled
+                  ? const Center(
+                      child: CircleAvatar(
+                        radius: 6,
+                        backgroundColor: AppColors.primaryGreen,
+                      ),
+                    )
+                  : null,
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+// ─── Numpad (light) ────────────────────────────────────────────────────────
+class NumPad extends StatelessWidget {
+  final void Function(String) onKey;
+  final VoidCallback onDelete;
+
+  const NumPad({super.key, required this.onKey, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 2.2,
+      children: keys.map((k) {
+        if (k.isEmpty) return const SizedBox.shrink();
+        return GestureDetector(
+          onTap: () => k == '⌫' ? onDelete() : onKey(k),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Center(
+              child: k == '⌫'
+                  ? const Icon(Icons.backspace_outlined,
+                      size: 20, color: AppColors.textSecondary)
+                  : Text(k,
+                      style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary)),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ─── Progress Bar ──────────────────────────────────────────────────────────
+class AppProgressBar extends StatelessWidget {
+  final double value;
+  final Color? color;
+  final double height;
+
+  const AppProgressBar({
+    super.key,
+    required this.value,
+    this.color,
+    this.height = 6,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(100),
+      child: LinearProgressIndicator(
+        value: value.clamp(0.0, 1.0),
+        backgroundColor: AppColors.divider,
+        valueColor: AlwaysStoppedAnimation(color ?? AppColors.primaryGreen),
+        minHeight: height,
+      ),
+    );
+  }
+}
+
+// ─── Filter Row ───────────────────────────────────────────────────────────
+class FilterRow extends StatelessWidget {
+  final List<String> filters;
+  final String selected;
+  final void Function(String) onSelect;
+
+  const FilterRow({
+    super.key,
+    required this.filters,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: filters.map((f) {
+          final active = f == selected;
+          return GestureDetector(
+            onTap: () => onSelect(f),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.only(right: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: active ? AppColors.primaryGreen : AppColors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: active
+                        ? AppColors.primaryGreen
+                        : AppColors.divider),
+              ),
+              child: Text(f,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: active
+                          ? Colors.white
+                          : AppColors.textSecondary)),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ─── Info Banner ──────────────────────────────────────────────────────────
+class InfoBanner extends StatelessWidget {
+  final String text;
+  final Color? color;
+
+  const InfoBanner({super.key, required this.text, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? AppColors.primaryGreen;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded, size: 18, color: c),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: c.withOpacity(0.85),
+                    height: 1.4)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Divider with text ────────────────────────────────────────────────────
+class DividerWithText extends StatelessWidget {
+  final String text;
+  const DividerWithText({super.key, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Divider()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(text,
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.textMuted)),
+        ),
+        const Expanded(child: Divider()),
+      ],
+    );
+  }
+}
+
+// ─── Watsim Logo Widget ────────────────────────────────────────────────────
+// logoVariant: 'white' = for dark/teal backgrounds
+//              'green' = for light/white backgrounds
+//              'mixed' = for medium teal backgrounds
+class WatsimLogo extends StatelessWidget {
+  final double size;
+  final Color textColor;
+  final String logoVariant; // 'white', 'green', or 'mixed'
+
+  const WatsimLogo(
+      {super.key, this.size = 48, this.textColor = Colors.white, this.logoVariant = 'white'});
+
+  String get _logoAsset {
+    switch (logoVariant) {
+      case 'green': return 'assets/images/logo_green.png';
+      case 'mixed': return 'assets/images/logo_mixed.png';
+      default:      return 'assets/images/logo_white.png';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(
+          _logoAsset,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Center(
+            child: Text('W',
+                style: TextStyle(
+                    color: textColor,
+                    fontSize: size * 0.55,
+                    fontWeight: FontWeight.w900)),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text('WATSIM',
+            style: TextStyle(
+                color: textColor,
+                fontSize: size * 0.42,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2.5)),
+      ],
+    );
+  }
+}

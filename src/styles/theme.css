@@ -1,0 +1,20 @@
+/* WATSIM Color Palette - Match mobile app */
+:root {
+  --watsim-primary-dark: #014945;
+  --watsim-primary-green: #4DB049;
+  --watsim-secondary-green: #196D43;
+  --watsim-deep-teal: #014A41;
+  --watsim-off-white: #FAFEF9;
+  --watsim-white: #FFFFFF;
+  --watsim-card-bg: #FFFFFF;
+  --watsim-text-primary: #0A2420;
+  --watsim-text-secondary: #4A6662;
+  --watsim-text-muted: #8AABA7;
+  --watsim-divider: #E8F2F1;
+  --watsim-success: #4DB049;
+  --watsim-error: #E53935;
+  --watsim-warning: #FFA726;
+  --watsim-green-tint-10: rgba(77, 176, 89, 0.1);
+  --watsim-teal-tint-10: rgba(1, 73, 69, 0.1);
+  --watsim-teal-tint-08: rgba(1, 73, 69, 0.08);
+}

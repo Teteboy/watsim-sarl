@@ -1,13 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/feature/AdminLayout';
 import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
-import { adminNotifications as initialNotifications, notificationTargets, notificationTypes, notificationStatuses, notificationPriorities } from '@/mocks/adminNotifications';
+import { adminApi } from '@/lib/api';
+// Static UI configuration (moved out of mocks)
+const notificationTargets = [
+  { value: 'all', label: 'Tous les utilisateurs' },
+  { value: 'users', label: 'Utilisateurs seulement' },
+  { value: 'merchants', label: 'Commerçants seulement' },
+  { value: 'premium', label: 'Utilisateurs premium' },
+];
 
-type Notification = typeof initialNotifications[0];
+const cardStyle = { background: '#FFFFFF', border: '1px solid #E8F2F1' };
+
+const notificationTypes = [
+  { value: 'promotion', label: 'Promotion', icon: 'ri-gift-line', color: '#4DB049' },
+  { value: 'alert', label: 'Alerte', icon: 'ri-alert-line', color: '#EF4444' },
+  { value: 'info', label: 'Information', icon: 'ri-information-line', color: '#4A9EFF' },
+  { value: 'system', label: 'Système', icon: 'ri-settings-line', color: '#6B7280' },
+];
+
+const notificationStatuses = [
+  { value: 'draft', label: 'Brouillon', color: '#6B7280', bg: 'rgba(107,114,128,0.12)' },
+  { value: 'scheduled', label: 'Programmée', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  { value: 'sent', label: 'Envoyée', color: '#22C55E', bg: 'rgba(34,197,94,0.12)' },
+  { value: 'paused', label: 'En pause', color: '#F97316', bg: 'rgba(249,115,22,0.12)' },
+];
+
+const notificationPriorities = [
+  { value: 'normal', label: 'Normal', color: '#4A9EFF' },
+  { value: 'high', label: 'Haute', color: '#F59E0B' },
+  { value: 'urgent', label: 'Urgente', color: '#EF4444' },
+];
+
+type Notification = any; // TODO: proper type when backend is wired
 
 export default function AdminNotificationsPage() {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState<any[]>([]); // loaded from backend (or empty until /admin/notifications is implemented)
+
+  const loadNotifications = async () => {
+    try {
+      const res = await adminApi.notifications({ limit: 100 });
+      const items = res.items || res.data || [];
+      setNotifications(items);
+    } catch (e) {
+      setNotifications([]);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -71,57 +115,59 @@ export default function AdminNotificationsPage() {
     return t?.label || target;
   };
 
-  const handleSendNow = () => {
+  const handleSendNow = async () => {
     if (!confirmAction) return;
     const { notification, action } = confirmAction;
-    if (action === 'send') {
-      setNotifications((prev) => prev.map((n) => n.id === notification.id ? { ...n, status: 'sent' as const, sentAt: new Date().toISOString().replace('T', ' ').slice(0, 16), sentCount: n.audienceCount } : n));
-      addToast('success', 'Notification envoyée', `"${notification.title}" a été envoyée à ${notification.audienceCount.toLocaleString('fr-FR')} utilisateurs.`);
-    } else if (action === 'delete') {
-      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
-      addToast('info', 'Notification supprimée', `"${notification.title}" a été supprimée.`);
-    } else if (action === 'pause') {
-      setNotifications((prev) => prev.map((n) => n.id === notification.id ? { ...n, status: 'paused' as const } : n));
-      addToast('warning', 'Notification en pause', `"${notification.title}" a été mise en pause.`);
+
+    try {
+      if (action === 'send') {
+        await adminApi.updateNotificationStatus(notification.id, 'sent');
+        addToast('success', 'Notification envoyée', `"${notification.title}" a été envoyée.`);
+      } else if (action === 'delete') {
+        await adminApi.updateNotificationStatus(notification.id, 'deleted');
+        addToast('info', 'Notification supprimée', `"${notification.title}" a été supprimée.`);
+      } else if (action === 'pause') {
+        await adminApi.updateNotificationStatus(notification.id, 'paused');
+        addToast('warning', 'Notification en pause', `"${notification.title}" a été mise en pause.`);
+      }
+    } catch (e: any) {
+      addToast('error', 'Erreur', e?.message || 'Action impossible.');
     }
+
     setConfirmAction(null);
     setSelectedNotification(null);
+    await loadNotifications();
   };
 
-  const handleAddNotification = () => {
+  const handleAddNotification = async () => {
     if (!newNotification.title.trim() || !newNotification.body.trim()) {
       addToast('error', 'Champs requis', 'Veuillez remplir le titre et le contenu de la notification.');
       return;
     }
-    const target = notificationTargets.find((t) => t.value === newNotification.target);
-    const audienceCount = target ? Math.floor(Math.random() * 15000) + 500 : 0;
-    const id = `NTF-${String(notifications.length + 1).padStart(3, '0')}`;
-    const status = newNotification.scheduledAt ? 'scheduled' as const : 'draft' as const;
-    const createdAt = new Date().toISOString().replace('T', ' ').slice(0, 16);
-    const notification: Notification = {
-      id,
-      title: newNotification.title,
-      body: newNotification.body,
-      type: newNotification.type as Notification['type'],
-      target: newNotification.target as Notification['target'],
-      audienceCount,
-      sentCount: 0,
-      readCount: 0,
-      status,
-      scheduledAt: newNotification.scheduledAt || null,
-      sentAt: null,
-      createdAt,
-      author: 'Super Admin',
-      priority: newNotification.priority as Notification['priority'],
-    };
-    setNotifications((prev) => [notification, ...prev]);
-    setShowAddModal(false);
-    setNewNotification({ title: '', body: '', type: 'promotion', target: 'all', priority: 'normal', scheduledAt: '' });
-    addToast('success', status === 'scheduled' ? 'Notification programmée' : 'Brouillon créé', `"${notification.title}" a été ${status === 'scheduled' ? 'programmée' : 'sauvegardée'}.`);
+
+    try {
+      const payload = {
+        title: newNotification.title,
+        body: newNotification.body,
+        type: newNotification.type,
+        target: newNotification.target,
+        priority: newNotification.priority,
+        scheduledAt: newNotification.scheduledAt || undefined,
+      };
+
+      await adminApi.createNotification(payload);
+      addToast('success', 'Notification créée', 'La notification a été enregistrée.');
+
+      setShowAddModal(false);
+      setNewNotification({ title: '', body: '', type: 'promotion', target: 'all', priority: 'normal', scheduledAt: '' });
+      await loadNotifications();
+    } catch (e: any) {
+      addToast('error', 'Erreur', e?.message || 'Impossible de créer la notification.');
+    }
   };
 
-  const inputStyle = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontFamily: 'Poppins, sans-serif' };
-  const selectStyle = { background: '#0A1628', color: '#FFFFFF' };
+  const inputStyle = { background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' };
+  const selectStyle = { background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' };
 
   return (
     <AdminLayout breadcrumb={['WATSIM', 'Système', 'Notifications']}>
@@ -129,10 +175,10 @@ export default function AdminNotificationsPage() {
         {/* Page Title */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+            <h1 className="text-2xl font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
               Gestion des Notifications
             </h1>
-            <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>
+            <p className="text-sm mt-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
               Envoyer et suivre les notifications push et in-app
             </p>
           </div>
@@ -140,8 +186,8 @@ export default function AdminNotificationsPage() {
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer whitespace-nowrap"
             style={{
-              background: 'linear-gradient(135deg, #D4AF37, #F5D76E)',
-              color: '#0A1628',
+              background: 'linear-gradient(135deg, #4DB049, #22C55E)',
+              color: '#FFFFFF',
               fontFamily: 'Poppins, sans-serif',
             }}
           >
@@ -153,7 +199,7 @@ export default function AdminNotificationsPage() {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
           {[
-            { label: 'Total', value: stats.total, icon: 'ri-notification-3-line', color: '#D4AF37' },
+            { label: 'Total', value: stats.total, icon: 'ri-notification-3-line', color: '#4DB049' },
             { label: 'Envoyées', value: stats.sent, icon: 'ri-send-plane-line', color: '#22C55E' },
             { label: 'Programmées', value: stats.scheduled, icon: 'ri-calendar-check-line', color: '#F59E0B' },
             { label: 'Brouillons', value: stats.drafts, icon: 'ri-draft-line', color: '#6B7280' },
@@ -163,17 +209,14 @@ export default function AdminNotificationsPage() {
             <div
               key={stat.label}
               className="rounded-2xl p-4 flex items-center gap-3"
-              style={{
-                background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)',
-                border: '1px solid rgba(212,175,55,0.15)',
-              }}
+              style={cardStyle}
             >
               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${stat.color}20` }}>
                 <i className={`${stat.icon} text-lg`} style={{ color: stat.color }} />
               </div>
               <div>
-                <p className="text-lg font-bold text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>{stat.value}</p>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>{stat.label}</p>
+                <p className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>{stat.value}</p>
+                <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{stat.label}</p>
               </div>
             </div>
           ))}
@@ -183,41 +226,36 @@ export default function AdminNotificationsPage() {
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div className="flex flex-wrap gap-3">
             <div className="relative">
-              <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'rgba(255,255,255,0.3)' }} />
+              <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#9CA3AF' }} />
               <input
                 type="text"
                 placeholder="Rechercher une notification..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 pr-4 py-2 rounded-lg text-sm outline-none w-64"
-                style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#FFFFFF',
-                  fontFamily: 'Poppins, sans-serif',
-                }}
+                style={inputStyle}
               />
             </div>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}
+              style={selectStyle}
             >
-              <option value="all" style={selectStyle}>Tous les statuts</option>
+              <option value="all" style={{ background: '#FFFFFF' }}>Tous les statuts</option>
               {notificationStatuses.map((s) => (
-                <option key={s.value} value={s.value} style={selectStyle}>{s.label}</option>
+                <option key={s.value} value={s.value} style={{ background: '#FFFFFF' }}>{s.label}</option>
               ))}
             </select>
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
               className="px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}
+              style={selectStyle}
             >
-              <option value="all" style={selectStyle}>Tous les types</option>
+              <option value="all" style={{ background: '#FFFFFF' }}>Tous les types</option>
               {notificationTypes.map((t) => (
-                <option key={t.value} value={t.value} style={selectStyle}>{t.label}</option>
+                <option key={t.value} value={t.value} style={{ background: '#FFFFFF' }}>{t.label}</option>
               ))}
             </select>
           </div>
@@ -228,9 +266,9 @@ export default function AdminNotificationsPage() {
                 onClick={() => setSortBy(key)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap"
                 style={{
-                  background: sortBy === key ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.05)',
-                  color: sortBy === key ? '#D4AF37' : 'rgba(255,255,255,0.5)',
-                  border: `1px solid ${sortBy === key ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                  background: sortBy === key ? 'rgba(77,176,89,0.2)' : '#F5FAF5',
+                  color: sortBy === key ? '#4DB049' : '#6B7280',
+                  border: `1px solid ${sortBy === key ? 'rgba(77,176,89,0.3)' : '#E8F2F1'}`,
                   fontFamily: 'Poppins, sans-serif',
                 }}
               >
@@ -243,20 +281,17 @@ export default function AdminNotificationsPage() {
         {/* Table */}
         <div
           className="rounded-2xl overflow-hidden"
-          style={{
-            background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)',
-            border: '1px solid rgba(212,175,55,0.15)',
-          }}
+          style={cardStyle}
         >
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <tr style={{ borderBottom: '1px solid #E8F2F1' }}>
                   {['Notification', 'Type', 'Cible', 'Audience', 'Performance', 'Statut', 'Priorité', 'Actions'].map((h) => (
                     <th
                       key={h}
                       className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider"
-                      style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}
+                      style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}
                     >
                       {h}
                     </th>
@@ -272,16 +307,16 @@ export default function AdminNotificationsPage() {
                   return (
                     <tr
                       key={n.id}
-                      className="transition-colors hover:bg-white/[0.02]"
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                      className="transition-colors hover:bg-gray-50"
+                      style={{ borderBottom: '1px solid #F0F7F0' }}
                     >
                       {/* Notification */}
                       <td className="px-4 py-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-white truncate" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'Poppins, sans-serif' }}>
                             {n.title}
                           </p>
-                          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>
+                          <p className="text-xs mt-0.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
                             {n.id} · {n.author} · {n.createdAt}
                           </p>
                         </div>
@@ -293,7 +328,7 @@ export default function AdminNotificationsPage() {
                           <div className="w-5 h-5 flex items-center justify-center">
                             <i className={`${typeStyle.icon} text-sm`} style={{ color: typeStyle.color }} />
                           </div>
-                          <span className="text-sm text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          <span className="text-sm text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                             {typeStyle.label}
                           </span>
                         </div>
@@ -301,10 +336,10 @@ export default function AdminNotificationsPage() {
 
                       {/* Cible */}
                       <td className="px-4 py-3">
-                        <span className="text-sm text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                           {getTargetLabel(n.target)}
                         </span>
-                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+                        <p className="text-xs" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
                           {n.audienceCount.toLocaleString('fr-FR')} utilisateurs
                         </p>
                       </td>
@@ -313,19 +348,19 @@ export default function AdminNotificationsPage() {
                       <td className="px-4 py-3">
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>
+                            <span className="text-xs" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
                               {n.sentCount.toLocaleString('fr-FR')} / {n.audienceCount.toLocaleString('fr-FR')}
                             </span>
-                            <span className="text-xs font-medium" style={{ color: '#D4AF37', fontFamily: 'Poppins, sans-serif' }}>
+                            <span className="text-xs font-medium" style={{ color: '#4DB049', fontFamily: 'Poppins, sans-serif' }}>
                               {n.sentCount > 0 ? `${((n.sentCount / n.audienceCount) * 100).toFixed(0)}%` : '—'}
                             </span>
                           </div>
-                          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: '#E8F2F1' }}>
                             <div
                               className="h-full rounded-full"
                               style={{
                                 width: `${n.audienceCount > 0 ? (n.sentCount / n.audienceCount) * 100 : 0}%`,
-                                background: 'linear-gradient(90deg, #D4AF37, #F5D76E)',
+                                background: 'linear-gradient(90deg, #4DB049, #22C55E)',
                               }}
                             />
                           </div>
@@ -336,14 +371,14 @@ export default function AdminNotificationsPage() {
                       <td className="px-4 py-3">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <i className="ri-eye-line text-xs" style={{ color: 'rgba(255,255,255,0.4)' }} />
-                            <span className="text-xs text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                            <i className="ri-eye-line text-xs" style={{ color: '#9CA3AF' }} />
+                            <span className="text-xs text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                               {n.readCount.toLocaleString('fr-FR')} lectures
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <i className="ri-percent-line text-xs" style={{ color: 'rgba(255,255,255,0.4)' }} />
-                            <span className="text-xs font-medium" style={{ color: n.sentCount > 0 ? '#22C55E' : 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+                            <i className="ri-percent-line text-xs" style={{ color: '#9CA3AF' }} />
+                            <span className="text-xs font-medium" style={{ color: n.sentCount > 0 ? '#22C55E' : '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
                               {n.sentCount > 0 ? `${readRate}%` : '—'}
                             </span>
                           </div>
@@ -363,7 +398,7 @@ export default function AdminNotificationsPage() {
                           {statusStyle.label}
                         </span>
                         {n.scheduledAt && (
-                          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+                          <p className="text-xs mt-1" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
                             <i className="ri-calendar-line mr-1" />
                             {n.scheduledAt}
                           </p>
@@ -374,7 +409,7 @@ export default function AdminNotificationsPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           <div className="w-2 h-2 rounded-full" style={{ background: priorityColor }} />
-                          <span className="text-xs text-white capitalize" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          <span className="text-xs text-gray-900 capitalize" style={{ fontFamily: 'Poppins, sans-serif' }}>
                             {n.priority}
                           </span>
                         </div>
@@ -385,11 +420,11 @@ export default function AdminNotificationsPage() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => setSelectedNotification(n)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
-                            style={{ background: 'rgba(255,255,255,0.05)' }}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer hover:bg-gray-100"
+                            style={{ background: '#F5FAF5' }}
                             title="Voir le détail"
                           >
-                            <i className="ri-eye-line text-sm" style={{ color: '#D4AF37' }} />
+                            <i className="ri-eye-line text-sm" style={{ color: '#4DB049' }} />
                           </button>
                           {n.status === 'draft' && (
                             <button
@@ -437,8 +472,8 @@ export default function AdminNotificationsPage() {
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-4 py-12 text-center">
-                      <i className="ri-notification-off-line text-4xl mb-3 block" style={{ color: 'rgba(255,255,255,0.15)' }} />
-                      <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>
+                      <i className="ri-notification-off-line text-4xl mb-3 block" style={{ color: '#D1E8D1' }} />
+                      <p className="text-sm" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
                         Aucune notification trouvée
                       </p>
                     </td>
@@ -459,29 +494,29 @@ export default function AdminNotificationsPage() {
         >
           <div
             className="w-full max-w-lg rounded-2xl p-6 space-y-5"
-            style={{ background: '#0D1B2A', border: '1px solid rgba(212,175,55,0.25)' }}
+            style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(1,73,69,0.15)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
                 Détails de la notification
               </h2>
               <button
                 onClick={() => setSelectedNotification(null)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 cursor-pointer"
-                style={{ color: 'rgba(255,255,255,0.5)' }}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer"
+                style={{ color: '#6B7280' }}
               >
                 <i className="ri-close-line text-lg" />
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>Titre</p>
-                <p className="text-sm font-medium text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{selectedNotification.title}</p>
+                <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Titre</p>
+                <p className="text-sm font-medium" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{selectedNotification.title}</p>
               </div>
               <div>
-                <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>Contenu</p>
-                <p className="text-sm text-white leading-relaxed" style={{ fontFamily: 'Poppins, sans-serif' }}>{selectedNotification.body}</p>
+                <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Contenu</p>
+                <p className="text-sm leading-relaxed" style={{ color: '#374151', fontFamily: 'Poppins, sans-serif' }}>{selectedNotification.body}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
@@ -492,40 +527,40 @@ export default function AdminNotificationsPage() {
                   { label: 'Audience', value: `${selectedNotification.audienceCount.toLocaleString('fr-FR')} utilisateurs`, icon: 'ri-team-line', color: '#4A9EFF' },
                   { label: 'Créée le', value: selectedNotification.createdAt, icon: 'ri-calendar-line', color: '#6B7280' },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div key={item.label} className="rounded-xl p-3" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
                     <div className="flex items-center gap-2 mb-1">
                       <i className={`${item.icon} text-xs`} style={{ color: item.color }} />
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>{item.label}</p>
+                      <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{item.label}</p>
                     </div>
-                    <p className="text-sm font-medium text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{item.value}</p>
+                    <p className="text-sm font-medium" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{item.value}</p>
                   </div>
                 ))}
               </div>
               {selectedNotification.sentCount > 0 && (
-                <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Performance d'envoi</p>
+                <div className="rounded-xl p-4 space-y-3" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
+                  <p className="text-xs font-medium" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Performance d'envoi</p>
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div>
-                      <p className="text-lg font-bold text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>{selectedNotification.sentCount.toLocaleString('fr-FR')}</p>
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>Envoyés</p>
+                      <p className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>{selectedNotification.sentCount.toLocaleString('fr-FR')}</p>
+                      <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Envoyés</p>
                     </div>
                     <div>
-                      <p className="text-lg font-bold text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>{selectedNotification.readCount.toLocaleString('fr-FR')}</p>
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>Lus</p>
+                      <p className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>{selectedNotification.readCount.toLocaleString('fr-FR')}</p>
+                      <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Lus</p>
                     </div>
                     <div>
                       <p className="text-lg font-bold" style={{ color: '#22C55E', fontFamily: 'Montserrat, sans-serif' }}>
                         {((selectedNotification.readCount / selectedNotification.sentCount) * 100).toFixed(1)}%
                       </p>
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>Taux de lecture</p>
+                      <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Taux de lecture</p>
                     </div>
                   </div>
-                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#E8F2F1' }}>
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${(selectedNotification.readCount / selectedNotification.sentCount) * 100}%`,
-                        background: 'linear-gradient(90deg, #D4AF37, #F5D76E)',
+                        background: 'linear-gradient(90deg, #4DB049, #22C55E)',
                       }}
                     />
                   </div>
@@ -536,7 +571,7 @@ export default function AdminNotificationsPage() {
               <button
                 onClick={() => setSelectedNotification(null)}
                 className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap"
-                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
+                style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}
               >
                 Fermer
               </button>
@@ -544,7 +579,7 @@ export default function AdminNotificationsPage() {
                 <button
                   onClick={() => { setSelectedNotification(null); setConfirmAction({ notification: selectedNotification, action: 'send' }); }}
                   className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap"
-                  style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', color: '#0A1628', fontFamily: 'Poppins, sans-serif' }}
+                  style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}
                 >
                   <i className="ri-send-plane-line mr-2" />Envoyer maintenant
                 </button>
@@ -563,17 +598,17 @@ export default function AdminNotificationsPage() {
         >
           <div
             className="w-full max-w-lg rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto"
-            style={{ background: '#0D1B2A', border: '1px solid rgba(212,175,55,0.25)' }}
+            style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(1,73,69,0.15)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
                 Nouvelle notification
               </h2>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 cursor-pointer"
-                style={{ color: 'rgba(255,255,255,0.5)' }}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer"
+                style={{ color: '#6B7280' }}
               >
                 <i className="ri-close-line text-lg" />
               </button>
@@ -581,7 +616,7 @@ export default function AdminNotificationsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>
+                <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
                   Titre *
                 </label>
                 <input
@@ -593,13 +628,13 @@ export default function AdminNotificationsPage() {
                   placeholder="Ex: Offre spéciale du week-end"
                   maxLength={100}
                 />
-                <p className="text-xs mt-1 text-right" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+                <p className="text-xs mt-1 text-right" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
                   {newNotification.title.length}/100
                 </p>
               </div>
 
               <div>
-                <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>
+                <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
                   Contenu *
                 </label>
                 <textarea
@@ -611,14 +646,14 @@ export default function AdminNotificationsPage() {
                   style={inputStyle}
                   placeholder="Décrivez le contenu de votre notification..."
                 />
-                <p className="text-xs mt-1 text-right" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+                <p className="text-xs mt-1 text-right" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
                   {newNotification.body.length}/500
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Type</label>
+                  <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Type</label>
                   <select
                     value={newNotification.type}
                     onChange={(e) => setNewNotification((prev) => ({ ...prev, type: e.target.value }))}
@@ -626,12 +661,12 @@ export default function AdminNotificationsPage() {
                     style={inputStyle}
                   >
                     {notificationTypes.map((t) => (
-                      <option key={t.value} value={t.value} style={{ background: '#0A1628' }}>{t.label}</option>
+                      <option key={t.value} value={t.value} style={{ background: '#FFFFFF' }}>{t.label}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Priorité</label>
+                  <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Priorité</label>
                   <select
                     value={newNotification.priority}
                     onChange={(e) => setNewNotification((prev) => ({ ...prev, priority: e.target.value }))}
@@ -639,14 +674,14 @@ export default function AdminNotificationsPage() {
                     style={inputStyle}
                   >
                     {notificationPriorities.map((p) => (
-                      <option key={p.value} value={p.value} style={{ background: '#0A1628' }}>{p.label}</option>
+                      <option key={p.value} value={p.value} style={{ background: '#FFFFFF' }}>{p.label}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Cible</label>
+                <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Cible</label>
                 <select
                   value={newNotification.target}
                   onChange={(e) => setNewNotification((prev) => ({ ...prev, target: e.target.value }))}
@@ -654,13 +689,13 @@ export default function AdminNotificationsPage() {
                   style={inputStyle}
                 >
                   {notificationTargets.map((t) => (
-                    <option key={t.value} value={t.value} style={{ background: '#0A1628' }}>{t.label}</option>
+                    <option key={t.value} value={t.value} style={{ background: '#FFFFFF' }}>{t.label}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>
+                <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
                   Programmation (optionnel)
                 </label>
                 <input
@@ -670,7 +705,7 @@ export default function AdminNotificationsPage() {
                   className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                   style={inputStyle}
                 />
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+                <p className="text-xs mt-1" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
                   Laissez vide pour sauvegarder en brouillon
                 </p>
               </div>
@@ -680,14 +715,14 @@ export default function AdminNotificationsPage() {
               <button
                 onClick={() => setShowAddModal(false)}
                 className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap"
-                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
+                style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}
               >
                 Annuler
               </button>
               <button
                 onClick={handleAddNotification}
                 className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap"
-                style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', color: '#0A1628', fontFamily: 'Poppins, sans-serif' }}
+                style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}
               >
                 <i className="ri-add-line mr-2" />
                 {newNotification.scheduledAt ? 'Programmer' : 'Sauvegarder brouillon'}

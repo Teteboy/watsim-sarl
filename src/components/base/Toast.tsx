@@ -18,7 +18,7 @@ const toastConfig: Record<ToastType, { icon: string; color: string; bg: string; 
   success: { icon: 'ri-checkbox-circle-line', color: '#22C55E', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.3)' },
   error: { icon: 'ri-close-circle-line', color: '#EF4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)' },
   warning: { icon: 'ri-error-warning-line', color: '#F97316', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.3)' },
-  info: { icon: 'ri-information-line', color: '#D4AF37', bg: 'rgba(212,175,55,0.12)', border: 'rgba(212,175,55,0.3)' },
+  info: { icon: 'ri-information-line', color: '#4DB049', bg: 'rgba(77,176,89,0.12)', border: 'rgba(77,176,89,0.3)' },
 };
 
 function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: string) => void }) {

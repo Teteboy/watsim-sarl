@@ -1,0 +1,732 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MERCHANT
+  CUSTOMER
+}
+
+enum KycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum MerchantStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum TransactionType {
+  PURCHASE
+  REPAYMENT
+  DEPOSIT
+  WITHDRAWAL
+  REFUND
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+enum InstalmentStatus {
+  UPCOMING
+  DUE
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  phone        String    @unique
+  passwordHash String
+  pinHash      String?
+  pinSetAt     DateTime?
+  role         UserRole  @default(CUSTOMER)
+  fullName     String
+  kycStatus    KycStatus @default(PENDING)
+  creditScore  Int       @default(50)
+  creditLimit  Int       @default(0)
+  isActive     Boolean   @default(true)
+  imageUrl     String?
+  referralCode String?   @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  wallet               Wallet?
+  merchant             Merchant?
+  bnplPurchases        BnplPurchase[]
+  transactions         Transaction[]
+  kycDocuments         KycDocument[]
+  refreshTokens        RefreshToken[]
+  auditLogs            AuditLog[]
+  createdNotifications Notification[]     @relation("NotificationCreator")
+  userNotifications    UserNotification[] @relation("UserReceivedNotifications")
+
+  // Messaging
+  conversationParticipants ConversationParticipant[]
+  sentMessages             Message[]                 @relation("SentMessages")
+
+  // Disputes & Fraud
+  disputes         Dispute[]     @relation("UserDisputes")
+  resolvedDisputes Dispute[]     @relation("ResolvedDisputes")
+  fraudAlerts      FraudAlert[]  @relation("UserFraudAlerts")
+  resolvedAlerts   FraudAlert[]  @relation("ResolvedFraudAlerts")
+
+  // Referrals
+  referralsMade    Referral[]    @relation("Referrer")
+  referralReceived Referral?     @relation("Referred")
+
+  // Badges
+  badges           UserBadge[]
+
+  // Sessions & Security
+  sessions         UserSession[]
+  securitySettings UserSecuritySettings?
+  supportTickets   SupportTicket[]
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Int      @default(0)
+  currency  String   @default("XAF")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Merchant {
+  id             String         @id @default(uuid())
+  userId         String         @unique
+  businessName   String
+  category       String         // Primary/legacy category (kept for backward compatibility)
+  city           String
+  status         MerchantStatus @default(PENDING)
+  commissionRate Decimal        @default(0.02)
+  settings       Json?          @default("{}")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user            User                 @relation(fields: [userId], references: [id])
+  products        Product[]
+  orders          BnplPurchase[]
+  publicities     Publicity[]
+  payoutRequests  PayoutRequest[]
+  disputes        Dispute[]            @relation("MerchantDisputes")
+  categories      MerchantCategory[]   // Categories this merchant manages
+}
+
+model PayoutRequest {
+  id          String   @id @default(uuid())
+  merchantId  String
+  amount      Int
+  provider    String   // e.g. "ORANGE_MONEY", "MTN_MOBILE_MONEY", "BANK_TRANSFER"
+  status      String   @default("PENDING") // PENDING, APPROVED, PAID, REJECTED
+  requestedAt DateTime @default(now())
+  processedAt DateTime?
+  note        String?
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId])
+  @@index([status])
+}
+
+model Product {
+  id           String   @id @default(uuid())
+  merchantId   String
+  categoryId   String?
+  name         String
+  description  String?
+  price        Int
+  costPrice    Int?
+  stock        Int      @default(0)
+  imageUrl     String?  // Main/product cover image
+  bnplEligible Boolean  @default(true)
+  isActive     Boolean  @default(true)
+  deliveryFee  Int?     @default(0)
+  storageFee   Int?     @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  merchant  Merchant       @relation(fields: [merchantId], references: [id])
+  category  Category?      @relation(fields: [categoryId], references: [id])
+  purchases BnplPurchase[]
+  gallery   ProductGallery[]
+
+  @@index([merchantId])
+  @@index([categoryId])
+}
+
+model ProductGallery {
+  id        String   @id @default(uuid())
+  productId String
+  imageUrl  String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model BnplPurchase {
+  id               String   @id @default(uuid())
+  userId           String
+  merchantId       String
+  productId        String
+  totalAmount      Int
+  downPayment      Int      @default(0)
+  instalmentCount  Int
+  instalmentAmount Int
+  interestRate     Decimal  @default(0)
+  status           String   @default("ACTIVE")
+  // BNPL Fees
+  stockingFee      Int      @default(0)
+  accountCreationFee Int    @default(0)
+  deliveryFee      Int      @default(0)
+  collectionFee    Int      @default(0)
+  totalFees        Int      @default(0)
+  isFirstPurchase  Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  merchant     Merchant      @relation(fields: [merchantId], references: [id])
+  product      Product       @relation(fields: [productId], references: [id])
+  instalments  Instalment[]
+  transactions Transaction[]
+  disputes     Dispute[]
+  referrals    Referral[]
+
+  @@index([userId])
+  @@index([merchantId])
+}
+
+model Instalment {
+  id          String           @id @default(uuid())
+  purchaseId  String
+  amount      Int              // Total installment amount due
+  paidAmount  Int              @default(0) // Amount already paid toward this installment
+  storageFee  Int              @default(0) // Storage fee applied when overdue (3000 per month)
+  dueDate     DateTime
+  paidAt      DateTime?
+  status      InstalmentStatus @default(UPCOMING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  purchase BnplPurchase @relation(fields: [purchaseId], references: [id])
+
+  @@index([purchaseId])
+  @@index([status, dueDate])
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  userId      String
+  purchaseId  String?
+  type        TransactionType
+  amount      Int
+  status      TransactionStatus @default(PENDING)
+  provider    String?
+  providerRef String?           @unique
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+
+  user     User          @relation(fields: [userId], references: [id])
+  purchase BnplPurchase? @relation(fields: [purchaseId], references: [id])
+
+  @@index([userId])
+  @@index([providerRef])
+}
+
+model KycDocument {
+  id             String    @id @default(uuid())
+  userId         String
+  type           String
+  fileUrl        String
+  selfieUrl      String?
+  status         KycStatus @default(PENDING)
+  reviewedAt     DateTime?
+  reviewNote     String?
+  provider       String?
+  providerJobId  String?
+  providerResult Json?
+  resultCode     String?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([providerJobId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+}
+
+// ===== OHADA Accounting (SYSCOHADA-Révisé) =====
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+model LedgerAccount {
+  code      String      @id
+  name      String
+  type      AccountType
+  parent    String?
+  createdAt DateTime    @default(now())
+
+  lines JournalLine[]
+
+  @@index([type])
+}
+
+model JournalEntry {
+  id          String   @id @default(uuid())
+  reference   String   @unique
+  description String
+  postedAt    DateTime @default(now())
+  postedBy    String?
+  sourceType  String?
+  sourceId    String?
+  createdAt   DateTime @default(now())
+
+  lines JournalLine[]
+
+  @@index([postedAt])
+  @@index([sourceType, sourceId])
+}
+
+model JournalLine {
+  id          String   @id @default(uuid())
+  entryId     String
+  accountCode String
+  debit       Int      @default(0)
+  credit      Int      @default(0)
+  memo        String?
+  createdAt   DateTime @default(now())
+
+  entry   JournalEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account LedgerAccount @relation(fields: [accountCode], references: [code])
+
+  @@index([entryId])
+  @@index([accountCode])
+}
+
+// ===== Publicity / Advertising =====
+
+enum PublicityType {
+  BANNER
+  VIDEO
+  POPUP
+  NATIVE
+}
+
+enum PublicityStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  REJECTED
+}
+
+enum PublicityPosition {
+  HOMEPAGE_HERO
+  CATEGORY_TOP
+  PRODUCT_DETAIL
+  CHECKOUT
+}
+
+model Publicity {
+  id          String            @id @default(uuid())
+  merchantId  String?
+  name        String
+  type        PublicityType
+  position    PublicityPosition
+  budget      Int               @default(0)
+  spent       Int               @default(0)
+  clicks      Int               @default(0)
+  impressions Int               @default(0)
+  status      PublicityStatus   @default(DRAFT)
+  startDate   DateTime?
+  endDate     DateTime?
+  imageUrl    String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  merchant Merchant? @relation(fields: [merchantId], references: [id])
+}
+
+// ===== Platform Categories (for admin settings) =====
+
+model Category {
+  id                 String   @id @default(uuid())
+  name               String   @unique
+  slug               String   @unique
+  description        String?
+  icon               String?
+  color              String?
+  imageUrl           String?  // Category cover image
+  sortOrder          Int      @default(0)
+  active             Boolean  @default(true)
+  featured           Boolean  @default(false)
+  // BNPL per-category configuration
+  bnplEnabled        Boolean  @default(true)
+  maxCredit          Int      @default(500000)
+  minScore           Int      @default(550)
+  merchantCommission Decimal  @default(2.5)
+  markupMargin       Decimal  @default(0.20)
+  markupPercentage   Decimal  @default(20.0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  products   Product[]
+  merchants  MerchantCategory[]
+}
+
+// Junction table: Merchants can manage multiple categories
+model MerchantCategory {
+  id         String   @id @default(uuid())
+  merchantId String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, categoryId])
+  @@index([merchantId])
+  @@index([categoryId])
+}
+
+// ===== System-wide configuration (for admin Settings page) =====
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ===== Admin Notifications =====
+model Notification {
+  id            String    @id @default(uuid())
+  title         String
+  body          String    @db.Text
+  type          String // promotion, alert, info, system
+  target        String // all, users, merchants, premium
+  priority      String    @default("normal") // normal, high, urgent
+  status        String    @default("draft") // draft, scheduled, sent, paused
+  scheduledAt   DateTime?
+  sentAt        DateTime?
+  audienceCount Int       @default(0)
+  sentCount     Int       @default(0)
+  readCount     Int       @default(0)
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  createdBy         User?              @relation("NotificationCreator", fields: [createdById], references: [id])
+  userNotifications UserNotification[] @relation("PlatformNotificationToInbox")
+}
+
+// ===== User / Merchant Inbox Notifications =====
+model UserNotification {
+  id             String   @id @default(uuid())
+  userId         String
+  notificationId String? // link to platform Notification (if any)
+  title          String
+  body           String
+  type           String
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user         User          @relation("UserReceivedNotifications", fields: [userId], references: [id])
+  notification Notification? @relation("PlatformNotificationToInbox", fields: [notificationId], references: [id])
+}
+
+// ===== In-app Messaging (chat) =====
+model Conversation {
+  id        String   @id @default(uuid())
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  id             String    @id @default(uuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime  @default(now())
+  lastReadAt     DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String    @id @default(uuid())
+  conversationId String
+  senderId       String
+  text           String?   @db.Text
+  attachmentUrl  String?
+  attachmentType String?   // image | file | audio
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+}
+
+// ===== Disputes =====
+model Dispute {
+  id          String   @id @default(uuid())
+  purchaseId  String
+  userId      String
+  merchantId  String
+  reason      String
+  description String   @db.Text
+  status      String   @default("PENDING")
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  resolvedAt  DateTime?
+  resolvedBy  String?
+
+  purchase BnplPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  user     User         @relation("UserDisputes", fields: [userId], references: [id], onDelete: Cascade)
+  merchant Merchant     @relation("MerchantDisputes", fields: [merchantId], references: [id], onDelete: Cascade)
+  resolver User?        @relation("ResolvedDisputes", fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([userId])
+  @@index([merchantId])
+  @@index([purchaseId])
+}
+
+// ===== Fraud Alerts =====
+model FraudAlert {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String
+  severity    String   @default("MEDIUM")
+  description String   @db.Text
+  status      String   @default("ACTIVE")
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+  resolvedBy  String?
+
+  user     User  @relation("UserFraudAlerts", fields: [userId], references: [id], onDelete: Cascade)
+  resolver User? @relation("ResolvedFraudAlerts", fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([userId])
+  @@index([severity])
+}
+
+// ===== Badges & Achievements =====
+model BadgeDefinition {
+  id          String   @id @default(uuid())
+  slug        String   @unique // e.g., "first_purchase", "active_referrer", "kyc_verified"
+  name        String   // Display name
+  nameFr      String   // French display name
+  description String
+  descriptionFr String
+  icon        String   // Icon identifier (matches Flutter Icons)
+  color       String   // Hex color code
+  requirement String   // Requirement type: "purchase", "referral", "kyc", "spend", "streak", "vip"
+  threshold   Int      @default(0) // Threshold value to earn badge
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+  progress  Int      @default(0) // Current progress toward threshold
+  metadata  Json?    // Additional data about how badge was earned
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge BadgeDefinition @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@index([badgeId])
+}
+
+// ===== Referrals =====
+model Referral {
+  id                String    @id @default(uuid())
+  referrerId        String
+  referredId        String    @unique
+  purchaseId        String?   // Links to BNPL purchase for second reward calculation
+  firstRewardAmount Int       @default(500)
+  firstRewardPaid   Boolean   @default(false)
+  firstRewardPaidAt DateTime?
+  secondRewardAmount Int      @default(0)     // Calculated as 0.6% of totalAmount
+  secondRewardPaid  Boolean   @default(false)
+  secondRewardPaidAt DateTime?
+  status            String    @default("PENDING") // PENDING, FIRST_REWARDED, COMPLETED
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  referrer   User         @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred   User         @relation("Referred", fields: [referredId], references: [id], onDelete: Cascade)
+  purchase   BnplPurchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+
+  @@index([referrerId])
+  @@index([referredId])
+  @@index([status])
+}
+
+// ===== User Sessions (for login tracking and credit score) =====
+model UserSession {
+  id        String   @id @default(uuid())
+  userId    String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ===== User Security Settings =====
+model UserSecuritySettings {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  fingerprintEnabled   Boolean @default(false)
+  faceIdEnabled          Boolean @default(false)
+  irisEnabled            Boolean @default(false)
+  twoFAEnabled           Boolean @default(true)
+  loginAlertsEnabled     Boolean @default(true)
+  transactionAlertsEnabled Boolean @default(true)
+  accountFrozen          Boolean @default(false)
+  frozenAt               DateTime?
+  frozenReason           String?
+  updatedAt              DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ===== Support Tickets =====
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  GENERAL
+  TECHNICAL
+  BILLING
+  ACCOUNT
+  FRAUD
+}
+
+model SupportTicket {
+  id          String        @id @default(uuid())
+  userId      String
+  category    TicketCategory @default(GENERAL)
+  subject     String
+  description String        @db.Text
+  status      TicketStatus  @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  resolvedAt  DateTime?
+  resolvedBy  String?
+
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TicketMessage {
+  id         String   @id @default(uuid())
+  ticketId   String
+  senderId   String?  // null = system/admin
+  message    String   @db.Text
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([createdAt])
+}

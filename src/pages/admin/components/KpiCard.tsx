@@ -24,8 +24,8 @@ export default function KpiCard({ label, value, trend, trendUp, icon, sparkline 
     <div
       className="relative rounded-2xl p-5 overflow-hidden transition-transform duration-200 hover:scale-[1.02] cursor-default"
       style={{
-        background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)',
-        border: '1px solid rgba(212,175,55,0.15)',
+        background: '#FFFFFF',
+        border: '1px solid #E8F2F1',
       }}
     >
       {/* Sparkline background */}
@@ -34,7 +34,7 @@ export default function KpiCard({ label, value, trend, trendUp, icon, sparkline 
           <polyline
             points={points}
             fill="none"
-            stroke="#D4AF37"
+            stroke="#4DB049"
             strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -45,18 +45,18 @@ export default function KpiCard({ label, value, trend, trendUp, icon, sparkline 
       {/* Icon */}
       <div
         className="w-11 h-11 rounded-xl flex items-center justify-center mb-3"
-        style={{ background: 'rgba(212,175,55,0.15)' }}
+        style={{ background: 'rgba(77,176,89,0.15)' }}
       >
-        <i className={`${icon} text-xl`} style={{ color: '#D4AF37' }} />
+        <i className={`${icon} text-xl`} style={{ color: '#4DB049' }} />
       </div>
 
       {/* Label */}
-      <p className="text-sm mb-1" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>
+      <p className="text-sm mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
         {label}
       </p>
 
       {/* Value */}
-      <p className="text-2xl font-bold text-white mb-2" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+      <p className="text-2xl font-bold mb-2" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
         {value}
       </p>
 
@@ -72,7 +72,7 @@ export default function KpiCard({ label, value, trend, trendUp, icon, sparkline 
         >
           {trend}
         </span>
-        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+        <span className="text-xs" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
           vs mois dernier
         </span>
       </div>

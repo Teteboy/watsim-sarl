@@ -1,0 +1,57 @@
+name: watsim
+description: Watsim — Simple. Secure. Smart.
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  image_picker: ^1.1.2
+  file_picker: ^8.1.2
+  http: ^1.2.0
+  http_parser: ^4.0.2
+  web_socket_channel: ^2.4.0
+  shared_preferences: ^2.3.0
+  flutter_launcher_icons: ^0.14.1
+  local_auth: ^2.3.0
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app-icon.jpeg"
+  min_sdk_android: 21
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/logo_white.png
+    - assets/images/logo_green.png
+    - assets/images/logo_mixed.png
+    - assets/images/app-icon.jpeg
+    - assets/images/onboarding1.png
+    - assets/images/onboarding2.png
+    - assets/images/onboarding3.png
+    - assets/images/orange-money.png
+    - assets/images/momo.png
+    - assets/images/Wave.png
+    - assets/images/Partner_1 (1).png
+    - assets/images/Partner_1 (2).png
+    - assets/images/Partner_1 (3).png
+  fonts:
+    - family: DM Sans
+      fonts:
+        - asset: assets/fonts/DMSans-Regular.ttf
+        - asset: assets/fonts/DMSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/DMSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/DMSans-Bold.ttf
+          weight: 700

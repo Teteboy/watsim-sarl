@@ -1,14 +1,36 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import MerchantLayout from '@/components/feature/MerchantLayout';
 import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
-import { merchantOrders as initialOrders } from '@/mocks/merchantData';
+import { merchantApi } from '@/lib/api';
+import { mapBnpl, type BackendBnplPurchase, type Paginated } from '@/lib/api-adapters';
+import { cardStyle, inputStyle, labelStyle, headingStyle, tableHeaderStyle, tableRowStyle, statusBadgeStyle, tableRowHoverClass } from '@/styles/admin-theme';
 
-type Order = typeof initialOrders[0];
+type Order = any; // live data from merchantApi.orders (bnpl mapped)
+
+function bnplToOrder(b: BackendBnplPurchase): Order {
+  const ui = mapBnpl(b);
+  const statusMap: Record<string, Order['status']> = {
+    pending: 'pending', active: 'processing', overdue: 'processing', completed: 'completed',
+  };
+  return {
+    id: b.id,
+    customer: ui.user,
+    phone: '',
+    product: ui.product,
+    quantity: 1,
+    amount: ui.totalAmount,
+    paymentMethod: 'BNPL',
+    status: statusMap[ui.status] ?? 'pending',
+    date: ui.startDate,
+    deliveryDate: null,
+    city: '',
+  } as Order;
+}
 
 const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
   completed: { label: 'Livré', color: '#22C55E', icon: 'ri-checkbox-circle-line' },
-  processing: { label: 'En cours', color: '#D4AF37', icon: 'ri-loader-4-line' },
+  processing: { label: 'En cours', color: '#4DB049', icon: 'ri-loader-4-line' },
   shipped: { label: 'Expédié', color: '#4A9EFF', icon: 'ri-truck-line' },
   pending: { label: 'En attente', color: '#F97316', icon: 'ri-time-line' },
   cancelled: { label: 'Annulé', color: '#EF4444', icon: 'ri-close-circle-line' },
@@ -20,11 +42,26 @@ const paymentConfig: Record<string, { color: string; icon: string }> = {
 };
 
 export default function MerchantOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    merchantApi.orders({ limit: 100 })
+      .then((res) => {
+        const data = res as Paginated<BackendBnplPurchase>;
+        if (Array.isArray(data.items) && data.items.length > 0) {
+          setOrders(data.items.map(bnplToOrder));
+        }
+      })
+      .catch(() => null);
+  }, []);
+
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [cancelConfirm, setCancelConfirm] = useState<Order | null>(null);
+  const [showContributeModal, setShowContributeModal] = useState<Order | null>(null);
+  const [contributeForm, setContributeForm] = useState({ amount: '', note: '' });
+  const [contributeLoading, setContributeLoading] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
   const tabs = [
@@ -58,6 +95,38 @@ export default function MerchantOrdersPage() {
     setSelectedOrder(null);
   };
 
+  const handleContributeToInstallment = async () => {
+    if (!showContributeModal) return;
+    const amount = Number(contributeForm.amount);
+    if (!amount || amount === 0) {
+      addToast('error', 'Montant invalide', 'Veuillez saisir un montant.');
+      return;
+    }
+    setContributeLoading(true);
+    try {
+      // For BNPL orders, the order ID is the BNPL purchase ID
+      // We need to get the actual installment ID from the backend
+      const instalmentId = showContributeModal.id; // This should be the actual installment ID
+      await merchantApi.contributeToInstallment(instalmentId, amount, contributeForm.note || undefined);
+      addToast('success', 'Contribution effectuée', `${amount} FCFA ont été ajoutés à l'échéance.`);
+      setShowContributeModal(null);
+      setContributeForm({ amount: '', note: '' });
+      // Reload the data
+      merchantApi.orders({ limit: 100 })
+        .then((res) => {
+          const data = res as Paginated<BackendBnplPurchase>;
+          if (Array.isArray(data.items) && data.items.length > 0) {
+            setOrders(data.items.map(bnplToOrder));
+          }
+        })
+        .catch(() => null);
+    } catch (e: any) {
+      addToast('error', 'Erreur', e?.message || 'Opération échouée.');
+    } finally {
+      setContributeLoading(false);
+    }
+  };
+
   const exportCSV = () => {
     const rows = [
       ['ID', 'Client', 'Produit', 'Montant', 'Paiement', 'Statut', 'Date'],
@@ -84,19 +153,19 @@ export default function MerchantOrdersPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Total commandes', value: orders.length, icon: 'ri-file-list-3-line', color: '#D4AF37' },
+          { label: 'Total commandes', value: orders.length, icon: 'ri-file-list-3-line', color: '#4DB049' },
           { label: 'En attente', value: orders.filter(o => o.status === 'pending').length, icon: 'ri-time-line', color: '#F97316' },
           { label: 'Livrées', value: orders.filter(o => o.status === 'completed').length, icon: 'ri-checkbox-circle-line', color: '#22C55E' },
           { label: 'Revenus livrés', value: `${fmt(orders.filter(o => o.status === 'completed').reduce((s, o) => s + o.amount, 0))} FCFA`, icon: 'ri-money-dollar-circle-line', color: '#A855F7' },
         ].map(s => (
-          <div key={s.label} className="rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, #152238, #0D1B2A)', border: '1px solid rgba(212,175,55,0.1)' }}>
+          <div key={s.label} className="rounded-2xl p-4" style={cardStyle}>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${s.color}20` }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${s.color}15` }}>
                 <i className={`${s.icon} text-base`} style={{ color: s.color }} />
               </div>
               <div>
-                <p className="text-white font-bold text-lg" style={{ fontFamily: 'Montserrat, sans-serif' }}>{s.value}</p>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>{s.label}</p>
+                <p className="font-bold text-lg text-watsim-primaryDark font-montserrat">{s.value}</p>
+                <p className="text-xs text-watsim-textMuted font-poppins">{s.label}</p>
               </div>
             </div>
           </div>
@@ -109,19 +178,18 @@ export default function MerchantOrdersPage() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-all"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-all font-poppins"
             style={{
-              background: activeTab === tab.key ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.05)',
-              color: activeTab === tab.key ? '#D4AF37' : 'rgba(255,255,255,0.5)',
-              border: `1px solid ${activeTab === tab.key ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.08)'}`,
-              fontFamily: 'Poppins, sans-serif',
+              background: activeTab === tab.key ? 'rgba(77,176,89,0.15)' : '#F5FAF5',
+              color: activeTab === tab.key ? '#4DB049' : '#6B7280',
+              border: `1px solid ${activeTab === tab.key ? '#4DB049' : '#E8F2F1'}`,
             }}
           >
             {tab.label}
             {tab.count > 0 && (
               <span
                 className="text-xs px-1.5 py-0.5 rounded-full"
-                style={{ background: activeTab === tab.key ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.08)', color: activeTab === tab.key ? '#D4AF37' : 'rgba(255,255,255,0.4)' }}
+                style={{ background: activeTab === tab.key ? 'rgba(77,176,89,0.2)' : '#E8F2F1', color: activeTab === tab.key ? '#4DB049' : '#9CA3AF' }}
               >
                 {tab.count}
               </span>
@@ -133,27 +201,27 @@ export default function MerchantOrdersPage() {
       {/* Toolbar */}
       <div
         className="rounded-2xl p-4 mb-4 flex flex-col md:flex-row gap-3 items-start md:items-center"
-        style={{ background: 'linear-gradient(135deg, #152238, #0D1B2A)', border: '1px solid rgba(212,175,55,0.1)' }}
+        style={cardStyle}
       >
         <div className="relative flex-1 w-full">
-          <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm" />
+          <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400" />
           <input
             type="text"
             placeholder="Rechercher par ID, client, produit..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-lg text-sm text-white outline-none"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'Poppins, sans-serif' }}
+            className="w-full pl-9 pr-4 py-2 rounded-lg text-sm outline-none font-poppins"
+            style={inputStyle}
           />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-white/40" style={{ fontFamily: 'Poppins, sans-serif' }}>
+          <span className="text-xs text-watsim-textMuted font-poppins">
             {filtered.length} commande{filtered.length > 1 ? 's' : ''} · {fmt(totalRevenue)} FCFA
           </span>
           <button
             onClick={exportCSV}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-all hover:scale-105"
-            style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-all hover:scale-105 font-poppins"
+            style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1' }}
           >
             <i className="ri-download-2-line" />
             Exporter
@@ -162,13 +230,13 @@ export default function MerchantOrdersPage() {
       </div>
 
       {/* Orders table */}
-      <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #152238, #0D1B2A)', border: '1px solid rgba(212,175,55,0.1)' }}>
+      <div className="rounded-2xl overflow-hidden" style={cardStyle}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <tr style={tableHeaderStyle}>
                 {['Commande', 'Client', 'Produit', 'Montant', 'Paiement', 'Ville', 'Date', 'Statut', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>
+                  <th key={h} className="px-4 py-3 text-left text-xs uppercase tracking-wider text-watsim-primary font-poppins">
                     {h}
                   </th>
                 ))}
@@ -179,30 +247,30 @@ export default function MerchantOrdersPage() {
                 const sc = statusConfig[order.status];
                 const pc = paymentConfig[order.paymentMethod];
                 return (
-                  <tr key={order.id} className="transition-colors hover:bg-white/5 cursor-pointer" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }} onClick={() => setSelectedOrder(order)}>
+                  <tr key={order.id} className={`transition-colors cursor-pointer ${tableRowHoverClass}`} style={tableRowStyle} onClick={() => setSelectedOrder(order)}>
                     <td className="px-4 py-3">
-                      <span className="text-xs font-mono font-semibold" style={{ color: '#D4AF37' }}>{order.id}</span>
+                      <span className="text-xs font-mono font-semibold text-watsim-primaryDark">{order.id}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-white text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>{order.customer}</p>
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>{order.phone}</p>
+                      <p className="text-sm text-watsim-textPrimary font-poppins">{order.customer}</p>
+                      <p className="text-xs text-gray-400 font-poppins">{order.phone}</p>
                     </td>
-                    <td className="px-4 py-3 text-white/70 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>{order.product}</td>
-                    <td className="px-4 py-3 text-white font-semibold text-sm" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                    <td className="px-4 py-3 text-sm text-watsim-textMuted font-poppins">{order.product}</td>
+                    <td className="px-4 py-3 font-semibold text-sm text-watsim-primaryDark font-montserrat">
                       {order.amount.toLocaleString()} FCFA
                     </td>
                     <td className="px-4 py-3">
-                      <span className="flex items-center gap-1.5 text-xs" style={{ color: pc.color, fontFamily: 'Poppins, sans-serif' }}>
+                      <span className="flex items-center gap-1.5 text-xs font-poppins" style={{ color: pc.color }}>
                         <i className={`${pc.icon} text-xs`} />
                         {order.paymentMethod}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-white/50 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>{order.city}</td>
-                    <td className="px-4 py-3 text-white/50 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>{order.date}</td>
+                    <td className="px-4 py-3 text-sm text-watsim-textMuted font-poppins">{order.city}</td>
+                    <td className="px-4 py-3 text-sm text-watsim-textMuted font-poppins">{order.date}</td>
                     <td className="px-4 py-3">
                       <span
-                        className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full w-fit"
-                        style={{ background: `${sc.color}20`, color: sc.color, fontFamily: 'Poppins, sans-serif' }}
+                        className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full w-fit font-poppins"
+                        style={statusBadgeStyle(sc.color)}
                       >
                         <i className={`${sc.icon} text-xs`} />
                         {sc.label}
@@ -213,8 +281,8 @@ export default function MerchantOrdersPage() {
                         {order.status === 'pending' && (
                           <button
                             onClick={() => updateStatus(order.id, 'processing')}
-                            className="text-xs px-2 py-1 rounded-lg cursor-pointer whitespace-nowrap transition-all hover:scale-105"
-                            style={{ background: 'rgba(212,175,55,0.15)', color: '#D4AF37', fontFamily: 'Poppins, sans-serif' }}
+                            className="text-xs px-2 py-1 rounded-lg cursor-pointer whitespace-nowrap transition-all hover:scale-105 font-poppins"
+                            style={{ background: 'rgba(77,176,89,0.15)', color: '#4DB049' }}
                           >
                             Traiter
                           </button>
@@ -226,6 +294,16 @@ export default function MerchantOrdersPage() {
                             style={{ background: 'rgba(74,158,255,0.15)', color: '#4A9EFF', fontFamily: 'Poppins, sans-serif' }}
                           >
                             Expédier
+                          </button>
+                        )}
+                        {order.paymentMethod === 'BNPL' && (order.status === 'processing' || order.status === 'pending') && (
+                          <button
+                            onClick={() => { setShowContributeModal(order); setContributeForm({ amount: '', note: '' }); }}
+                            className="text-xs px-2 py-1 rounded-lg cursor-pointer whitespace-nowrap transition-all hover:scale-105 font-poppins"
+                            style={{ background: 'rgba(77,176,89,0.15)', color: '#4DB049' }}
+                            title="Contribuer à l'échéance"
+                          >
+                            <i className="ri-add-circle-line" />
                           </button>
                         )}
                         {order.status === 'shipped' && (
@@ -240,7 +318,7 @@ export default function MerchantOrdersPage() {
                         {(order.status === 'pending' || order.status === 'processing') && (
                           <button
                             onClick={() => setCancelConfirm(order)}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer transition-colors hover:bg-red-500/10"
+                            className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer transition-colors hover:bg-gray-100"
                             style={{ color: '#EF4444' }}
                           >
                             <i className="ri-close-line text-sm" />
@@ -256,22 +334,22 @@ export default function MerchantOrdersPage() {
         </div>
         {filtered.length === 0 && (
           <div className="py-12 text-center">
-            <i className="ri-file-list-3-line text-4xl text-white/20 mb-3 block" />
-            <p className="text-white/40 text-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>Aucune commande trouvée</p>
+            <i className="ri-file-list-3-line text-4xl mb-3 block" style={{ color: '#E8F2F1' }} />
+            <p className="text-sm" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Aucune commande trouvée</p>
           </div>
         )}
       </div>
 
       {/* Order detail modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedOrder(null)}>
-          <div className="w-full max-w-lg rounded-2xl p-6 space-y-4" style={{ background: '#0D1B2A', border: '1px solid rgba(212,175,55,0.25)' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedOrder(null)}>
+          <div className="w-full max-w-lg rounded-2xl p-6 space-y-4" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-white font-bold text-lg" style={{ fontFamily: 'Montserrat, sans-serif' }}>Commande {selectedOrder.id}</h3>
-                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>{selectedOrder.date}</p>
+                <h3 className="font-bold text-lg" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Commande {selectedOrder.id}</h3>
+                <p className="text-xs mt-0.5" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>{selectedOrder.date}</p>
               </div>
-              <button onClick={() => setSelectedOrder(null)} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>
+              <button onClick={() => setSelectedOrder(null)} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-100" style={{ color: '#6B7280' }}>
                 <i className="ri-close-line" />
               </button>
             </div>
@@ -287,18 +365,18 @@ export default function MerchantOrdersPage() {
                 { label: 'Ville', value: selectedOrder.city },
                 { label: 'Livraison', value: selectedOrder.deliveryDate || 'Non définie' },
               ].map(item => (
-                <div key={item.label} className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                  <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>{item.label}</p>
-                  <p className="text-white text-sm font-medium" style={{ fontFamily: 'Poppins, sans-serif' }}>{item.value}</p>
+                <div key={item.label} className="p-3 rounded-xl" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
+                  <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{item.label}</p>
+                  <p className="text-sm font-medium" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{item.value}</p>
                 </div>
               ))}
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.15)' }}>
-              <span className="text-sm text-white/70" style={{ fontFamily: 'Poppins, sans-serif' }}>Statut actuel</span>
+            <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(77,176,89,0.08)', border: '1px solid rgba(77,176,89,0.15)' }}>
+              <span className="text-sm" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Statut actuel</span>
               <span
                 className="text-sm px-3 py-1 rounded-full font-medium"
-                style={{ background: `${statusConfig[selectedOrder.status].color}20`, color: statusConfig[selectedOrder.status].color, fontFamily: 'Poppins, sans-serif' }}
+                style={{ background: `${statusConfig[selectedOrder.status].color}15`, color: statusConfig[selectedOrder.status].color, fontFamily: 'Poppins, sans-serif' }}
               >
                 {statusConfig[selectedOrder.status].label}
               </span>
@@ -306,7 +384,7 @@ export default function MerchantOrdersPage() {
 
             <div className="flex gap-3 pt-1">
               {selectedOrder.status === 'pending' && (
-                <button onClick={() => updateStatus(selectedOrder.id, 'processing')} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'rgba(212,175,55,0.15)', color: '#D4AF37', border: '1px solid rgba(212,175,55,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+                <button onClick={() => updateStatus(selectedOrder.id, 'processing')} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'rgba(77,176,89,0.15)', color: '#4DB049', border: '1px solid rgba(77,176,89,0.3)', fontFamily: 'Poppins, sans-serif' }}>
                   Traiter la commande
                 </button>
               )}
@@ -340,6 +418,57 @@ export default function MerchantOrdersPage() {
         onConfirm={confirmCancel}
         onCancel={() => setCancelConfirm(null)}
       />
+
+      {/* Contribute to Installment Modal */}
+      {showContributeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => setShowContributeModal(null)}>
+          <div className="w-full max-w-sm rounded-2xl p-6 space-y-5" style={cardStyle} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Contribuer à l'échéance</h2>
+              <button onClick={() => setShowContributeModal(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer" style={{ color: '#6B7280' }}>
+                <i className="ri-close-line text-lg" />
+              </button>
+            </div>
+            <div className="p-3 rounded-xl" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
+              <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{showContributeModal.product}</p>
+              <p className="text-sm font-medium mt-0.5" style={{ color: '#014945', fontFamily: 'Poppins, sans-serif' }}>{showContributeModal.customer}</p>
+              <p className="text-xs mt-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Montant total: {showContributeModal.amount.toLocaleString()} FCFA</p>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Montant (FCFA)</label>
+                <input
+                  type="number"
+                  value={contributeForm.amount}
+                  onChange={e => setContributeForm({ ...contributeForm, amount: e.target.value })}
+                  placeholder="Entrez le montant"
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Note (optionnel)</label>
+                <input
+                  type="text"
+                  value={contributeForm.note}
+                  onChange={e => setContributeForm({ ...contributeForm, note: e.target.value })}
+                  placeholder="Note de transaction"
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowContributeModal(null)} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}>
+                Annuler
+              </button>
+              <button onClick={handleContributeToInstallment} disabled={contributeLoading} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#ffffff', fontFamily: 'Poppins, sans-serif' }}>
+                {contributeLoading ? <><i className="ri-loader-4-line animate-spin mr-2" />Traitement…</> : <><i className="ri-check-line mr-2" />Confirmer</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </MerchantLayout>
   );
 }

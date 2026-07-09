@@ -1,45 +1,70 @@
 import { useState, FormEvent } from 'react';
+import { useMerchantAuth } from '@/hooks/useMerchantAuth';
+
+const SECTOR_TO_CATEGORY: Record<string, string> = {
+  electronique: 'Électronique',
+  mode: 'Mode & Vêtements',
+  alimentation: 'Alimentation',
+  maison: 'Maison & Déco',
+  sante: 'Santé & Beauté',
+  autre: 'Autre',
+};
 
 export default function PartnerFormSection() {
+  const { register } = useMerchantAuth();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
     const form = e.currentTarget;
-    const textarea = form.querySelector('textarea');
-    if (textarea && textarea.value.length > 500) {
-      alert('Le message ne peut pas dépasser 500 caractères.');
+    const fd = new FormData(form);
+    const message = String(fd.get('message') ?? '');
+    if (message.length > 500) {
+      setError('Le message ne peut pas dépasser 500 caractères.');
       return;
     }
     setLoading(true);
-    const data = new URLSearchParams(new FormData(form) as unknown as Record<string, string>);
     try {
-      await fetch('https://readdy.ai/api/form/d7nlbjdnkhlbktri3lng', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: data.toString(),
+      const res = await register({
+        businessName: String(fd.get('company_name') ?? ''),
+        fullName: String(fd.get('contact_name') ?? ''),
+        email: String(fd.get('email') ?? ''),
+        phone: String(fd.get('phone') ?? ''),
+        password: String(fd.get('password') ?? ''),
+        city: String(fd.get('city') ?? ''),
+        category: SECTOR_TO_CATEGORY[String(fd.get('sector') ?? '')] ?? 'Autre',
       });
-      setSubmitted(true);
+      if (res.ok) setSubmitted(true);
+      else setError(res.message ?? 'Inscription échouée');
     } finally {
       setLoading(false);
     }
   };
 
+  const inputStyle = {
+    background: '#FAFEF9',
+    border: '1px solid #E8F2F1',
+    color: '#014945',
+    fontFamily: 'Poppins, sans-serif',
+  };
+
   return (
-    <section id="partner" className="py-24" style={{ background: '#0A1628' }}>
+    <section id="partner" className="py-24" style={{ background: '#FAFEF9' }}>
       <div className="max-w-3xl mx-auto px-6">
         <div className="text-center mb-12">
           <span
             className="inline-block text-xs uppercase tracking-widest px-4 py-1.5 rounded-full mb-4"
-            style={{ background: 'rgba(212,175,55,0.12)', color: '#D4AF37', fontFamily: 'Poppins, sans-serif', border: '1px solid rgba(212,175,55,0.25)' }}
+            style={{ background: 'rgba(77,176,89,0.12)', color: '#4DB049', fontFamily: 'Poppins, sans-serif', border: '1px solid rgba(77,176,89,0.25)' }}
           >
             Partenariat
           </span>
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
             Devenez Commercial Partenaire
           </h2>
-          <p className="text-base" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>
+          <p className="text-base" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
             Rejoignez notre réseau et augmentez vos ventes grâce au BNPL WATSIM.
           </p>
         </div>
@@ -47,13 +72,13 @@ export default function PartnerFormSection() {
         {submitted ? (
           <div
             className="rounded-2xl p-10 text-center"
-            style={{ background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)', border: '1px solid rgba(34,197,94,0.3)' }}
+            style={{ background: '#FFFFFF', border: '1px solid rgba(34,197,94,0.3)' }}
           >
             <i className="ri-checkbox-circle-line text-5xl mb-4" style={{ color: '#22C55E' }} />
-            <h3 className="text-white font-bold text-xl mb-2" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+            <h3 className="font-bold text-xl mb-2" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
               Demande envoyée !
             </h3>
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>
+            <p className="text-sm" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
               Notre équipe vous contactera sous 48h pour valider votre dossier.
             </p>
           </div>
@@ -63,12 +88,12 @@ export default function PartnerFormSection() {
             id="partner-form"
             onSubmit={handleSubmit}
             className="rounded-2xl p-8 space-y-5"
-            style={{ background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)', border: '1px solid rgba(212,175,55,0.15)' }}
+            style={{ background: '#FFFFFF', border: '1px solid #E8F2F1' }}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>
-                  Nom de l&apos;entreprise *
+                <label className="block text-sm mb-2" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
+                  Nom de l'entreprise *
                 </label>
                 <input
                   type="text"
@@ -76,16 +101,11 @@ export default function PartnerFormSection() {
                   required
                   placeholder="Ex: TechShop Yaoundé"
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(212,175,55,0.2)',
-                    color: 'white',
-                    fontFamily: 'Poppins, sans-serif',
-                  }}
+                  style={inputStyle}
                 />
               </div>
               <div>
-                <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>
+                <label className="block text-sm mb-2" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
                   Nom du responsable *
                 </label>
                 <input
@@ -94,19 +114,14 @@ export default function PartnerFormSection() {
                   required
                   placeholder="Prénom et Nom"
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(212,175,55,0.2)',
-                    color: 'white',
-                    fontFamily: 'Poppins, sans-serif',
-                  }}
+                  style={inputStyle}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>
+                <label className="block text-sm mb-2" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
                   Email *
                 </label>
                 <input
@@ -115,16 +130,11 @@ export default function PartnerFormSection() {
                   required
                   placeholder="contact@entreprise.cm"
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(212,175,55,0.2)',
-                    color: 'white',
-                    fontFamily: 'Poppins, sans-serif',
-                  }}
+                  style={inputStyle}
                 />
               </div>
               <div>
-                <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>
+                <label className="block text-sm mb-2" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
                   Téléphone *
                 </label>
                 <input
@@ -133,43 +143,68 @@ export default function PartnerFormSection() {
                   required
                   placeholder="+237 6XX XX XX XX"
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(212,175,55,0.2)',
-                    color: 'white',
-                    fontFamily: 'Poppins, sans-serif',
-                  }}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm mb-2" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
+                  Mot de passe *
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  minLength={8}
+                  placeholder="8 caractères minimum"
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
+                  Ville *
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  required
+                  placeholder="Douala, Yaoundé..."
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                  style={inputStyle}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>
-                Secteur d&apos;activité *
+              <label className="block text-sm mb-2" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
+                Secteur d'activité *
               </label>
               <select
                 name="sector"
                 required
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none cursor-pointer"
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(212,175,55,0.2)',
-                  color: 'rgba(255,255,255,0.7)',
+                  background: '#FAFEF9',
+                  border: '1px solid #E8F2F1',
+                  color: 'rgba(10,36,32,0.7)',
                   fontFamily: 'Poppins, sans-serif',
                 }}
               >
-                <option value="" style={{ background: '#0D1B2A' }}>Sélectionner un secteur</option>
-                <option value="electronique" style={{ background: '#0D1B2A' }}>Électronique & High-Tech</option>
-                <option value="mode" style={{ background: '#0D1B2A' }}>Mode & Vêtements</option>
-                <option value="alimentation" style={{ background: '#0D1B2A' }}>Alimentation & Restauration</option>
-                <option value="maison" style={{ background: '#0D1B2A' }}>Maison & Décoration</option>
-                <option value="sante" style={{ background: '#0D1B2A' }}>Santé & Beauté</option>
-                <option value="autre" style={{ background: '#0D1B2A' }}>Autre</option>
+                <option value="" style={{ background: '#FFFFFF' }}>Sélectionner un secteur</option>
+                <option value="electronique" style={{ background: '#FFFFFF' }}>Électronique & High-Tech</option>
+                <option value="mode" style={{ background: '#FFFFFF' }}>Mode & Vêtements</option>
+                <option value="alimentation" style={{ background: '#FFFFFF' }}>Alimentation & Restauration</option>
+                <option value="maison" style={{ background: '#FFFFFF' }}>Maison & Décoration</option>
+                <option value="sante" style={{ background: '#FFFFFF' }}>Santé & Beauté</option>
+                <option value="autre" style={{ background: '#FFFFFF' }}>Autre</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm mb-2" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins, sans-serif' }}>
+              <label className="block text-sm mb-2" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
                 Message (optionnel)
               </label>
               <textarea
@@ -178,25 +213,27 @@ export default function PartnerFormSection() {
                 maxLength={500}
                 placeholder="Décrivez votre activité et vos attentes..."
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
-                style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(212,175,55,0.2)',
-                  color: 'white',
-                  fontFamily: 'Poppins, sans-serif',
-                }}
+                style={inputStyle}
               />
-              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+              <p className="text-xs mt-1" style={{ color: 'rgba(10,36,32,0.3)', fontFamily: 'Poppins, sans-serif' }}>
                 Maximum 500 caractères
               </p>
             </div>
+
+            {error && (
+              <div className="flex items-start gap-2.5 p-3 rounded-xl" style={{ background: 'rgba(229,57,53,0.1)', border: '1px solid rgba(229,57,53,0.2)' }}>
+                <i className="ri-error-warning-line text-sm mt-0.5" style={{ color: '#E53935' }} />
+                <p className="text-xs" style={{ color: '#E53935', fontFamily: 'Poppins, sans-serif' }}>{error}</p>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full py-4 rounded-xl font-semibold text-base transition-all duration-300 hover:scale-[1.02] cursor-pointer whitespace-nowrap disabled:opacity-60"
               style={{
-                background: 'linear-gradient(135deg, #D4AF37, #F5D76E)',
-                color: '#0A1628',
+                background: '#4DB049',
+                color: '#FFFFFF',
                 fontFamily: 'Poppins, sans-serif',
               }}
             >

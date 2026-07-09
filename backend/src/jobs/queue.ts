@@ -1,0 +1,69 @@
+import { Queue, Worker, QueueEvents, JobsOptions } from 'bullmq';
+import { getRedis } from '../config/redis';
+import { logger } from '../config/logger';
+import { processRepaymentJob } from './repayment.job';
+import { processScoreUpdateJob } from './score-update.job';
+import { processKycVerifyJob } from './kyc-verify.job';
+
+export const QUEUE_NAMES = {
+  REPAYMENT: 'repayment',
+  SCORE_UPDATE: 'score-update',
+  KYC_VERIFY: 'kyc-verify',
+} as const;
+
+let queues: Record<string, Queue> = {};
+let workers: Worker[] = [];
+let events: QueueEvents[] = [];
+
+function makeQueue(name: string): Queue {
+  if (!queues[name]) queues[name] = new Queue(name, { connection: getRedis() });
+  return queues[name];
+}
+
+export async function enqueueScoreUpdate(userId: string, opts?: JobsOptions): Promise<void> {
+  await makeQueue(QUEUE_NAMES.SCORE_UPDATE).add('score-update', { userId }, { removeOnComplete: 100, removeOnFail: 100, ...opts });
+}
+
+export async function enqueueKycVerification(docId: string, opts?: JobsOptions): Promise<void> {
+  await makeQueue(QUEUE_NAMES.KYC_VERIFY).add('kyc-verify', { docId }, { removeOnComplete: 100, removeOnFail: 100, ...opts });
+}
+
+export async function enqueueRepaymentScan(opts?: JobsOptions): Promise<void> {
+  await makeQueue(QUEUE_NAMES.REPAYMENT).add('repayment-scan', {}, { removeOnComplete: 50, removeOnFail: 50, ...opts });
+}
+
+export async function startWorkers(): Promise<void> {
+  const connection = getRedis();
+  const isMock = !connection || typeof (connection as any).defineCommand !== 'function';
+  if (isMock) {
+    logger.info('BullMQ workers skipped (no Redis)');
+    return;
+  }
+
+  workers.push(new Worker(QUEUE_NAMES.SCORE_UPDATE, async (job) => processScoreUpdateJob(job.data as { userId: string }), { connection }));
+  workers.push(new Worker(QUEUE_NAMES.KYC_VERIFY, async (job) => processKycVerifyJob(job.data as { docId: string }), { connection }));
+  workers.push(new Worker(QUEUE_NAMES.REPAYMENT, async () => processRepaymentJob(), { connection }));
+
+  workers.forEach((w) => {
+    w.on('failed', (job, err) => logger.error({ queue: w.name, jobId: job?.id, err }, 'Job failed'));
+    w.on('completed', (job) => logger.debug({ queue: w.name, jobId: job.id }, 'Job completed'));
+  });
+
+  // Daily repayment scan: cron 0 6 * * * Africa/Douala (UTC+1 -> 0 5 UTC)
+  const repaymentQueue = makeQueue(QUEUE_NAMES.REPAYMENT);
+  await repaymentQueue.add(
+    'daily-scan',
+    {},
+    { repeat: { pattern: '0 6 * * *', tz: 'Africa/Douala' }, jobId: 'daily-repayment-scan' },
+  );
+
+  events.push(new QueueEvents(QUEUE_NAMES.REPAYMENT, { connection }));
+  logger.info('BullMQ workers started');
+}
+
+export async function stopWorkers(): Promise<void> {
+  await Promise.all(workers.map((w) => w.close()));
+  await Promise.all(events.map((e) => e.close()));
+  await Promise.all(Object.values(queues).map((q) => q.close()));
+  workers = []; events = []; queues = {};
+}

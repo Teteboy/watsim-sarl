@@ -1,7 +1,40 @@
-import { categoryData } from '@/mocks/dashboard';
+import { useEffect, useState } from 'react';
+import { getCategoryData, tokenStore } from '@/lib/api';
 
 export default function CategoryChart() {
-  const total = categoryData.reduce((sum, d) => sum + d.value, 0);
+  const [categoryData, setCategoryData] = useState<{ label: string; value: number; color: string }[]>([]);
+
+  useEffect(() => {
+    if (!tokenStore?.access) {
+      setCategoryData([]);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await getCategoryData();
+        if (!mounted) return;
+        setCategoryData((res as any)?.data ?? []);
+      } catch {
+        if (!mounted) return;
+        setCategoryData([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  if (!categoryData.length) {
+    return (
+      <div className="rounded-2xl p-6 h-full" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold" style={{ color: '#014945', fontFamily: 'Poppins, sans-serif' }}>Répartition par Catégorie</h3>
+        </div>
+        <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#9CA3AF' }}>Aucune donnée disponible</div>
+      </div>
+    );
+  }
+
+  const total = categoryData.reduce((sum, d) => sum + d.value, 0) || 1;
 
   // Build donut segments
   let cumulative = 0;
@@ -19,13 +52,13 @@ export default function CategoryChart() {
     <div
       className="rounded-2xl p-6 h-full"
       style={{
-        background: 'linear-gradient(135deg, #152238 0%, #0D1B2A 100%)',
-        border: '1px solid rgba(212,175,55,0.15)',
+        background: '#FFFFFF',
+        border: '1px solid #E8F2F1',
       }}
     >
       <div className="flex items-center gap-2 mb-5">
-        <i className="ri-pie-chart-2-line text-lg" style={{ color: '#D4AF37' }} />
-        <h3 className="text-white font-semibold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+        <i className="ri-pie-chart-2-line text-lg" style={{ color: '#4DB049' }} />
+        <h3 className="font-semibold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
           Répartition par Catégorie
         </h3>
       </div>
@@ -57,10 +90,10 @@ export default function CategoryChart() {
             ))}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-white font-bold text-lg" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+            <span className="font-bold text-lg" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
               {total}%
             </span>
-            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>
+            <span className="text-xs" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
               Total
             </span>
           </div>
@@ -72,10 +105,10 @@ export default function CategoryChart() {
         {categoryData.map((d) => (
           <div key={d.label} className="flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
-            <span className="text-sm flex-1 truncate" style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins, sans-serif' }}>
+            <span className="text-sm flex-1 truncate" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
               {d.label}
             </span>
-            <span className="text-sm font-medium" style={{ color: '#D4AF37', fontFamily: 'Montserrat, sans-serif' }}>
+            <span className="text-sm font-medium" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
               {d.value}%
             </span>
           </div>

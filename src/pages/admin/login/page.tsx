@@ -28,30 +28,30 @@ export default function AdminLoginPage() {
     if (success) {
       navigate('/admin');
     } else {
-      setError("Identifiants incorrects. Essayez admin@watsim.com avec n'importe quel mot de passe.");
+      setError("Identifiants incorrects. Essayez admin@watsim.cm / Admin@123");
     }
   };
 
   return (
     <div
       className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{ background: '#050B16' }}
+      style={{ background: '#FAFEF9' }}
     >
       {/* Background radial glows */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse at 15% 25%, rgba(212,175,55,0.07) 0%, transparent 50%), radial-gradient(ellipse at 85% 75%, rgba(212,175,55,0.05) 0%, transparent 50%)',
+            'radial-gradient(ellipse at 15% 25%, rgba(77,176,89,0.08) 0%, transparent 50%), radial-gradient(ellipse at 85% 75%, rgba(77,176,89,0.05) 0%, transparent 50%)',
         }}
       />
       <div
         className="absolute top-1/3 -left-40 w-80 h-80 rounded-full pointer-events-none"
-        style={{ background: 'rgba(212,175,55,0.04)', filter: 'blur(80px)' }}
+        style={{ background: 'rgba(77,176,89,0.06)', filter: 'blur(80px)' }}
       />
       <div
         className="absolute bottom-1/3 -right-40 w-80 h-80 rounded-full pointer-events-none"
-        style={{ background: 'rgba(212,175,55,0.04)', filter: 'blur(80px)' }}
+        style={{ background: 'rgba(77,176,89,0.06)', filter: 'blur(80px)' }}
       />
 
       {/* Grid pattern */}
@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
         className="absolute inset-0 pointer-events-none opacity-5"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(212,175,55,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.3) 1px, transparent 1px)',
+            'linear-gradient(rgba(77,176,89,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(77,176,89,0.3) 1px, transparent 1px)',
           backgroundSize: '60px 60px',
         }}
       />
@@ -70,25 +70,23 @@ export default function AdminLoginPage() {
           <Link to="/" className="inline-flex items-center gap-3 mb-6 cursor-pointer">
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)' }}
+              style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)' }}
             >
-              <i className="ri-shield-star-line text-xl" style={{ color: '#0A1628' }} />
+              <i className="ri-shield-star-line text-xl" style={{ color: '#FFFFFF' }} />
             </div>
             <div className="text-left">
               <span
                 className="text-2xl font-bold block"
                 style={{
                   fontFamily: 'Montserrat, sans-serif',
-                  background: 'linear-gradient(135deg, #D4AF37, #F5D76E)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
+                  color: '#014945',
                 }}
               >
                 WATSIM
               </span>
               <span
                 className="text-xs tracking-widest uppercase"
-                style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}
+                style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}
               >
                 Administration
               </span>
@@ -96,14 +94,14 @@ export default function AdminLoginPage() {
           </Link>
 
           <h1
-            className="text-white text-2xl font-bold mb-2"
-            style={{ fontFamily: 'Montserrat, sans-serif' }}
+            className="text-2xl font-bold mb-2"
+            style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}
           >
             Accès Administrateur
           </h1>
           <p
             className="text-sm"
-            style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'Poppins, sans-serif' }}
+            style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}
           >
             Connectez-vous pour accéder au panneau de contrôle
           </p>
@@ -113,27 +111,28 @@ export default function AdminLoginPage() {
         <div
           className="rounded-2xl p-8"
           style={{
-            background: 'linear-gradient(135deg, #152238, #0D1B2A)',
-            border: '1px solid rgba(212,175,55,0.15)',
+            background: '#FFFFFF',
+            border: '1px solid #E8F2F1',
+            boxShadow: '0 4px 20px rgba(77,176,89,0.08)',
           }}
         >
           {/* Security badge */}
           <div
             className="flex items-center gap-3 p-3 rounded-xl mb-6"
-            style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.12)' }}
+            style={{ background: 'rgba(77,176,89,0.08)', border: '1px solid rgba(77,176,89,0.15)' }}
           >
             <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
-              <i className="ri-lock-password-line text-sm" style={{ color: '#D4AF37' }} />
+              <i className="ri-lock-password-line text-sm" style={{ color: '#4DB049' }} />
             </div>
             <div>
-              <p className="text-xs font-medium" style={{ color: '#D4AF37', fontFamily: 'Poppins, sans-serif' }}>
+              <p className="text-xs font-medium" style={{ color: '#4DB049', fontFamily: 'Poppins, sans-serif' }}>
                 Zone sécurisée
               </p>
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}>
+              <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
                 Démo : <code
                   className="px-1 py-0.5 rounded"
-                  style={{ background: 'rgba(212,175,55,0.15)', color: '#F5D76E' }}
-                >admin@watsim.com</code> + n'importe quel mot de passe
+                  style={{ background: 'rgba(77,176,89,0.15)', color: '#014945' }}
+                >admin@watsim.cm</code> / <code className="px-1 py-0.5 rounded" style={{ background: 'rgba(77,176,89,0.15)', color: '#014945' }}>Admin@123</code>
               </p>
             </div>
           </div>
@@ -143,28 +142,28 @@ export default function AdminLoginPage() {
             <div>
               <label
                 className="block text-sm font-medium mb-2"
-                style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins, sans-serif' }}
+                style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}
               >
                 Adresse e-mail
               </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center">
-                  <i className="ri-mail-line text-sm" style={{ color: 'rgba(255,255,255,0.35)' }} />
+                  <i className="ri-mail-line text-sm" style={{ color: '#9CA3AF' }} />
                 </div>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@watsim.com"
+                  placeholder="admin@watsim.cm"
                   className="w-full pl-10 pr-4 py-3 rounded-lg text-sm outline-none transition-all"
                   style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: '#fff',
+                    background: '#F5FAF5',
+                    border: '1px solid #E8F2F1',
+                    color: '#1A2B1F',
                     fontFamily: 'Poppins, sans-serif',
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.4)'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#4DB049'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#E8F2F1'; }}
                 />
               </div>
             </div>
@@ -173,13 +172,13 @@ export default function AdminLoginPage() {
             <div>
               <label
                 className="block text-sm font-medium mb-2"
-                style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins, sans-serif' }}
+                style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}
               >
                 Mot de passe
               </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center">
-                  <i className="ri-lock-line text-sm" style={{ color: 'rgba(255,255,255,0.35)' }} />
+                  <i className="ri-lock-line text-sm" style={{ color: '#9CA3AF' }} />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -188,21 +187,21 @@ export default function AdminLoginPage() {
                   placeholder="••••••••"
                   className="w-full pl-10 pr-12 py-3 rounded-lg text-sm outline-none transition-all"
                   style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: '#fff',
+                    background: '#F5FAF5',
+                    border: '1px solid #E8F2F1',
+                    color: '#1A2B1F',
                     fontFamily: 'Poppins, sans-serif',
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.4)'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#4DB049'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#E8F2F1'; }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center cursor-pointer transition-colors"
-                  style={{ color: 'rgba(255,255,255,0.35)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; }}
+                  style={{ color: '#9CA3AF' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#4DB049'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#9CA3AF'; }}
                 >
                   <i className={showPassword ? 'ri-eye-off-line text-sm' : 'ri-eye-line text-sm'} />
                 </button>
@@ -213,10 +212,10 @@ export default function AdminLoginPage() {
             {error && (
               <div
                 className="flex items-start gap-2.5 p-3 rounded-xl"
-                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
               >
                 <i className="ri-error-warning-line text-sm mt-0.5 flex-shrink-0" style={{ color: '#EF4444' }} />
-                <p className="text-xs" style={{ color: '#EF4444', fontFamily: 'Poppins, sans-serif' }}>
+                <p className="text-xs" style={{ color: '#DC2626', fontFamily: 'Poppins, sans-serif' }}>
                   {error}
                 </p>
               </div>
@@ -228,8 +227,8 @@ export default function AdminLoginPage() {
               disabled={loading}
               className="w-full py-3 rounded-lg text-sm font-semibold cursor-pointer whitespace-nowrap transition-all hover:scale-[1.02] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
               style={{
-                background: 'linear-gradient(135deg, #D4AF37, #F5D76E)',
-                color: '#0A1628',
+                background: 'linear-gradient(135deg, #4DB049, #22C55E)',
+                color: '#FFFFFF',
                 fontFamily: 'Poppins, sans-serif',
               }}
             >
@@ -249,23 +248,23 @@ export default function AdminLoginPage() {
 
           {/* Divider */}
           <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}>
+            <div className="flex-1 h-px" style={{ background: '#E8F2F1' }} />
+            <span className="text-xs" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
               accès restreint
             </span>
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            <div className="flex-1 h-px" style={{ background: '#E8F2F1' }} />
           </div>
 
           {/* Merchant link */}
           <p
             className="text-center text-sm"
-            style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif' }}
+            style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}
           >
             Vous êtes commercial ?{' '}
             <Link
               to="/merchant/login"
               className="font-medium cursor-pointer transition-colors"
-              style={{ color: '#D4AF37' }}
+              style={{ color: '#4DB049' }}
             >
               Espace commercial
             </Link>
@@ -277,14 +276,14 @@ export default function AdminLoginPage() {
           <Link
             to="/"
             className="text-xs cursor-pointer transition-colors"
-            style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}
+            style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}
           >
             ← Retour à l'accueil
           </Link>
-          <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
+          <span style={{ color: '#E8F2F1' }}>|</span>
           <span
             className="text-xs"
-            style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Poppins, sans-serif' }}
+            style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}
           >
             © 2025 WATSIM
           </span>

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { authApi, tokenStore } from '@/lib/api';
 
 export interface AdminAuthState {
   isAuthenticated: boolean;
@@ -14,31 +15,33 @@ export function getAdminAuthState(): AdminAuthState {
   } catch {
     // ignore
   }
+  const stored = tokenStore.getUser();
+  if (stored && stored.role === 'ADMIN') {
+    return { isAuthenticated: true, adminEmail: stored.email };
+  }
   return { isAuthenticated: false, adminEmail: null };
 }
 
 export function useAdminAuth() {
   const [authState, setAuthState] = useState<AdminAuthState>(getAdminAuthState);
 
-  const login = useCallback((email: string, _password: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Mock: accept admin credentials
-        const valid =
-          email === 'admin@watsim.com' ||
-          email === 'superadmin@watsim.com' ||
-          email.endsWith('@watsim-admin.com');
-        if (valid) {
-          const state: AdminAuthState = { isAuthenticated: true, adminEmail: email };
-          sessionStorage.setItem(AUTH_KEY, JSON.stringify(state));
-          setAuthState(state);
-        }
-        resolve(valid);
-      }, 1200);
-    });
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    try {
+      const res = await authApi.login(email, password);
+      if (res.user.role !== 'ADMIN') return false;
+      tokenStore.setTokens(res.accessToken, res.refreshToken);
+      tokenStore.setUser(res.user);
+      const state: AdminAuthState = { isAuthenticated: true, adminEmail: res.user.email };
+      sessionStorage.setItem(AUTH_KEY, JSON.stringify(state));
+      setAuthState(state);
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await authApi.logout();
     sessionStorage.removeItem(AUTH_KEY);
     setAuthState({ isAuthenticated: false, adminEmail: null });
   }, []);

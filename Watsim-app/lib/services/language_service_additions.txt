@@ -1,0 +1,60 @@
+  // ── Order detail / history shared action labels ───────────────────────────
+  String get manageContribution => _isFrench ? 'GÉRER LA COTISATION' : 'MANAGE CONTRIBUTION';
+  String get transferLabel => _isFrench ? 'Transférer' : 'Transfer';
+  String get transferSubLabel => _isFrench ? 'Déplacer vers un autre plan' : 'Move to another plan';
+  String get withdrawLabel => _isFrench ? 'Retirer' : 'Withdraw';
+  String get withdrawSubLabel => _isFrench ? 'Frais de 30% applicables' : '30% charge applies';
+  String get exchangeLabel => _isFrench ? 'Échanger' : 'Exchange';
+  String get exchangeSubLabel => _isFrench ? 'Remplacer au même prix' : 'Swap for same price';
+  String get deliverLabel => _isFrench ? 'Livrer' : 'Deliver';
+  String get deliverSubLabel => _isFrench ? 'Demander la livraison' : 'Request delivery';
+  String get accumulatedFundsLabel => _isFrench ? 'Fonds accumulés' : 'Accumulated funds';
+  String get serviceFee20 => _isFrench ? 'Frais de service (20%)' : 'Service fee (20%)';
+  String get recipientReceives => _isFrench ? 'Le destinataire reçoit' : 'Recipient receives';
+  String get transferToWatsim => _isFrench ? 'Transférer vers un portefeuille WatSim' : 'Transfer to WatSim Wallet';
+  String get sendAccumulatedFunds => _isFrench ? 'Envoyer les fonds accumulés à un autre utilisateur' : 'Send accumulated funds to another user';
+  String get noWatsimAccount => _isFrench ? 'Aucun compte WatSim trouvé' : 'No WatSim Account Found';
+  String get fromLabel => _isFrench ? 'De' : 'From';
+  String get toWatsim => _isFrench ? 'À (WatSim)' : 'To (WatSim)';
+  String get grossAmount => _isFrench ? 'Montant brut' : 'Gross amount';
+  String get transferSuccessful => _isFrench ? 'Transfert réussi !' : 'Transfer Successful!';
+  String get continueLabel2 => _isFrench ? 'Continuer' : 'Continue';
+  String get deliveryDetailsReceived => _isFrench ? 'Détails de livraison reçus !' : 'Delivery details received!';
+  String get deliveryDetailsBody => _isFrench
+      ? 'Vos informations ont été reçues. Vous recevrez votre produit prochainement.'
+      : 'Your details have been received. You will receive your product shortly.';
+  String get productDelivered => _isFrench ? 'Produit livré ✓' : 'Product Delivered ✓';
+  String get deliveryRequested2 => _isFrench ? 'Livraison demandée — en route !' : 'Delivery Requested — on the way!';
+  String get markAsReceived => _isFrench ? 'Marquer comme reçu' : 'Mark as Received';
+  String get allInstalmentsPaid => _isFrench ? 'Tous les versements payés !' : 'All instalments paid!';
+  String get orderFullySettled => _isFrench ? 'Cette commande est entièrement réglée. Plus rien à payer.' : 'This order is fully settled. Nothing more due.';
+  String get pleaseSelectDeliveryTime => _isFrench ? 'Veuillez sélectionner un horaire de livraison' : 'Please select a delivery time';
+  String get confirmIdentityDeliveryDetails => _isFrench ? 'Confirmez votre identité et les détails de livraison.' : 'Confirm your identity and delivery details.';
+  String get receiptDownloaded => _isFrench ? 'Reçu téléchargé avec succès !' : 'Receipt downloaded successfully!';
+  String get contributionAddedFunds => _isFrench ? 'Cotisation ajoutée à vos fonds accumulés.' : 'Contribution added to your accumulated funds.';
+  String get thisWillCompleteOrder => _isFrench ? 'Cela va finaliser votre commande !' : 'This will complete your order!';
+  String exchangedFor(String name) =>
+      _isFrench ? 'Votre produit a été échangé contre $name.' : 'Your product has been exchanged for $name.';
+  String exchangePINDesc(String from, String to) => _isFrench
+      ? 'Entrez votre PIN à 4 chiffres pour confirmer l\'échange de $from contre $to.'
+      : 'Enter your 4-digit PIN to confirm the exchange of $from for $to.';
+  String get noOtherProductsSamePrice => _isFrench
+      ? 'Aucun autre produit disponible au même prix.'
+      : 'No other products available at the same price.';
+  String get deliveryRequestedTitle => _isFrench ? 'Livraison demandée' : 'Delivery Requested';
+  String get deliveryOnTheWay => _isFrench
+      ? 'Votre livraison est en route. Vous recevrez votre produit prochainement.'
+      : 'Your delivery is on the way. You will receive your product shortly.';
+  String get productDeliveredCelebration => _isFrench ? 'Produit livré ! 🎉' : 'Product Delivered! 🎉';
+  String instalmentCount(int index, int total) =>
+      _isFrench ? 'Versement $index/$total' : 'Instalment $index/$total';
+  String refundedToWallet(String amount) =>
+      _isFrench ? '$amount remboursé dans votre portefeuille.' : '$amount refunded to your wallet.';
+  String get officeConfirmation => _isFrench ? 'Confirmation bureau' : 'Office Confirmation';
+  String get watsimOfficialInternal => _isFrench ? 'Watsim Officiel — Interne' : 'Watsim Official — Internal';
+  String get confirmReceipt => _isFrench ? 'Confirmer la réception' : 'Confirm Receipt';
+  String get demoSimulateOffice => _isFrench ? 'Démo : Simuler action bureau' : 'Demo: Simulate Office Action';
+  String get officeConfirmsReceipt => _isFrench ? 'Le bureau confirme la réception' : 'Office Confirms Receipt';
+  String get howPayCashWorks => _isFrench ? 'Comment fonctionne le paiement en espèces' : 'How Pay in Cash works';
+  String get insufficientFunds => _isFrench ? 'Fonds insuffisants' : 'Insufficient funds';
+  String get helloUser => _isFrench ? 'Bonjour, Jean Bakari' : 'Hello, Jean Bakari';

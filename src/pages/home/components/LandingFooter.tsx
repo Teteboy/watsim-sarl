@@ -1,16 +1,22 @@
 export default function LandingFooter() {
   return (
-    <footer style={{ background: '#0A1628', borderTop: '1px solid rgba(212,175,55,0.1)' }}>
+    <footer style={{ background: '#014945', borderTop: '1px solid rgba(77,176,89,0.2)' }}>
       <div className="max-w-7xl mx-auto px-6 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2.5 mb-4">
               <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)' }}
+                className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden"
               >
-                <i className="ri-exchange-funds-line text-[#0A1628] text-lg" />
+                <img
+                  src="/src/assets/images/logo_white.png"
+                  alt="WATSIM"
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
               </div>
               <span className="text-white font-bold text-xl" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                 WATSIM
