@@ -82,7 +82,7 @@ export default function MerchantSettingsPage() {
           if (prefs && Object.keys(prefs).length > 0) {
             setNotifSettings(prev => ({ ...prev, ...prefs }));
           }
-        } catch {}
+        } catch { /* ignore */ }
 
         if (s.security) setSecurityForm(prev => ({ ...prev, ...s.security, currentPassword: '', newPassword: '', confirmPassword: '' }));
       } catch (e) {

@@ -25,14 +25,14 @@ export default function MerchantNotificationsPage() {
     try {
       await merchantApi.markNotificationRead(id);
       await load();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const markAllRead = async () => {
     try {
       await merchantApi.markAllNotificationsRead();
       await load();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const cardStyle = { background: '#FFFFFF', border: '1px solid #E8F2F1', borderRadius: '16px' };
