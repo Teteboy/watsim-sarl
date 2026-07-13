@@ -145,7 +145,7 @@ export async function listUsers(params: { page: number; limit: number; role?: Us
     }),
     prisma.user.count({ where }),
   ]);
-  const itemsWithImages = items.map((u: any) => ({
+  const itemsWithImages = items.map((u) => ({
     ...u,
     imageUrl: resolveImageUrl(u.imageUrl),
   }));
@@ -237,12 +237,12 @@ export async function createTransaction(adminId: string, data: { userId: string;
   const transaction = await prisma.transaction.create({
     data: {
       userId: data.userId,
-      type: data.type as any,
+      type: data.type as import('@prisma/client').TransactionType,
       amount: data.amount,
       status: 'COMPLETED',
       provider: data.provider || 'ADMIN',
       providerRef: `ADMIN-${Date.now()}`,
-      metadata: { description: data.description, createdBy: adminId } as any,
+      metadata: { description: data.description, createdBy: adminId } as never,
     },
     include: { user: { select: { id: true, email: true, fullName: true } } },
   });
@@ -254,7 +254,7 @@ export async function createTransaction(adminId: string, data: { userId: string;
       action: 'TRANSACTION_CREATED',
       entityType: 'Transaction',
       entityId: transaction.id,
-      metadata: { amount: data.amount, type: data.type, userId: data.userId } as any,
+      metadata: { amount: data.amount, type: data.type, userId: data.userId } as never,
     },
   });
 
@@ -389,7 +389,7 @@ export async function updateCategory(idOrSlug: string, input: Partial<{ name: st
     where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
   });
   if (!existing) throw new Error('Category not found');
-  const data: any = {};
+  const data: Record<string, unknown> = {};
   if (input.name !== undefined) data.name = input.name;
   if (input.description !== undefined) data.description = input.description;
   if (input.icon !== undefined) data.icon = input.icon;
@@ -401,8 +401,8 @@ export async function updateCategory(idOrSlug: string, input: Partial<{ name: st
   if (input.maxCredit !== undefined) data.maxCredit = input.maxCredit;
   if (input.minScore !== undefined) data.minScore = input.minScore;
   if (input.merchantCommission !== undefined) data.merchantCommission = input.merchantCommission;
-  if ((input as any).markupPercentage !== undefined) {
-    const pct = Number((input as any).markupPercentage);
+  if ((input as Record<string, unknown>).markupPercentage !== undefined) {
+    const pct = Number((input as Record<string, unknown>).markupPercentage);
     data.markupPercentage = pct;
     data.markupMargin = pct / 100;
   }
@@ -447,7 +447,7 @@ export async function setSystemSetting(key: string, value: string) {
 }
 
 export async function updateUser(adminId: string, userId: string, data: { fullName?: string; email?: string; phone?: string; creditLimit?: number }) {
-  const updateData: any = {};
+  const updateData: { fullName?: string; email?: string; phone?: string; creditLimit?: number } = {};
   if (data.fullName !== undefined) updateData.fullName = data.fullName;
   if (data.email !== undefined) updateData.email = data.email.toLowerCase();
   if (data.phone !== undefined) updateData.phone = data.phone;
@@ -464,7 +464,7 @@ export async function updateUser(adminId: string, userId: string, data: { fullNa
 export async function createAdminUser(data: { email: string; phone: string; fullName: string; password?: string; pin?: string; role?: string; creditLimit?: number }) {
   const passwordHash = data.password ? await bcrypt.hash(data.password, 12) : await bcrypt.hash(Math.random().toString(36), 12);
   const pinHash = data.pin ? await bcrypt.hash(data.pin, 12) : undefined;
-  const userRole = (data.role as any) || 'ADMIN';
+  const userRole = (data.role as UserRole) || 'ADMIN';
   const user = await prisma.user.create({
     data: {
       email: data.email.toLowerCase(),
@@ -531,7 +531,7 @@ export async function resetUserPassword(id: string, newPassword?: string) {
       user: updated,
       temporaryPassword: tempPassword,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('resetUserPassword error:', err);
     return { error: 'Failed to reset password' };
   }
@@ -706,7 +706,7 @@ export async function updateNotificationStatus(adminId: string, id: string, stat
     for (const u of users) {
       try {
         await deliverNotificationToUser(u.id, notification.title, notification.body, notification.type);
-      } catch (e) {
+      } catch {
         // continue even if one delivery fails
       }
     }
@@ -714,7 +714,7 @@ export async function updateNotificationStatus(adminId: string, id: string, stat
     sentCount = users.length;
   }
 
-  const updateData: any = { status };
+  const updateData: Record<string, unknown> = { status };
 
   if (status === 'sent') {
     updateData.sentAt = new Date();
@@ -1185,7 +1185,7 @@ export async function adminCreditMerchantWallet(adminId: string, merchantId: str
       type: amount >= 0 ? 'DEPOSIT' : 'WITHDRAWAL',
       amount: Math.abs(amount),
       status: 'COMPLETED',
-      metadata: { note, adminId, source: 'admin_credit' } as any,
+      metadata: { note, adminId, source: 'admin_credit' } as never,
     },
   });
 
@@ -1195,7 +1195,7 @@ export async function adminCreditMerchantWallet(adminId: string, merchantId: str
       action: amount >= 0 ? 'WALLET_CREDITED' : 'WALLET_DEBITED',
       entityType: 'Wallet',
       entityId: wallet.id,
-      metadata: { merchantId, amount, note } as any,
+      metadata: { merchantId, amount, note } as never,
     },
   });
 
@@ -1226,7 +1226,7 @@ export async function adminCreditClientWallet(adminId: string, userId: string, a
       type: amount >= 0 ? 'DEPOSIT' : 'WITHDRAWAL',
       amount: Math.abs(amount),
       status: 'COMPLETED',
-      metadata: { note, adminId, source: 'admin_client_credit' } as any,
+      metadata: { note, adminId, source: 'admin_client_credit' } as never,
     },
   });
 
@@ -1236,7 +1236,7 @@ export async function adminCreditClientWallet(adminId: string, userId: string, a
       action: amount >= 0 ? 'CLIENT_WALLET_CREDITED' : 'CLIENT_WALLET_DEBITED',
       entityType: 'Wallet',
       entityId: wallet.id,
-      metadata: { userId, amount, note } as any,
+      metadata: { userId, amount, note } as never,
     },
   });
 
@@ -1272,7 +1272,7 @@ export async function adminContributeToInstallment(adminId: string, instalmentId
       amount: paymentAmount,
       status: 'COMPLETED',
       provider: 'ADMIN_CONTRIBUTION',
-      metadata: { instalmentId, adminId, note, source: 'admin_contribution' } as any,
+      metadata: { instalmentId, adminId, note, source: 'admin_contribution' } as never,
     },
   });
 
@@ -1294,7 +1294,7 @@ export async function adminContributeToInstallment(adminId: string, instalmentId
       action: 'INSTALLMENT_CONTRIBUTION',
       entityType: 'Instalment',
       entityId: instalmentId,
-      metadata: { purchaseId: instalment.purchaseId, amount: paymentAmount, note } as any,
+      metadata: { purchaseId: instalment.purchaseId, amount: paymentAmount, note } as never,
     },
   });
 
