@@ -488,12 +488,12 @@ export default function AdminNotificationsPage() {
       {/* Detail Modal */}
       {selectedNotification && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
           onClick={() => setSelectedNotification(null)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl p-6 space-y-5"
+            className="w-full max-w-lg rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto"
             style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(1,73,69,0.15)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -592,7 +592,7 @@ export default function AdminNotificationsPage() {
       {/* Add Notification Modal */}
       {showAddModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
           onClick={() => setShowAddModal(false)}
         >

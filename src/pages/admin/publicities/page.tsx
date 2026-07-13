@@ -524,7 +524,7 @@ export default function AdminPublicitiesPage() {
       {/* Image Preview Modal */}
       {selectedImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
           onClick={() => setSelectedImage(null)}
         >
@@ -549,7 +549,7 @@ export default function AdminPublicitiesPage() {
       {/* Add Modal */}
       {showAddModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}
         >
           <div
@@ -754,7 +754,7 @@ export default function AdminPublicitiesPage() {
       {/* Edit Modal */}
       {editingPub && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
         >
           <div

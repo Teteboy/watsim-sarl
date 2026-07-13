@@ -14,7 +14,7 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = 'Co
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }} onClick={onCancel}>
-      <div className="w-full max-w-sm rounded-2xl p-6 space-y-4" style={{ background: '#014945', border: '1px solid rgba(77,176,89,0.2)' }} onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" style={{ background: '#014945', border: '1px solid rgba(77,176,89,0.2)' }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${confirmColor}20` }}>
             <i className={`${icon} text-xl`} style={{ color: confirmColor }} />

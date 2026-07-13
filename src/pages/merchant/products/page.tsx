@@ -520,8 +520,8 @@ export default function MerchantProductsPage() {
 
       {/* Edit Modal */}
       {editModal && selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => { setEditModal(false); setEditGalleryFiles([]); setRemovedGalleryUrls([]); }}>
-          <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => { setEditModal(false); setEditGalleryFiles([]); setRemovedGalleryUrls([]); }}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-lg" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Modifier le produit</h3>
               <button onClick={() => setEditModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-100" style={{ color: '#6B7280' }}>
@@ -700,8 +700,8 @@ export default function MerchantProductsPage() {
 
       {/* Add Modal */}
       {addModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => { setAddModal(false); setAddGalleryFiles([]); setAddImageFile(null); }}>
-          <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => { setAddModal(false); setAddGalleryFiles([]); setAddImageFile(null); }}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-lg" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Ajouter un produit</h3>
               <button onClick={() => { setAddModal(false); setAddGalleryFiles([]); setAddImageFile(null); }} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-100" style={{ color: '#6B7280' }}>

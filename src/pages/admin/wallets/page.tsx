@@ -255,7 +255,7 @@ export default function AdminWalletsPage() {
 
       {/* Wallet Detail Side Panel */}
       {selectedWallet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)' }} onClick={() => setSelectedWallet(null)}>
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)' }} onClick={() => setSelectedWallet(null)}>
           <div
             className="w-full max-w-lg rounded-2xl overflow-hidden"
             style={{ background: '#014945', border: '1px solid rgba(77,176,89,0.25)', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
@@ -360,7 +360,7 @@ export default function AdminWalletsPage() {
       {/* Credit / Debit Modal */}
       {showCreditModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }} onClick={() => setShowCreditModal(null)}>
-          <div className="w-full max-w-sm rounded-2xl p-6 space-y-5" style={{ background: '#014945', border: '1px solid rgba(77,176,89,0.25)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto" style={{ background: '#014945', border: '1px solid rgba(77,176,89,0.25)' }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
                 Ajuster le Wallet
