@@ -750,6 +750,7 @@ export async function listAdminProducts(params: { page: number; limit: number; s
       include: {
         merchant: { select: { id: true, businessName: true, city: true, category: true } },
         category: { select: { id: true, name: true, slug: true, color: true, icon: true } },
+        gallery: { orderBy: { sortOrder: 'asc' } },
         _count: { select: { purchases: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -769,6 +770,7 @@ export async function listAdminProducts(params: { page: number; limit: number; s
 export async function updateAdminProduct(productId: string, data: Partial<{
   name: string; description: string; price: number; costPrice: number;
   stock: number; imageUrl: string; bnplEligible: boolean; categoryId: string;
+  isActive: boolean; deliveryFee: number; storageFee: number;
 }>) {
   const product = await prisma.product.update({
     where: { id: productId },
@@ -776,6 +778,7 @@ export async function updateAdminProduct(productId: string, data: Partial<{
     include: {
       merchant: { select: { id: true, businessName: true, city: true, category: true } },
       category: { select: { id: true, name: true, slug: true, color: true, icon: true } },
+      gallery: { orderBy: { sortOrder: 'asc' } },
     },
   });
   return product;

@@ -4,6 +4,8 @@ import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
 import { API_PREFIX, getPublicCategories, adminApi, suggestProductPrice } from '@/lib/api';
 
+type GalleryItem = { id?: string; imageUrl: string; sortOrder?: number };
+
 type Product = {
   id: string;
   name: string;
@@ -21,7 +23,10 @@ type Product = {
   status?: string;
   bnplEligible?: boolean;
   image?: string;
-  gallery?: string[];
+  gallery?: GalleryItem[];
+  deliveryFee?: number;
+  storageFee?: number;
+  isActive?: boolean;
 };
 
 const statusColors: Record<string, string> = { active: '#22C55E', out_of_stock: '#EF4444', inactive: '#6B7280' };
@@ -60,7 +65,12 @@ export default function AdminProductsPage() {
         status: (Number(it.stock ?? it.quantity ?? 0) === 0) ? 'out_of_stock' : 'active',
         bnplEligible: !!it.bnplEligible,
         image: it.imageUrl || it.image || '',
-        gallery: Array.isArray(it.gallery) ? it.gallery : (it.imageUrl ? [it.imageUrl] : []),
+        gallery: Array.isArray(it.gallery)
+          ? it.gallery.map((g: any) => typeof g === 'string' ? { imageUrl: g } : { id: g.id, imageUrl: g.imageUrl, sortOrder: g.sortOrder })
+          : (it.imageUrl ? [{ imageUrl: it.imageUrl }] : []),
+        deliveryFee: Number(it.deliveryFee ?? 0),
+        storageFee: Number(it.storageFee ?? 0),
+        isActive: it.isActive !== false,
       }));
       setProducts(normalized);
       setTotal(tot);
@@ -227,8 +237,15 @@ export default function AdminProductsPage() {
         description: it.description || '',
         stock: Number(it.stock ?? 0),
         sold: Number(it.sold ?? 0),
-        status: (Number(it.stock ?? 0) === 0) ? 'out_of_stock' : 'active',
+        status: (Number(it.stock ?? 0) === 0) ? 'out_of_stock' : (it.isActive !== false ? 'active' : 'inactive'),
         bnplEligible: !!it.bnplEligible,
+        image: it.imageUrl || it.image || '',
+        gallery: Array.isArray(it.gallery)
+          ? it.gallery.map((g: any) => typeof g === 'string' ? { imageUrl: g } : { id: g.id, imageUrl: g.imageUrl, sortOrder: g.sortOrder })
+          : (it.imageUrl ? [{ imageUrl: it.imageUrl }] : []),
+        deliveryFee: Number(it.deliveryFee ?? 0),
+        storageFee: Number(it.storageFee ?? 0),
+        isActive: it.isActive !== false,
       }));
       setProducts(normalized);
     } catch { /* reload failed silently */ }
@@ -237,16 +254,29 @@ export default function AdminProductsPage() {
     addToast('success', 'Produit modifié', `${editForm.name} a été mis à jour.`);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!confirmDelete) return;
-    setProducts(prev => prev.filter(p => p.id !== confirmDelete.id));
+    const target = confirmDelete;
     setConfirmDelete(null);
-    addToast('info', 'Produit supprimé', `${confirmDelete.name} a été retiré du catalogue.`);
+    try {
+      await adminApi.deleteProduct(target.id);
+      setProducts(prev => prev.filter(p => p.id !== target.id));
+      addToast('info', 'Produit supprimé', `${target.name} a été retiré du catalogue.`);
+    } catch {
+      addToast('error', 'Erreur', 'Impossible de supprimer le produit.');
+    }
   };
 
-  const handleToggleBnpl = (product: Product) => {
-    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, bnplEligible: !p.bnplEligible } : p));
-    addToast('info', 'Éligibilité BNPL modifiée', `${product.name} est maintenant ${!product.bnplEligible ? 'éligible' : 'non éligible'} au BNPL.`);
+  const handleToggleBnpl = async (product: Product) => {
+    const newVal = !product.bnplEligible;
+    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, bnplEligible: newVal } : p));
+    try {
+      await adminApi.updateProduct(product.id, { bnplEligible: newVal });
+      addToast('info', 'Éligibilité BNPL modifiée', `${product.name} est maintenant ${newVal ? 'éligible' : 'non éligible'} au BNPL.`);
+    } catch {
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, bnplEligible: !newVal } : p));
+      addToast('error', 'Erreur', 'Impossible de modifier l\'éligibilité BNPL.');
+    }
   };
 
   const handleAddProduct = async () => {
@@ -482,9 +512,9 @@ export default function AdminProductsPage() {
                 <div>
                   <p className="text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Galerie ({editProduct.gallery.length} image{editProduct.gallery.length > 1 ? 's' : ''})</p>
                   <div className="flex gap-1.5 flex-wrap">
-                    {editProduct.gallery.map((url, i) => (
-                      <div key={i} className="w-10 h-10 rounded-lg overflow-hidden" style={{ border: '1px solid #E8F2F1' }}>
-                        <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+                    {editProduct.gallery.map((g, i) => (
+                      <div key={g.id ?? i} className="w-10 h-10 rounded-lg overflow-hidden" style={{ border: '1px solid #E8F2F1' }}>
+                        <img src={g.imageUrl} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
                       </div>
                     ))}
                   </div>
