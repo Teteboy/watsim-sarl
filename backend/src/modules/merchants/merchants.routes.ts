@@ -21,7 +21,7 @@ import { resolveImageUrl } from '../../services/storage-local.service';
 export async function merchantPublicRoutes(app: FastifyInstance): Promise<void> {
   app.post('/register', { schema: registerMerchantSchema }, async (req, reply) => {
     try {
-      const body = req.body as Parameters<typeof registerMerchant>[0] & { settings?: Record<string, any> };
+      const body = req.body as Parameters<typeof registerMerchant>[0] & { settings?: Record<string, unknown> };
       const { user, merchant } = await registerMerchant(body);
       const tokens = await issueTokens(app, { id: user.id, role: user.role, email: user.email });
       return reply.code(201).send({
@@ -55,7 +55,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
   app.get('/profile', async (req) => getMerchantProfile(req.authUser!.id));
 
   app.put('/profile', async (req) => {
-    const body = req.body as any;
+    const body = req.body as { name?: string; owner?: string; email?: string; phone?: string; city?: string; category?: string };
     return updateMerchantProfile(req.authUser!.id, {
       name: body.name,
       owner: body.owner,
@@ -163,7 +163,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing || existing.merchantId !== merchant.id) return reply.code(404).send({ error: 'NotFound' });
     // Merchants are not allowed to change price or costPrice after creation (admin-only)
-    const { price, costPrice, ...safeUpdate } = req.body as any;
+    const { price: _price, costPrice: _costPrice, ...safeUpdate } = req.body as { price?: number; costPrice?: number; name?: string; description?: string; stock?: number; imageUrl?: string; bnplEligible?: boolean; categoryId?: string };
 
     const updated = await prisma.product.update({
       where: { id },
@@ -199,8 +199,9 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
     try {
       const request = await createPayoutRequest(req.authUser!.id, amount, provider);
       return reply.code(201).send(request);
-    } catch (err: any) {
-      return reply.code(400).send({ error: err.message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Request failed';
+      return reply.code(400).send({ error: msg });
     }
   });
 
@@ -215,7 +216,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as { fullName: string; email: string; phone?: string; password: string; pin?: string };
       const user = await createMerchantStaff(req.authUser!.id, body);
       return reply.code(201).send(user);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -227,7 +228,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as { fullName?: string; email?: string; phone?: string };
       const updated = await updateMerchantStaff(req.authUser!.id, id, body);
       return updated;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -239,7 +240,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const { status } = req.body as { status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' };
       const updated = await updateMerchantStaffStatus(req.authUser!.id, id, status);
       return updated;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -250,7 +251,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const { id } = req.params as { id: string };
       await deleteMerchantStaff(req.authUser!.id, id);
       return reply.code(204).send();
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -262,7 +263,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const { password } = req.body as { password?: string };
       const result = await resetMerchantStaffPassword(req.authUser!.id, id, password);
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -271,7 +272,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
   // ===== Merchant Customers (with CRUD) =====
   app.get('/customers', { schema: paginationSchema }, async (req) => {
     const { page = 1, limit = 20 } = req.query as { page?: number; limit?: number };
-    const search = (req.query as any).search as string | undefined;
+    const search = (req.query as { page?: number; limit?: number; search?: string }).search;
     return getMerchantCustomers(req.authUser!.id, { page, limit, search });
   });
 
@@ -280,7 +281,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as { fullName: string; email: string; phone: string; password: string; pin?: string; creditLimit?: number };
       const customer = await createMerchantCustomer(req.authUser!.id, body);
       return reply.code(201).send(customer);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -292,7 +293,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const body = req.body as { fullName?: string; email?: string; phone?: string; creditLimit?: number };
       const updated = await updateMerchantCustomer(req.authUser!.id, id, body);
       return updated;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -304,7 +305,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const { status } = req.body as { status: 'active' | 'suspended' };
       const updated = await updateMerchantCustomerStatus(req.authUser!.id, id, status);
       return updated;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -315,7 +316,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const { id } = req.params as { id: string };
       await deleteMerchantCustomer(req.authUser!.id, id);
       return reply.code(204).send();
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -327,7 +328,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const { password } = req.body as { password?: string };
       const result = await resetMerchantCustomerPassword(req.authUser!.id, id, password);
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -340,7 +341,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const { amount, note } = req.body as { amount: number; note?: string };
       const result = await merchantCreditClientWallet(req.authUser!.id, customerId, amount, note);
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
@@ -353,7 +354,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       const { amount, note } = req.body as { amount: number; note?: string };
       const result = await merchantContributeToInstallment(req.authUser!.id, instalmentId, amount, note);
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
       throw err;
     }
