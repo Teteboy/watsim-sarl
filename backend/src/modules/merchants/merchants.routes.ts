@@ -163,7 +163,9 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing || existing.merchantId !== merchant.id) return reply.code(404).send({ error: 'NotFound' });
     // Merchants are not allowed to change price or costPrice after creation (admin-only)
-    const { price: _price, costPrice: _costPrice, ...safeUpdate } = req.body as { price?: number; costPrice?: number; name?: string; description?: string; stock?: number; imageUrl?: string; bnplEligible?: boolean; categoryId?: string };
+    const body = req.body as { price?: number; costPrice?: number; name?: string; description?: string; stock?: number; imageUrl?: string; bnplEligible?: boolean; categoryId?: string };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { price, costPrice, ...safeUpdate } = body;
 
     const updated = await prisma.product.update({
       where: { id },
