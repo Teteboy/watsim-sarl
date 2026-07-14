@@ -790,11 +790,19 @@ export async function updateAdminProduct(productId: string, data: Partial<{
 export async function deleteAdminProduct(adminId: string, productId: string) {
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new Error('Product not found');
-  await prisma.product.update({ where: { id: productId }, data: { isActive: false } });
+  await prisma.product.delete({ where: { id: productId } });
   await prisma.auditLog.create({
     data: { userId: adminId, action: 'PRODUCT_DELETED_BY_ADMIN', entityType: 'Product', entityId: productId },
   });
   return { success: true };
+}
+
+export async function bulkDeleteAdminProducts(adminId: string, ids: string[]) {
+  await prisma.product.deleteMany({ where: { id: { in: ids } } });
+  await prisma.auditLog.create({
+    data: { userId: adminId, action: 'BULK_PRODUCT_DELETE', entityType: 'Product', entityId: ids.join(',') },
+  });
+  return { deleted: ids.length };
 }
 
 export async function createAdminProduct(adminId: string, data: {

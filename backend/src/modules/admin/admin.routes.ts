@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { creditLimitSchema, kycDecisionSchema, listFilterSchema, merchantStatusSchema } from './admin.schema';
-import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, setUserActive, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins } from './admin.service';
+import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, setUserActive, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, bulkDeleteAdminProducts, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins } from './admin.service';
 import { approvePayoutRequest, rejectPayoutRequest, setMerchantCategories } from '../merchants/merchants.service';
 import { listDisputes, getDisputeById, resolveDispute, listFraudAlerts, getFraudAlertById, resolveFraudAlert } from './admin.service-disputes';
 import { listAllReferrals, getReferralStats } from './admin.service-referrals';
@@ -94,6 +94,13 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
     await prisma.product.updateMany({ where: { id: { in: ids } }, data: { isActive } });
     await prisma.auditLog.create({ data: { userId: req.authUser!.id, action: isActive ? 'BULK_PRODUCT_ACTIVATE' : 'BULK_PRODUCT_DEACTIVATE', entityType: 'Product', entityId: ids.join(',') } });
     return { updated: ids.length };
+  });
+
+  // Bulk product delete
+  app.post('/products/bulk-delete', async (req, reply) => {
+    const { ids } = req.body as { ids: string[] };
+    if (!ids?.length) return reply.code(400).send({ error: 'ids required' });
+    return bulkDeleteAdminProducts(req.authUser!.id, ids);
   });
 
   // Bulk payout approve

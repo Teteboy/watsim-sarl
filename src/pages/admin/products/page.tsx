@@ -148,6 +148,19 @@ export default function AdminProductsPage() {
     setSelectedIds(new Set());
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    try {
+      await adminApi.bulkDeleteProducts(ids);
+      setProducts(prev => prev.filter(p => !selectedIds.has(p.id)));
+      addToast('info', 'Produits supprimés', `${ids.length} produit(s) supprimé(s).`);
+    } catch {
+      addToast('error', 'Erreur', 'La suppression groupée a échoué.');
+    }
+    setSelectedIds(new Set());
+  };
+
   const allCategories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
   const filtered = products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.merchant.toLowerCase().includes(search.toLowerCase());
@@ -371,6 +384,9 @@ export default function AdminProductsPage() {
               </button>
               <button onClick={() => handleBulkProductActive(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#EF444420', color: '#EF4444', border: '1px solid #EF4444' }}>
                 <i className="ri-forbid-line mr-1" />Désactiver
+              </button>
+              <button onClick={handleBulkDelete} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#EF444440', color: '#EF4444', border: '1px solid #EF4444' }}>
+                <i className="ri-delete-bin-line mr-1" />Supprimer
               </button>
               <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1' }}>Annuler</button>
             </div>

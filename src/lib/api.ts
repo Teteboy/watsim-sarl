@@ -534,6 +534,9 @@ async sendMessage(convId: string, data: { text?: string; attachmentUrl?: string;
   async bulkProductActive(ids: string[], isActive: boolean) {
     return postJson<any>(`${API_PREFIX}/admin/products/bulk-active`, { ids, isActive });
   },
+  async bulkDeleteProducts(ids: string[]) {
+    return postJson<any>(`${API_PREFIX}/admin/products/bulk-delete`, { ids });
+  },
 };
 
 // Merchant API wrapper
