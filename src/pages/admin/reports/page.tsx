@@ -107,70 +107,91 @@ export default function AdminReportsPage() {
           </div>
         </div>
 
-        {/* Fee Structure Breakdown */}
+        {/* Fee Totals */}
         <div className="rounded-2xl p-5 space-y-4" style={cardStyle}>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(77,176,89,0.12)' }}>
               <i className="ri-money-dollar-circle-line text-sm" style={{ color: '#4DB049' }} />
             </div>
             <div>
-              <h3 className="text-sm font-semibold" style={{ color: '#014945', fontFamily: 'Poppins, sans-serif' }}>Structure des Frais Plateforme</h3>
-              <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Récapitulatif des frais appliqués aux achats BNPL</p>
+              <h3 className="text-sm font-semibold" style={{ color: '#014945', fontFamily: 'Poppins, sans-serif' }}>Frais Collectés — Totaux</h3>
+              <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Montants totaux générés par les frais BNPL sur l'ensemble de la plateforme</p>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {[
-              {
-                icon: 'ri-archive-2-line',
-                color: '#4A9EFF',
-                label: 'Frais de Stockage',
-                amount: '3 000 FCFA / mois',
-                detail: 'Appliqués mensuellement par produit',
-                badge: 'Mensuel',
-                badgeColor: '#4A9EFF',
-              },
-              {
-                icon: 'ri-user-add-line',
-                color: '#A855F7',
-                label: 'Frais de Création de Compte',
-                amount: 'Variable',
-                detail: 'Facturés une seule fois lors du premier achat BNPL',
-                badge: 'Unique',
-                badgeColor: '#A855F7',
-              },
-              {
-                icon: 'ri-truck-line',
-                color: '#F97316',
-                label: 'Frais de Livraison',
-                amount: '0 FCFA (défaut)',
-                detail: 'Appliqués par défaut à chaque achat — configurable par marchand',
-                badge: 'Par achat',
-                badgeColor: '#F97316',
-              },
-              {
-                icon: 'ri-hand-coin-line',
-                color: '#22C55E',
-                label: 'Frais de Collecte',
-                amount: '1 000 FCFA',
-                detail: 'Frais uniques de service par achat BNPL',
-                badge: 'Par achat',
-                badgeColor: '#22C55E',
-              },
-            ].map((fee) => (
-              <div key={fee.label} className="rounded-xl p-4 space-y-2" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
-                <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${fee.color}18` }}>
-                    <i className={`${fee.icon} text-sm`} style={{ color: fee.color }} />
+            {kpiLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-xl p-4 animate-pulse" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
+                  <div className="h-3 w-20 rounded mb-3" style={{ background: '#E8F2F1' }} />
+                  <div className="h-6 w-28 rounded mb-2" style={{ background: '#E8F2F1' }} />
+                  <div className="h-3 w-full rounded" style={{ background: '#E8F2F1' }} />
+                </div>
+              ))
+            ) : (
+              [
+                {
+                  icon: 'ri-archive-2-line',
+                  color: '#4A9EFF',
+                  label: 'Frais de Stockage',
+                  total: kpiData?.totalStorageFees ?? 0,
+                  rate: kpiData?.feeRates?.stockingFee,
+                  rateLabel: 'FCFA/mois/produit',
+                  badge: 'Mensuel',
+                  badgeColor: '#4A9EFF',
+                  basis: 'Agrégé sur tous les produits actifs',
+                },
+                {
+                  icon: 'ri-user-add-line',
+                  color: '#A855F7',
+                  label: 'Frais de Création de Compte',
+                  total: kpiData?.totalAccountCreationFees ?? 0,
+                  rate: kpiData?.feeRates?.accountCreationFee,
+                  rateLabel: 'FCFA/client (unique)',
+                  badge: 'Unique',
+                  badgeColor: '#A855F7',
+                  basis: `${(kpiData?.activeUsers ?? 0).toLocaleString('fr-FR')} clients actifs`,
+                },
+                {
+                  icon: 'ri-truck-line',
+                  color: '#F97316',
+                  label: 'Frais de Livraison',
+                  total: kpiData?.totalDeliveryFees ?? 0,
+                  rate: kpiData?.feeRates?.deliveryFee,
+                  rateLabel: 'FCFA défaut/achat',
+                  badge: 'Par achat',
+                  badgeColor: '#F97316',
+                  basis: 'Agrégé sur tous les produits',
+                },
+                {
+                  icon: 'ri-hand-coin-line',
+                  color: '#22C55E',
+                  label: 'Frais de Collecte',
+                  total: kpiData?.totalCollectionFees ?? 0,
+                  rate: kpiData?.feeRates?.collectionFee,
+                  rateLabel: 'FCFA/achat BNPL',
+                  badge: 'Par achat',
+                  badgeColor: '#22C55E',
+                  basis: `${(kpiData?.totalBnplPurchases ?? 0).toLocaleString('fr-FR')} achats BNPL`,
+                },
+              ].map((fee) => (
+                <div key={fee.label} className="rounded-xl p-4 space-y-2" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${fee.color}18` }}>
+                      <i className={`${fee.icon} text-sm`} style={{ color: fee.color }} />
+                    </div>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: `${fee.badgeColor}18`, color: fee.badgeColor, fontFamily: 'Poppins, sans-serif' }}>{fee.badge}</span>
                   </div>
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: `${fee.badgeColor}18`, color: fee.badgeColor, fontFamily: 'Poppins, sans-serif' }}>{fee.badge}</span>
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{fee.label}</p>
+                    <p className="text-base font-bold mt-0.5" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>{fee.total.toLocaleString('fr-FR')} FCFA</p>
+                    {fee.rate !== undefined && (
+                      <p className="text-[10px] mt-0.5" style={{ color: fee.color, fontFamily: 'Poppins, sans-serif' }}>@ {fee.rate.toLocaleString('fr-FR')} {fee.rateLabel}</p>
+                    )}
+                    <p className="text-[11px] mt-1 leading-snug" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>{fee.basis}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{fee.label}</p>
-                  <p className="text-base font-bold mt-0.5" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>{fee.amount}</p>
-                  <p className="text-[11px] mt-1 leading-snug" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{fee.detail}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

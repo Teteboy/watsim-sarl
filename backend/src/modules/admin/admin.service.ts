@@ -269,7 +269,7 @@ export async function reportsSummary() {
   monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
   // Basic metrics
-  const [disbursed, repayments, activeUsers, totalUsers, totalTransactions, activePurchases, totalInst, paidInst, monthRevenue, withdrawals, payouts, storageFeesAgg, deliveryFeesAgg, priceAgg, costAgg] = await Promise.all([
+  const [disbursed, repayments, activeUsers, totalUsers, totalTransactions, activePurchases, totalInst, paidInst, monthRevenue, withdrawals, payouts, storageFeesAgg, deliveryFeesAgg, priceAgg, costAgg, totalBnplPurchases, bnplFeeSettings] = await Promise.all([
     prisma.bnplPurchase.aggregate({ _sum: { totalAmount: true } }),
     prisma.transaction.aggregate({ where: { type: 'REPAYMENT', status: 'COMPLETED' }, _sum: { amount: true } }),
     prisma.user.count({ where: { role: 'CUSTOMER', isActive: true } }),
@@ -285,15 +285,26 @@ export async function reportsSummary() {
     prisma.product.aggregate({ _sum: { deliveryFee: true } }),
     prisma.product.aggregate({ _avg: { price: true } }),
     prisma.product.aggregate({ _avg: { costPrice: true } }),
+    prisma.bnplPurchase.count(),
+    getBnplFeeSettings(),
   ]);
 
   const repaymentRate = totalInst > 0 ? Math.round((paidInst / totalInst) * 10000) / 100 : 0;
   const totalCompleted = (monthRevenue._sum.amount ?? 0) + (disbursed._sum.totalAmount ?? 0);
   const transferPct = totalCompleted > 0 ? Math.round(((payouts._sum.amount ?? 0) / totalCompleted) * 10000) / 100 : 0;
   const withdrawalPct = (monthRevenue._sum.amount ?? 0) > 0 ? Math.round(((withdrawals._sum.amount ?? 0) / (monthRevenue._sum.amount ?? 0)) * 10000) / 100 : 0;
-  
-  // Account opening fees: 5000 FCFA per customer account
-  const accountOpeningFee = activeUsers * 5000;
+
+  // Collection fees: collectionFee × total BNPL purchases
+  const totalCollectionFees = totalBnplPurchases * bnplFeeSettings.collectionFee;
+
+  // Account creation fees: accountCreationFee × total customers (each pays once on first BNPL)
+  const totalAccountCreationFees = activeUsers * bnplFeeSettings.accountCreationFee;
+
+  // Delivery fees: sum from products
+  const totalDeliveryFees = deliveryFeesAgg._sum.deliveryFee ?? 0;
+
+  // Storage fees: sum from products
+  const totalStorageFees = storageFeesAgg._sum.storageFee ?? 0;
 
   // Calculate average margin from price and cost price
   const avgPrice = priceAgg._avg.price ?? 0;
@@ -311,11 +322,18 @@ export async function reportsSummary() {
     revenueThisMonth: monthRevenue._sum.amount ?? 0,
     transferPercentage: transferPct,
     withdrawalPercentage: withdrawalPct,
-    // Operational cost metrics from products
-    totalStorageFees: storageFeesAgg._sum.storageFee ?? 0,
-    totalDeliveryFees: deliveryFeesAgg._sum.deliveryFee ?? 0,
-    accountOpeningFees: accountOpeningFee,
+    totalStorageFees,
+    totalDeliveryFees,
+    totalCollectionFees,
+    totalAccountCreationFees,
+    totalBnplPurchases,
     avgMargin,
+    feeRates: {
+      stockingFee: bnplFeeSettings.stockingFee,
+      accountCreationFee: bnplFeeSettings.accountCreationFee,
+      deliveryFee: bnplFeeSettings.deliveryFee,
+      collectionFee: bnplFeeSettings.collectionFee,
+    },
   };
 }
 
