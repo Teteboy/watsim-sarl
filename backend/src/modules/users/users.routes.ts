@@ -180,14 +180,15 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     try {
       const filename = await uploadProfilePicture(req.authUser!.id, fileBuffer, contentType);
       const storedPath = `/uploads/${filename}`;
+      const fullUrl = resolveImageUrl(storedPath, requestBaseUrl) ?? storedPath;
 
-      // Update user with stored path (folder URL)
+      // Update user with full URL so it loads from the backend in production
       await prisma.user.update({
         where: { id: req.authUser!.id },
-        data: { imageUrl: storedPath },
+        data: { imageUrl: fullUrl },
       });
 
-      return { success: true, imageUrl: storedPath, fullUrl: resolveImageUrl(storedPath, requestBaseUrl) };
+      return { success: true, imageUrl: fullUrl, fullUrl };
     } catch {
       return reply.code(500).send({ error: 'UploadFailed', message: 'Failed to upload image' });
     }

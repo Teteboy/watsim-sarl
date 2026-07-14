@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '@/lib/api';
+import { resolveUploadUrl } from '@/lib/utils';
 
 interface AdminHeaderProps {
   sidebarCollapsed: boolean;
@@ -116,7 +117,7 @@ export default function AdminHeader({ sidebarCollapsed, breadcrumb, onLogout, ad
             style={{ background: '#4DB049', color: '#FFFFFF', fontFamily: 'Montserrat, sans-serif' }}
           >
             {adminProfile?.imageUrl ? (
-              <img src={adminProfile.imageUrl} alt="Profile" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src={resolveUploadUrl(adminProfile.imageUrl) ?? ''} alt="Profile" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             ) : (
               (adminProfile?.fullName || 'SA').split(' ').map((n: string) => n[0] || '').join('').slice(0, 2) || 'SA'
             )}

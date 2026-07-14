@@ -125,7 +125,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
     const url = `/uploads/${filename}`;
     const fullUrl = `${getBackendBaseUrl()}${url}`;
-    return reply.send({ url, fullUrl, filename });
+    return reply.send({ url: fullUrl, fullUrl, filename });
   });
 
   await app.register(messagingRoutes, { prefix: `${prefix}/messages` });

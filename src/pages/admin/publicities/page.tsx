@@ -3,6 +3,7 @@ import AdminLayout from '@/components/feature/AdminLayout';
 import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
 import { adminApi, API_PREFIX } from '@/lib/api';
+import { resolveUploadUrl } from '@/lib/utils';
 
 // Publicity configuration constants
 const publicityTypes = [
@@ -363,7 +364,7 @@ export default function AdminPublicitiesPage() {
                             className="w-16 h-10 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
                             onClick={() => setSelectedImage(pub.imageUrl || pub.image)}
                           >
-                            <img src={pub.imageUrl || pub.image} alt={pub.name} className="w-full h-full object-cover" loading="lazy" />
+                            <img src={resolveUploadUrl(pub.imageUrl || pub.image) ?? ''} alt={pub.name} className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -530,9 +531,10 @@ export default function AdminPublicitiesPage() {
         >
           <div className="relative max-w-2xl w-full">
             <img
-              src={selectedImage}
+              src={resolveUploadUrl(selectedImage) ?? ''}
               alt="Publicité"
               className="w-full rounded-xl"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               style={{ maxHeight: '60vh', objectFit: 'contain' }}
             />
             <button
@@ -713,7 +715,7 @@ export default function AdminPublicitiesPage() {
                 </div>
                 {newPub.image && (
                   <div className="mt-2">
-                    <img src={newPub.image} alt="Preview" className="w-full h-24 object-cover rounded-lg" />
+                    <img src={resolveUploadUrl(newPub.image) ?? ''} alt="Preview" className="w-full h-24 object-cover rounded-lg" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   </div>
                 )}
                 <p className="text-xs mt-1" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>
@@ -902,7 +904,7 @@ export default function AdminPublicitiesPage() {
                 </div>
                 {(editingPub.imageUrl || editingPub.image) && (
                   <div className="mt-2">
-                    <img src={editingPub.imageUrl || editingPub.image} alt="Preview" className="w-full h-24 object-cover rounded-lg" />
+                    <img src={resolveUploadUrl(editingPub.imageUrl || editingPub.image) ?? ''} alt="Preview" className="w-full h-24 object-cover rounded-lg" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   </div>
                 )}
               </div>

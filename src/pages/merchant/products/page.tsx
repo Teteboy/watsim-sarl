@@ -4,6 +4,7 @@ import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
 import { API_PREFIX, getPublicCategories, suggestProductPrice } from '@/lib/api';
 import { merchantApi } from '@/lib/api';
+import { resolveUploadUrl } from '@/lib/utils';
 import { cardStyle, inputStyle, labelStyle, headingStyle, pageTitleStyle, tableHeaderStyle, tableRowStyle, primaryButtonStyle, secondaryButtonStyle, statusBadgeStyle, tableRowHoverClass } from '@/styles/admin-theme';
 
 type Product = {
@@ -374,7 +375,7 @@ export default function MerchantProductsPage() {
                     <div className="flex items-center gap-3">
                       <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: '#F5FAF5' }}>
                         {p.image ? (
-                          <img src={p.image} alt={p.name} className="w-full h-full object-cover object-top" />
+                          <img src={resolveUploadUrl(p.image) ?? ''} alt={p.name} className="w-full h-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         ) : (
                           <i className="ri-image-line text-base" style={{ color: '#9CA3AF' }} />
                         )}
@@ -588,7 +589,7 @@ export default function MerchantProductsPage() {
                   <div className="flex gap-1.5 flex-wrap mb-2">
                     {existing.map((url, i) => (
                       <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden group" style={{ border: '1px solid #E8F2F1' }}>
-                        <img src={url} alt={`Galerie ${i + 1}`} className="w-full h-full object-cover" />
+                        <img src={resolveUploadUrl(url) ?? ''} alt={`Galerie ${i + 1}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         <button
                           onClick={() => setRemovedGalleryUrls(prev => [...prev, url])}
                           className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -641,7 +642,7 @@ export default function MerchantProductsPage() {
               <div className="flex items-center gap-3">
                 {(editForm.image || editImageFile) && (
                   <img
-                    src={editImageFile ? URL.createObjectURL(editImageFile) : editForm.image}
+                    src={editImageFile ? URL.createObjectURL(editImageFile) : (resolveUploadUrl(editForm.image) ?? '')}
                     alt="Preview"
                     className="w-12 h-12 rounded-lg object-cover"
                   />
@@ -823,7 +824,7 @@ export default function MerchantProductsPage() {
               <div className="flex items-center gap-3">
                 {(addForm.image || addImageFile) && (
                   <img
-                    src={addImageFile ? URL.createObjectURL(addImageFile) : addForm.image}
+                    src={addImageFile ? URL.createObjectURL(addImageFile) : (resolveUploadUrl(addForm.image) ?? '')}
                     alt="Preview"
                     className="w-12 h-12 rounded-lg object-cover"
                   />

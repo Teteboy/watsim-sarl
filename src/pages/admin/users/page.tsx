@@ -4,6 +4,7 @@ import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
 // adminUsers mock removed - live fetch via adminApi.users()
 import { adminApi } from '@/lib/api';
+import { resolveUploadUrl } from '@/lib/utils';
 import { mapUser, type BackendUser, type Paginated, type UiAdminUser } from '@/lib/api-adapters';
 
 type User = UiAdminUser;
@@ -310,7 +311,7 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {user.image ? (
-                          <img src={user.image} alt={user.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                          <img src={resolveUploadUrl(user.image) ?? ''} alt={user.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         ) : (
                           <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF' }}>
                             {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
@@ -388,7 +389,7 @@ export default function AdminUsersPage() {
             </div>
             <div className="flex items-center gap-4">
               {selectedUser.image ? (
-                <img src={selectedUser.image} alt={selectedUser.name} className="w-16 h-16 rounded-2xl object-cover flex-shrink-0" />
+                <img src={resolveUploadUrl(selectedUser.image) ?? ''} alt={selectedUser.name} className="w-16 h-16 rounded-2xl object-cover flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               ) : (
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF', fontFamily: 'Montserrat, sans-serif' }}>
                   {selectedUser.name.split(' ').map(n => n[0]).join('').slice(0, 2)}

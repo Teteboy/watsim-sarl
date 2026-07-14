@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { adminApi, tokenStore } from '@/lib/api';
+import { resolveUploadUrl } from '@/lib/utils';
 
 export default function TopProductsCard() {
   const [topSold, setTopSold] = useState<any[]>([]);
@@ -133,11 +134,11 @@ export default function TopProductsCard() {
             <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: '#F5FAF5' }}>
               {product.image ? (
                 <img
-                  src={product.image}
+                  src={resolveUploadUrl(product.image) ?? ''}
                   alt={product.name}
                   className="w-full h-full object-cover"
                   loading="lazy"
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               ) : (
                 <i className="ri-image-line text-base" style={{ color: '#9CA3AF' }} />

@@ -3,6 +3,7 @@ import AdminLayout from '@/components/feature/AdminLayout';
 import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
 import { getPublicCategories, adminApi, suggestProductPrice } from '@/lib/api';
+import { resolveUploadUrl } from '@/lib/utils';
 
 type GalleryItem = { id?: string; imageUrl: string; sortOrder?: number };
 
@@ -418,7 +419,7 @@ export default function AdminProductsPage() {
                       <div className="flex items-center gap-3">
                         <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ background: '#F5FAF5' }}>
                           {p.image ? (
-                            <img src={p.image} alt={p.name} className="w-full h-full object-cover object-top" />
+                            <img src={resolveUploadUrl(p.image) ?? ''} alt={p.name} className="w-full h-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center"><i className="ri-image-line text-base" style={{ color: '#9CA3AF' }} /></div>
                           )}
@@ -504,7 +505,7 @@ export default function AdminProductsPage() {
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0" style={{ background: '#E8F2F1' }}>
                   {editProduct.image ? (
-                    <img src={editProduct.image} alt={editProduct.name} className="w-full h-full object-cover object-top" />
+                    <img src={resolveUploadUrl(editProduct.image) ?? ''} alt={editProduct.name} className="w-full h-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center"><i className="ri-image-line text-xl" style={{ color: '#9CA3AF' }} /></div>
                   )}
@@ -520,7 +521,7 @@ export default function AdminProductsPage() {
                   <div className="flex gap-1.5 flex-wrap">
                     {editProduct.gallery.map((g, i) => (
                       <div key={g.id ?? i} className="w-10 h-10 rounded-lg overflow-hidden" style={{ border: '1px solid #E8F2F1' }}>
-                        <img src={g.imageUrl} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+                        <img src={resolveUploadUrl(g.imageUrl) ?? ''} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                       </div>
                     ))}
                   </div>
@@ -563,7 +564,7 @@ export default function AdminProductsPage() {
                 <div className="flex items-center gap-3">
                   {(editProduct.image || editImageFile) && (
                     <img
-                      src={editImageFile ? URL.createObjectURL(editImageFile) : editProduct.image}
+                      src={editImageFile ? URL.createObjectURL(editImageFile) : (resolveUploadUrl(editProduct.image) ?? '')}
                       alt="Preview"
                       className="w-12 h-12 rounded-lg object-cover"
                     />

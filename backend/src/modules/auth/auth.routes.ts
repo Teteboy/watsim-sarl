@@ -181,10 +181,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const backFilename = backBuffer
       ? await uploadKycDocument(req.authUser!.id, backName, backBuffer, backMime)
       : null;
-    const fileUrl = resolveImageUrl(frontFilename);
-    const selfieUrl = backFilename ? resolveImageUrl(backFilename) : null;
+    const fileUrl = resolveImageUrl(frontFilename) ?? frontFilename;
+    const selfieUrl = backFilename ? (resolveImageUrl(backFilename) ?? backFilename) : null;
     const doc = await prisma.kycDocument.create({
-      data: { userId: req.authUser!.id, type: docType, fileUrl: frontFilename, selfieUrl: backFilename, status: 'PENDING' },
+      data: { userId: req.authUser!.id, type: docType, fileUrl, selfieUrl, status: 'PENDING' },
     });
     await prisma.user.update({ where: { id: req.authUser!.id }, data: { kycStatus: 'PENDING' } });
     await enqueueKycVerification(doc.id);

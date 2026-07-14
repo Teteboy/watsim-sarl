@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getPublicCategories, simulateBnpl } from '@/lib/api';
+import { resolveUploadUrl } from '@/lib/utils';
 
 export default function ShopPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -78,7 +79,7 @@ export default function ShopPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filtered.map((p: any) => (
             <div key={p.id} className="rounded-2xl p-4 bg-[#014A41] border border-white/10">
-              <img src={p.imageUrl || 'https://picsum.photos/300/200'} className="w-full h-40 object-cover rounded-xl mb-4" alt="" />
+              <img src={resolveUploadUrl(p.imageUrl) ?? 'https://picsum.photos/300/200'} className="w-full h-40 object-cover rounded-xl mb-4" alt="" onError={(e) => { (e.target as HTMLImageElement).src = 'https://picsum.photos/300/200'; }} />
               <div className="font-semibold text-white">{p.name}</div>
               <div className="text-[#4DB049] text-lg">{p.price.toLocaleString()} FCFA</div>
               <div className="text-xs text-white/50 mb-4">{p.category?.name || 'Autre'}</div>
