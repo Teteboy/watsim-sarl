@@ -201,7 +201,7 @@ export default function BnplSettingsPanel() {
                     <div className="flex items-center gap-2">
                       {!isEditing ? (
                         <>
-                          <button onClick={() => setConfirmReset(cat.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer whitespace-nowrap hover:bg-white/5 transition-colors" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Poppins, sans-serif', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <button onClick={() => setConfirmReset(cat.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer whitespace-nowrap hover:bg-gray-100 transition-colors" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif', border: '1px solid #E8F2F1' }}>
                             <i className="ri-restart-line" /> Réinitialiser
                           </button>
                           <button onClick={() => startEdit(cat)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer whitespace-nowrap hover:bg-white/5 transition-colors" style={{ color: '#D4AF37', fontFamily: 'Poppins, sans-serif', border: '1px solid rgba(212,175,55,0.2)' }}>
@@ -210,7 +210,7 @@ export default function BnplSettingsPanel() {
                         </>
                       ) : (
                         <>
-                          <button onClick={cancelEdit} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer whitespace-nowrap" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif', border: '1px solid rgba(255,255,255,0.1)' }}>
+                          <button onClick={cancelEdit} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer whitespace-nowrap" style={{ background: '#F5FAF5', color: '#6B7280', fontFamily: 'Poppins, sans-serif', border: '1px solid #E8F2F1' }}>
                             Annuler
                           </button>
                           <button onClick={saveEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', color: '#0A1628', fontFamily: 'Poppins, sans-serif' }}>
@@ -225,50 +225,50 @@ export default function BnplSettingsPanel() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {/* Max Credit */}
                     <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Plafond crédit max (FCFA)</label>
+                      <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Plafond crédit max (FCFA)</label>
                       {isEditing ? (
                         <input
                           type="number"
                           value={editForm.maxCredit ?? cat.maxCredit}
                           onChange={e => updateEditField('maxCredit', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-white"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
+                          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                          style={{ background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}
                         />
                       ) : (
-                        <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.maxCredit.toLocaleString()} FCFA</p>
+                        <p className="text-sm px-3 py-2 rounded-lg" style={{ background: '#F5FAF5', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{cat.maxCredit.toLocaleString()} FCFA</p>
                       )}
                     </div>
 
                     {/* Min Score */}
                     <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Score minimum requis</label>
+                      <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Score minimum requis</label>
                       {isEditing ? (
                         <input
                           type="number"
                           value={editForm.minScore ?? cat.minScore}
                           onChange={e => updateEditField('minScore', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-white"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
+                          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                          style={{ background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}
                         />
                       ) : (
-                        <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.minScore} pts</p>
+                        <p className="text-sm px-3 py-2 rounded-lg" style={{ background: '#F5FAF5', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{cat.minScore} pts</p>
                       )}
                     </div>
 
                     {/* Merchant Commission */}
                     <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>Commission commerçant (%)</label>
+                      <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Commission commerçant (%)</label>
                       {isEditing ? (
                         <input
                           type="number"
                           step="0.1"
                           value={editForm.merchantCommission ?? cat.merchantCommission}
                           onChange={e => updateEditField('merchantCommission', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 rounded-lg text-sm outline-none text-white"
-                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'Poppins, sans-serif' }}
+                          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                          style={{ background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}
                         />
                       ) : (
-                        <p className="text-sm text-white px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', fontFamily: 'Poppins, sans-serif' }}>{cat.merchantCommission}%</p>
+                        <p className="text-sm px-3 py-2 rounded-lg" style={{ background: '#F5FAF5', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{cat.merchantCommission}%</p>
                       )}
                     </div>
                   </div>
