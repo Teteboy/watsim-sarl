@@ -72,7 +72,8 @@ export async function verifyCredentials(email: string, password: string): Promis
 }
 
 export async function issueTokens(app: FastifyInstance, user: { id: string; role: UserRole; email: string }): Promise<AuthTokens> {
-  const accessToken = app.jwt.sign({ sub: user.id, role: user.role, email: user.email });
+  const expiresIn = user.role === 'ADMIN' ? '24h' : env.JWT_ACCESS_EXPIRY;
+  const accessToken = app.jwt.sign({ sub: user.id, role: user.role, email: user.email }, { expiresIn });
   const refreshToken = crypto.randomBytes(48).toString('hex');
   const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
 
@@ -80,7 +81,7 @@ export async function issueTokens(app: FastifyInstance, user: { id: string; role
     data: { userId: user.id, token: refreshToken, expiresAt },
   });
 
-  return { accessToken, refreshToken, expiresIn: env.JWT_ACCESS_EXPIRY };
+  return { accessToken, refreshToken, expiresIn };
 }
 
 export async function rotateRefreshToken(app: FastifyInstance, oldToken: string): Promise<AuthTokens> {

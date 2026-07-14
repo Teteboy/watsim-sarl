@@ -27,6 +27,7 @@ type Product = {
   deliveryFee?: number;
   storageFee?: number;
   isActive?: boolean;
+  createdAt?: string;
 };
 
 const statusColors: Record<string, string> = { active: '#22C55E', out_of_stock: '#EF4444', inactive: '#6B7280' };
@@ -68,6 +69,7 @@ export default function AdminProductsPage() {
         deliveryFee: Number(it.deliveryFee ?? 0),
         storageFee: Number(it.storageFee ?? 0),
         isActive: it.isActive !== false,
+        createdAt: it.createdAt ?? '',
       }));
       setProducts(normalized);
       setTotal(tot);
@@ -401,7 +403,7 @@ export default function AdminProductsPage() {
                   <th className="px-3 py-3">
                     <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={() => setSelectedIds(prev => prev.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id)))} className="accent-[#4DB049]" />
                   </th>
-                   {['Produit', 'Commercial', 'Catégorie', 'Prix de vente', 'Stock', 'Vendus', 'Frais livraison', 'Frais stockage', 'BNPL', 'Statut', 'Actions'].map(h => (
+                   {['Produit', 'Commercial', 'Catégorie', 'Prix de vente', 'Stock', 'Vendus', 'Frais livraison', 'Frais stockage', 'BNPL', 'Statut', 'Ajouté le', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{h}</th>
                   ))}
                 </tr>
@@ -446,6 +448,10 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap" style={{ background: `${statusColors[p.status]}20`, color: statusColors[p.status] }}>{statusLabels[p.status]}</span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <p className="text-xs" style={{ color: '#374151', fontFamily: 'Poppins, sans-serif' }}>{p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR') : '—'}</p>
+                      <p className="text-[10px]" style={{ color: '#9CA3AF' }}>{p.createdAt ? new Date(p.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">

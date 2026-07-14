@@ -402,7 +402,7 @@ export default function AdminMerchantsPage() {
                     <th className="px-3 py-3">
                       <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} className="accent-[#4DB049]" />
                     </th>
-                    {['Commercial', 'Propriétaire', 'Catégories', 'Ville', 'Produits', 'Commandes', 'Revenus', 'Note', 'Statut', 'User ID', 'Mot de passe', 'Actions'].map(h => (
+                    {['Commercial', 'Propriétaire', 'Catégories', 'Ville', 'Produits', 'Commandes', 'Revenus', 'Note', 'Statut', 'Inscription', 'User ID', 'Mot de passe', 'Actions'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: '#4DB049', fontFamily: 'Poppins, sans-serif' }}>{h}</th>
                     ))}
                   </tr>
@@ -446,6 +446,10 @@ export default function AdminMerchantsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap" style={{ background: `${statusColors[m.status]}20`, color: statusColors[m.status] }}>{statusLabels[m.status]}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className="text-xs" style={{ color: '#374151', fontFamily: 'Poppins, sans-serif' }}>{m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('fr-FR') : '—'}</p>
+                        <p className="text-[10px]" style={{ color: '#9CA3AF' }}>{m.joinedAt ? new Date(m.joinedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                       </td>
                       <td className="px-4 py-3 text-[10px] font-mono" style={{ color: '#9CA3AF' }} title={m.userId || 'Aucun compte lié'}>
                         {m.userId ? m.userId.slice(0, 8) + '…' : '—'}

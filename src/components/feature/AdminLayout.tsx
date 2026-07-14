@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useAdminAuth, getAdminTokenExpiry } from '@/hooks/useAdminAuth';
 import { tokenStore } from '@/lib/api';
 
 interface AdminLayoutProps {
@@ -30,6 +30,20 @@ export default function AdminLayout({ children, breadcrumb }: AdminLayoutProps) 
     logout();
     navigate('/admin/login');
   }, [logout, navigate]);
+
+  useEffect(() => {
+    const exp = getAdminTokenExpiry();
+    if (!exp) return;
+    const msUntilExpiry = exp - Date.now();
+    if (msUntilExpiry <= 0) {
+      handleLogout();
+      return;
+    }
+    const timer = setTimeout(() => {
+      handleLogout();
+    }, msUntilExpiry);
+    return () => clearTimeout(timer);
+  }, [handleLogout]);
 
   return (
     <div className="min-h-screen" style={{ background: '#FAFEF9' }}>

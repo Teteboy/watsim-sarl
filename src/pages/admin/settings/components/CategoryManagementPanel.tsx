@@ -18,8 +18,7 @@ export default function CategoryManagementPanel() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editCategory, setEditCategory] = useState<PlatformCategory | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [showMarginModal, setShowMarginModal] = useState(false);
-  const [marginCategory, setMarginCategory] = useState<PlatformCategory | null>(null);
+  const [editingMarginId, setEditingMarginId] = useState<string | null>(null);
   const [marginValue, setMarginValue] = useState('');
   const [showGlobalMarginModal, setShowGlobalMarginModal] = useState(false);
   const [globalMarginValue, setGlobalMarginValue] = useState('');
@@ -157,30 +156,25 @@ export default function CategoryManagementPanel() {
     }
   };
 
-  const handleUpdateMargin = (category: PlatformCategory) => {
-    setMarginCategory(category);
-    setMarginValue(String(category.markupPercentage || 20));
-    setShowMarginModal(true);
+  const openMarginEdit = (cat: PlatformCategory) => {
+    setEditingMarginId(cat.id);
+    setMarginValue(String(cat.markupPercentage ?? 20));
   };
 
-  const handleSaveMargin = async () => {
-    if (!marginCategory || !marginValue) return;
+  const saveMargin = async (catId: string) => {
     const margin = parseFloat(marginValue);
     if (isNaN(margin) || margin < 0 || margin > 100) {
       addToast('error', 'Erreur', 'La marge doit être entre 0 et 100%');
       return;
     }
     try {
-      await adminApi.updateCategoryMargin(marginCategory.id, margin);
-      setCategories(prev => prev.map(c => 
-        c.id === marginCategory.id ? { ...c, markupPercentage: margin } : c
-      ));
-      setShowMarginModal(false);
-      setMarginCategory(null);
-      addToast('success', 'Marge mise à jour', `La marge pour ${marginCategory.name} a été mise à jour à ${margin}%`);
+      await adminApi.updateCategoryMargin(catId, margin);
+      setCategories(prev => prev.map(c => c.id === catId ? { ...c, markupPercentage: margin } : c));
+      addToast('success', 'Marge mise à jour', `Marge mise à jour à ${margin}%`);
     } catch {
       addToast('error', 'Erreur', 'Impossible de mettre à jour la marge');
     }
+    setEditingMarginId(null);
   };
 
   const handleGlobalMargin = () => {
@@ -323,8 +317,24 @@ export default function CategoryManagementPanel() {
                 <p className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat, sans-serif' }}>{cat.merchantsCount}</p>
                 <p className="text-[10px]" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Commerçants</p>
               </div>
-              <div className="text-center p-2 rounded-lg" style={{ background: '#F5FAF5' }}>
-                <p className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat, sans-serif' }}>{cat.markupPercentage || 20}%</p>
+              <div className="text-center p-2 rounded-lg" style={{ background: editingMarginId === cat.id ? 'rgba(77,176,89,0.1)' : '#F5FAF5', border: editingMarginId === cat.id ? '1px solid #4DB049' : '1px solid transparent' }}>
+                {editingMarginId === cat.id ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number" autoFocus value={marginValue} min="0" max="100" step="0.1"
+                      onChange={e => setMarginValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveMargin(cat.id); if (e.key === 'Escape') setEditingMarginId(null); }}
+                      onBlur={() => saveMargin(cat.id)}
+                      className="w-12 text-xs text-center font-bold outline-none rounded"
+                      style={{ background: 'transparent', color: '#014945', fontFamily: 'Montserrat, sans-serif' }}
+                    />
+                    <span className="text-xs font-bold" style={{ color: '#014945' }}>%</span>
+                  </div>
+                ) : (
+                  <button onClick={() => openMarginEdit(cat)} className="w-full cursor-pointer" title="Cliquer pour modifier la marge">
+                    <p className="text-sm font-bold" style={{ color: '#4DB049', fontFamily: 'Montserrat, sans-serif' }}>{cat.markupPercentage ?? 20}%</p>
+                  </button>
+                )}
                 <p className="text-[10px]" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Marge</p>
               </div>
               <div className="text-center p-2 rounded-lg" style={{ background: '#F5FAF5' }}>
@@ -349,9 +359,6 @@ export default function CategoryManagementPanel() {
                 </div>
                 <button onClick={() => toggleFeatured(cat.id)} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-100 transition-colors" style={{ color: cat.featured ? cat.color : '#9CA3AF' }} title={cat.featured ? 'Retirer des vedettes' : 'Mettre en vedette'}>
                   <i className={cat.featured ? 'ri-star-fill' : 'ri-star-line'} />
-                </button>
-                <button onClick={() => handleUpdateMargin(cat)} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-100 transition-colors" style={{ color: '#22C55E' }} title="Mettre à jour la marge">
-                  <i className="ri-percent-line" />
                 </button>
                 <button onClick={() => setEditCategory(cat)} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-100 transition-colors" style={{ color: '#6B7280' }}>
                   <i className="ri-edit-line" />
@@ -520,55 +527,6 @@ export default function CategoryManagementPanel() {
           onConfirm={() => handleDelete(deleteId)}
           onCancel={() => setDeleteId(null)}
         />
-      )}
-
-      {/* Margin Update Modal */}
-      {showMarginModal && marginCategory && (
-        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => setShowMarginModal(false)}>
-          <div className="w-full max-w-md rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
-                Mettre à jour la marge
-              </h2>
-              <button onClick={() => setShowMarginModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer" style={{ color: '#6B7280' }}>
-                <i className="ri-close-line text-lg" />
-              </button>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block" style={{ color: '#374151', fontFamily: 'Poppins, sans-serif' }}>
-                Catégorie: <span className="font-semibold">{marginCategory.name}</span>
-              </label>
-              <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
-                Marge (%)
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={marginValue}
-                  onChange={(e) => setMarginValue(e.target.value)}
-                  className="w-full pr-12 px-3 py-2.5 rounded-lg text-sm outline-none"
-                  style={{ background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}
-                  min="0"
-                  max="100"
-                  step="0.1"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#6B7280' }}>%</span>
-              </div>
-              <p className="text-xs mt-2" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
-                Cette mise à jour recalculera les prix de tous les produits dans cette catégorie.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowMarginModal(false)} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}>
-                Annuler
-              </button>
-              <button onClick={handleSaveMargin} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #22C55E, #16A34A)', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}>
-                <i className="ri-percent-line mr-2" />
-                Mettre à jour
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Global Margin Modal */}

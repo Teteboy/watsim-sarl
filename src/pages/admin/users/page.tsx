@@ -295,7 +295,7 @@ export default function AdminUsersPage() {
                   <th className="px-3 py-3">
                     <input type="checkbox" checked={selectedIds.size === users.length && users.length > 0} onChange={toggleSelectAll} className="accent-[#4DB049]" />
                   </th>
-                  {['ID', 'Utilisateur', 'Téléphone', 'KYC', 'Score Crédit', 'Plafond', 'Solde Wallet', 'Statut', 'Actions'].map(h => (
+                  {['ID', 'Utilisateur', 'Téléphone', 'KYC', 'Score Crédit', 'Plafond', 'Solde Wallet', 'Statut', 'Inscription', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{h}</th>
                   ))}
                 </tr>
@@ -333,6 +333,10 @@ export default function AdminUsersPage() {
                       <span className="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap" style={{ background: `${statusColors[user.status]}20`, color: statusColors[user.status] }}>
                         {user.status === 'active' ? 'Actif' : 'Suspendu'}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <p className="text-xs" style={{ color: '#374151', fontFamily: 'Poppins, sans-serif' }}>{user.joinedAt ? new Date(user.joinedAt).toLocaleDateString('fr-FR') : '—'}</p>
+                      <p className="text-[10px]" style={{ color: '#9CA3AF' }}>{user.joinedAt ? new Date(user.joinedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
