@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/feature/AdminLayout';
 import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
-import { API_PREFIX, getPublicCategories, adminApi, suggestProductPrice } from '@/lib/api';
+import { getPublicCategories, adminApi, suggestProductPrice } from '@/lib/api';
 
 type GalleryItem = { id?: string; imageUrl: string; sortOrder?: number };
 
@@ -43,10 +43,7 @@ export default function AdminProductsPage() {
 
   const loadAdminProducts = async (pageNum: number = 1) => {
     try {
-      const q = new URLSearchParams({ page: String(pageNum), limit: String(limit) });
-      const res = await fetch(`${API_PREFIX}/products?${q.toString()}`, { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('Failed to load');
-      const body = await res.json();
+      const body = await adminApi.products({ page: pageNum, limit });
       const items = Array.isArray(body) ? body : body.items ?? body.data ?? [];
       const tot = Number(body?.total ?? items.length);
       const normalized = items.map((it: any) => ({
@@ -75,7 +72,7 @@ export default function AdminProductsPage() {
       setProducts(normalized);
       setTotal(tot);
       setPage(pageNum);
-    } catch (e) {
+    } catch {
       setProducts([]);
       setTotal(0);
     }
@@ -234,38 +231,7 @@ export default function AdminProductsPage() {
       // fallback: local update is already prepared
     }
 
-    // Always refresh the list from backend to stay in sync
-    try {
-      const res = await fetch(`${API_PREFIX}/products`, { credentials: 'same-origin' });
-      const body = await res.json();
-      const items = Array.isArray(body) ? body : body.items ?? body.data ?? [];
-      // re-use the normalization logic from load
-      const normalized = items.map((it: any) => ({
-        id: it.id || `PRD-${Math.random().toString(36).slice(2,8)}`,
-        name: it.name || 'Produit',
-        merchant: it.merchant?.businessName || it.merchant?.name || 'Non assigné',
-        merchantId: it.merchant?.id || it.merchantId,
-        category: it.category?.name || (typeof it.category === 'string' ? it.category : 'Autre'),
-        categoryId: it.category?.id || it.categoryId,
-        buyPrice: Number(it.costPrice ?? it.buyPrice ?? it.buy_price ?? it.cost) || Number(it.price) || 0,
-        costPrice: Number(it.costPrice ?? it.buyPrice) || 0,
-        price: Number(it.price) || 0,
-        sellPrice: Number(it.price) || 0,
-        description: it.description || '',
-        stock: Number(it.stock ?? 0),
-        sold: Number(it.sold ?? 0),
-        status: (Number(it.stock ?? 0) === 0) ? 'out_of_stock' : (it.isActive !== false ? 'active' : 'inactive'),
-        bnplEligible: !!it.bnplEligible,
-        image: it.imageUrl || it.image || '',
-        gallery: Array.isArray(it.gallery)
-          ? it.gallery.map((g: any) => typeof g === 'string' ? { imageUrl: g } : { id: g.id, imageUrl: g.imageUrl, sortOrder: g.sortOrder })
-          : (it.imageUrl ? [{ imageUrl: it.imageUrl }] : []),
-        deliveryFee: Number(it.deliveryFee ?? 0),
-        storageFee: Number(it.storageFee ?? 0),
-        isActive: it.isActive !== false,
-      }));
-      setProducts(normalized);
-    } catch { /* reload failed silently */ }
+    await loadAdminProducts(page);
 
     setEditProduct(null);
     addToast('success', 'Produit modifié', `${editForm.name} a été mis à jour.`);
@@ -321,31 +287,10 @@ export default function AdminProductsPage() {
         storageFee: Number(addForm.storageFee || 0),
         isActive: addForm.isActive,
       };
-      const created = await adminApi.createProduct(payload);
+      await adminApi.createProduct(payload);
       addToast('success', 'Produit ajouté', `${addForm.name} a été créé via le backend.`);
 
-      // Reload list from backend to get authoritative data
-      const res = await fetch(`${API_PREFIX}/products`, { credentials: 'same-origin' });
-      const body = await res.json();
-      const items = Array.isArray(body) ? body : body.items ?? body.data ?? [];
-      const normalized = items.map((it: any) => ({
-        id: it.id || `PRD-${Math.random().toString(36).slice(2,8)}`,
-        name: it.name || 'Produit',
-        merchant: it.merchant?.businessName || it.merchant?.name || 'Non assigné',
-        merchantId: it.merchant?.id || it.merchantId,
-        category: it.category?.name || (typeof it.category === 'string' ? it.category : 'Autre'),
-        categoryId: it.category?.id || it.categoryId,
-        buyPrice: Number(it.costPrice ?? it.buyPrice ?? it.buy_price ?? it.cost) || Number(it.price) || 0,
-        costPrice: Number(it.costPrice ?? it.buyPrice) || 0,
-        price: Number(it.price) || 0,
-        sellPrice: Number(it.price) || 0,
-        description: it.description || '',
-        stock: Number(it.stock ?? 0),
-        sold: Number(it.sold ?? 0),
-        status: (Number(it.stock ?? 0) === 0) ? 'out_of_stock' : 'active',
-        bnplEligible: !!it.bnplEligible,
-      }));
-      setProducts(normalized);
+      await loadAdminProducts(1);
 
       setShowAddModal(false);
       setAddForm({ name: '', merchantId: '', merchantName: '', category: '', categoryId: '', buyPrice: '', price: '', description: '', stock: '', bnplEligible: true, image: '', deliveryFee: '', storageFee: '', isActive: true });
