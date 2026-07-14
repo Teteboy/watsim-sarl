@@ -6,7 +6,7 @@ import { merchantApi } from '@/lib/api';
 import { cardStyle, inputStyle, labelStyle, headingStyle, tableHeaderStyle, tableRowStyle, statusBadgeStyle, tableRowHoverClass } from '@/styles/admin-theme';
 
 const kycColors: Record<string, string> = { verified: '#22C55E', pending: '#F97316', rejected: '#EF4444' };
-const kycLabels: Record<string, string> = { verified: 'Vérifié', pending: 'En attente', rejected: 'Rejeté' };
+const kycLabels: Record<string, string> = { verified: 'VÃ©rifiÃ©', pending: 'En attente', rejected: 'RejetÃ©' };
 const statusColors: Record<string, string> = { active: '#22C55E', suspended: '#EF4444' };
 
 type Customer = {
@@ -89,14 +89,14 @@ export default function MerchantUsersPage() {
     try {
       await merchantApi.updateMerchantCustomerStatus(customer.id, newStatus);
     } catch {
-      addToast('error', 'Échec mise à jour', `Impossible de modifier ${customer.name}.`);
+      addToast('error', 'Ã‰chec mise Ã  jour', `Impossible de modifier ${customer.name}.`);
       return;
     }
     setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, status: newStatus } : c));
     if (selectedCustomer?.id === customer.id) setSelectedCustomer(prev => prev ? { ...prev, status: newStatus } : null);
     addToast(newStatus === 'suspended' ? 'warning' : 'success',
-      newStatus === 'suspended' ? 'Compte suspendu' : 'Compte réactivé',
-      `${customer.name} a été ${newStatus === 'suspended' ? 'suspendu' : 'réactivé'} avec succès.`
+      newStatus === 'suspended' ? 'Compte suspendu' : 'Compte rÃ©activÃ©',
+      `${customer.name} a Ã©tÃ© ${newStatus === 'suspended' ? 'suspendu' : 'rÃ©activÃ©'} avec succÃ¨s.`
     );
   };
 
@@ -115,12 +115,12 @@ export default function MerchantUsersPage() {
     setCreditLoading(true);
     try {
       await merchantApi.creditClientWallet(showCreditModal.id, amount, creditForm.note || undefined);
-      addToast('success', amount > 0 ? 'Wallet crédité' : 'Wallet débité', `${amount > 0 ? 'Ajout' : 'Retrait'} de ${Math.abs(amount)} FCFA pour ${showCreditModal.name}.`);
+      addToast('success', amount > 0 ? 'Wallet crÃ©ditÃ©' : 'Wallet dÃ©bitÃ©', `${amount > 0 ? 'Ajout' : 'Retrait'} de ${Math.abs(amount)} FCFA pour ${showCreditModal.name}.`);
       setShowCreditModal(null);
       setCreditForm({ amount: '', note: '' });
       await loadCustomers(page);
     } catch (e: any) {
-      addToast('error', 'Erreur', e?.message || 'Opération échouée.');
+      addToast('error', 'Erreur', e?.message || 'OpÃ©ration Ã©chouÃ©e.');
     } finally {
       setCreditLoading(false);
     }
@@ -137,13 +137,13 @@ export default function MerchantUsersPage() {
         creditLimit: newLimit,
       });
     } catch {
-      addToast('error', 'Échec mise à jour', `Impossible de modifier ${editForm.name}.`);
+      addToast('error', 'Ã‰chec mise Ã  jour', `Impossible de modifier ${editForm.name}.`);
       return;
     }
     setCustomers(prev => prev.map(c => c.id === editCustomer.id ? { ...c, name: editForm.name, email: editForm.email, phone: editForm.phone, creditLimit: newLimit } : c));
     if (selectedCustomer?.id === editCustomer.id) setSelectedCustomer(prev => prev ? { ...prev, name: editForm.name, email: editForm.email, phone: editForm.phone, creditLimit: newLimit } : null);
     setEditCustomer(null);
-    addToast('success', 'Client modifié', `Les informations de ${editForm.name} ont été mises à jour.`);
+    addToast('success', 'Client modifiÃ©', `Les informations de ${editForm.name} ont Ã©tÃ© mises Ã  jour.`);
   };
 
   const handleCreateUser = async () => {
@@ -152,7 +152,7 @@ export default function MerchantUsersPage() {
       return;
     }
     if (createForm.password.length < 6) {
-      addToast('error', 'Erreur', 'Le mot de passe doit contenir au moins 6 caractères.');
+      addToast('error', 'Erreur', 'Le mot de passe doit contenir au moins 6 caractÃ¨res.');
       return;
     }
     if (createForm.pin && !/^\d{4,6}$/.test(createForm.pin)) {
@@ -169,17 +169,17 @@ export default function MerchantUsersPage() {
         pin: createForm.pin || undefined,
         creditLimit: createForm.creditLimit ? parseInt(createForm.creditLimit) : 100000,
       });
-      addToast('success', 'Client créé', `${createForm.name} a été ajouté avec succès.`);
+      addToast('success', 'Client crÃ©Ã©', `${createForm.name} a Ã©tÃ© ajoutÃ© avec succÃ¨s.`);
       setCreateUser(false);
       setCreateForm({ name: '', email: '', phone: '', password: '', pin: '', creditLimit: '' });
       await loadCustomers(1);
     } catch (e: any) {
-      addToast('error', 'Erreur', e?.message || 'Impossible de créer le client.');
+      addToast('error', 'Erreur', e?.message || 'Impossible de crÃ©er le client.');
     }
   };
 
   const handleExportCSV = () => {
-    const headers = ['ID', 'Nom', 'Email', 'Téléphone', 'KYC', 'Score', 'Plafond', 'Solde', 'Statut'];
+    const headers = ['ID', 'Nom', 'Email', 'TÃ©lÃ©phone', 'KYC', 'Score', 'Plafond', 'Solde', 'Statut'];
     const rows = customers.map(c => [c.id, c.name, c.email, c.phone, c.kycStatus, c.creditScore, c.creditLimit, c.walletBalance, c.status]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -187,15 +187,15 @@ export default function MerchantUsersPage() {
     const a = document.createElement('a');
     a.href = url; a.download = 'watsim_clients.csv'; a.click();
     URL.revokeObjectURL(url);
-    addToast('success', 'Export réussi', `${customers.length} clients exportés en CSV.`);
+    addToast('success', 'Export rÃ©ussi', `${customers.length} clients exportÃ©s en CSV.`);
   };
 
   const handleResetPassword = async (customer: Customer) => {
     try {
       const result = await merchantApi.resetMerchantCustomerPassword(customer.id);
-      addToast('success', 'Mot de passe réinitialisé', result.password ? `Nouveau: ${result.password}` : 'Un email a été envoyé');
+      addToast('success', 'Mot de passe rÃ©initialisÃ©', result.password ? `Nouveau: ${result.password}` : 'Un email a Ã©tÃ© envoyÃ©');
     } catch (e: any) {
-      addToast('error', 'Erreur', e?.message || 'Impossible de réinitialiser');
+      addToast('error', 'Erreur', e?.message || 'Impossible de rÃ©initialiser');
     }
   };
 
@@ -205,11 +205,11 @@ export default function MerchantUsersPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Gestion des Clients</h1>
-            <p className="text-sm mt-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{total} clients enregistrés</p>
+            <p className="text-sm mt-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{total} clients enregistrÃ©s</p>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setCreateUser(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#ffffff', fontFamily: 'Poppins, sans-serif' }}>
-              <i className="ri-add-line" />Créer Client
+              <i className="ri-add-line" />CrÃ©er Client
             </button>
             <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: '#F5FAF5', color: '#4DB049', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}>
               <i className="ri-download-2-line" /> Exporter CSV
@@ -220,7 +220,7 @@ export default function MerchantUsersPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { label: 'Total', value: customers.length, icon: 'ri-user-3-line', color: '#4DB049' },
-            { label: 'Vérifiés KYC', value: customers.filter(u => u.kycStatus === 'verified').length, icon: 'ri-shield-check-line', color: '#22C55E' },
+            { label: 'VÃ©rifiÃ©s KYC', value: customers.filter(u => u.kycStatus === 'verified').length, icon: 'ri-shield-check-line', color: '#22C55E' },
             { label: 'En attente KYC', value: customers.filter(u => u.kycStatus === 'pending').length, icon: 'ri-time-line', color: '#F97316' },
             { label: 'Suspendus', value: customers.filter(u => u.status === 'suspended').length, icon: 'ri-forbid-line', color: '#EF4444' },
           ].map(s => (
@@ -243,9 +243,9 @@ export default function MerchantUsersPage() {
           </div>
           <select value={kycFilter} onChange={e => { setKycFilter(e.target.value); loadCustomers(1); }} className="px-3 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>
             <option value="all" style={{ background: '#FFFFFF' }}>Tous KYC</option>
-            <option value="verified" style={{ background: '#FFFFFF' }}>Vérifiés</option>
+            <option value="verified" style={{ background: '#FFFFFF' }}>VÃ©rifiÃ©s</option>
             <option value="pending" style={{ background: '#FFFFFF' }}>En attente</option>
-            <option value="rejected" style={{ background: '#FFFFFF' }}>Rejetés</option>
+            <option value="rejected" style={{ background: '#FFFFFF' }}>RejetÃ©s</option>
           </select>
           <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); loadCustomers(1); }} className="px-3 py-2 rounded-lg text-sm outline-none cursor-pointer" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>
             <option value="all" style={{ background: '#FFFFFF' }}>Tous statuts</option>
@@ -259,7 +259,7 @@ export default function MerchantUsersPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid #E8F2F1' }}>
-                  {['ID', 'Client', 'Téléphone', 'KYC', 'Score Crédit', 'Plafond', 'Solde Wallet', 'Statut', 'Actions'].map(h => (
+                  {['ID', 'Client', 'TÃ©lÃ©phone', 'KYC', 'Score CrÃ©dit', 'Plafond', 'Solde Wallet', 'Statut', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{h}</th>
                   ))}
                 </tr>
@@ -297,16 +297,16 @@ export default function MerchantUsersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setSelectedCustomer(customer)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" title="Voir détails">
+                        <button onClick={() => setSelectedCustomer(customer)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" title="Voir dÃ©tails">
                           <i className="ri-eye-line text-sm" style={{ color: '#4DB049' }} />
                         </button>
                         <button onClick={() => openEdit(customer)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" title="Modifier">
                           <i className="ri-edit-line text-sm" style={{ color: '#6B7280' }} />
                         </button>
-                        <button onClick={() => { setShowCreditModal(customer); setCreditForm({ amount: '', note: '' }); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-green-50 transition-colors cursor-pointer" title="Créditer Wallet">
+                        <button onClick={() => { setShowCreditModal(customer); setCreditForm({ amount: '', note: '' }); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-green-50 transition-colors cursor-pointer" title="CrÃ©diter Wallet">
                           <i className="ri-wallet-3-line text-sm" style={{ color: '#4DB049' }} />
                         </button>
-                        <button onClick={() => setConfirmSuspend(customer)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors cursor-pointer" title={customer.status === 'active' ? 'Suspendre' : 'Réactiver'}>
+                        <button onClick={() => setConfirmSuspend(customer)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors cursor-pointer" title={customer.status === 'active' ? 'Suspendre' : 'RÃ©activer'}>
                           <i className={`${customer.status === 'active' ? 'ri-forbid-line' : 'ri-checkbox-circle-line'} text-sm`} style={{ color: customer.status === 'active' ? '#EF4444' : '#22C55E' }} />
                         </button>
                       </div>
@@ -317,7 +317,7 @@ export default function MerchantUsersPage() {
             </table>
           </div>
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderTop: '1px solid #E8F2F1' }}>
-            <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{total} résultats — Page {page} / {totalPages}</p>
+            <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{total} rÃ©sultats â€” Page {page} / {totalPages}</p>
             <div className="flex items-center gap-2">
               <button onClick={() => loadCustomers(Math.max(1, page - 1))} disabled={page === 1} className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer disabled:opacity-30" style={{ background: '#F5FAF5', color: '#6B7280' }}>
                 <i className="ri-arrow-left-s-line" />
@@ -338,7 +338,7 @@ export default function MerchantUsersPage() {
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedCustomer(null)}>
           <div className="w-full max-w-lg rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto" style={cardStyle} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Détails Client</h2>
+              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>DÃ©tails Client</h2>
               <button onClick={() => setSelectedCustomer(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer" style={{ color: '#6B7280' }}>
                 <i className="ri-close-line text-lg" />
               </button>
@@ -356,12 +356,12 @@ export default function MerchantUsersPage() {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Email', value: selectedCustomer.email, icon: 'ri-mail-line' },
-                { label: 'Téléphone', value: selectedCustomer.phone, icon: 'ri-phone-line' },
-                { label: 'Score Crédit', value: `${selectedCustomer.creditScore}/100`, icon: 'ri-bar-chart-line' },
+                { label: 'TÃ©lÃ©phone', value: selectedCustomer.phone, icon: 'ri-phone-line' },
+                { label: 'Score CrÃ©dit', value: `${selectedCustomer.creditScore}/100`, icon: 'ri-bar-chart-line' },
                 { label: 'Plafond BNPL', value: `${selectedCustomer.creditLimit.toLocaleString('fr-FR')} FCFA`, icon: 'ri-bank-card-line' },
                 { label: 'Solde Wallet', value: `${selectedCustomer.walletBalance.toLocaleString('fr-FR')} FCFA`, icon: 'ri-wallet-3-line' },
                 { label: 'Commandes', value: selectedCustomer.totalOrders, icon: 'ri-shopping-bag-line' },
-                { label: 'Total Dépensé', value: `${selectedCustomer.totalSpent.toLocaleString('fr-FR')} FCFA`, icon: 'ri-money-cny-circle-line' },
+                { label: 'Total DÃ©pensÃ©', value: `${selectedCustomer.totalSpent.toLocaleString('fr-FR')} FCFA`, icon: 'ri-money-cny-circle-line' },
                 { label: 'Inscrit le', value: selectedCustomer.joinedAt, icon: 'ri-calendar-line' },
               ].map(item => (
                 <div key={item.label} className="rounded-xl p-3" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
@@ -376,7 +376,7 @@ export default function MerchantUsersPage() {
             <div className="flex gap-3">
               <button onClick={() => { setSelectedCustomer(null); setConfirmSuspend(selectedCustomer); }} className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: selectedCustomer.status === 'active' ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)', color: selectedCustomer.status === 'active' ? '#EF4444' : '#22C55E', border: `1px solid ${selectedCustomer.status === 'active' ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`, fontFamily: 'Poppins, sans-serif' }}>
                 <i className={`${selectedCustomer.status === 'active' ? 'ri-forbid-line' : 'ri-checkbox-circle-line'} mr-2`} />
-                {selectedCustomer.status === 'active' ? 'Suspendre' : 'Réactiver'}
+                {selectedCustomer.status === 'active' ? 'Suspendre' : 'RÃ©activer'}
               </button>
               <button onClick={() => { setSelectedCustomer(null); openEdit(selectedCustomer); }} className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}>
                 <i className="ri-edit-line mr-2" />Modifier
@@ -400,8 +400,8 @@ export default function MerchantUsersPage() {
               {[
                 { label: 'Nom complet', key: 'name', type: 'text' },
                 { label: 'Email', key: 'email', type: 'email' },
-                { label: 'Téléphone', key: 'phone', type: 'text' },
-                { label: 'Plafond crédit (FCFA)', key: 'creditLimit', type: 'number' },
+                { label: 'TÃ©lÃ©phone', key: 'phone', type: 'text' },
+                { label: 'Plafond crÃ©dit (FCFA)', key: 'creditLimit', type: 'number' },
               ].map(field => (
                 <div key={field.key}>
                   <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{field.label}</label>
@@ -433,7 +433,7 @@ export default function MerchantUsersPage() {
           <div className="w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(1,73,69,0.15)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Créer un Client</h2>
+                <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>CrÃ©er un Client</h2>
                 <p className="text-xs mt-0.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Nouveau compte client WATSIM</p>
               </div>
               <button onClick={() => setCreateUser(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer" style={{ color: '#6B7280' }}>
@@ -444,10 +444,10 @@ export default function MerchantUsersPage() {
               {[
                 { label: 'Nom complet *', key: 'name', type: 'text', placeholder: 'Ex: Jean Dupont' },
                 { label: 'Email *', key: 'email', type: 'email', placeholder: 'exemple@email.com' },
-                { label: 'Téléphone *', key: 'phone', type: 'text', placeholder: '+237 6 XX XX XX XX' },
-                { label: 'Mot de passe *', key: 'password', type: 'password', placeholder: 'Min 6 caractères' },
+                { label: 'TÃ©lÃ©phone *', key: 'phone', type: 'text', placeholder: '+237 6 XX XX XX XX' },
+                { label: 'Mot de passe *', key: 'password', type: 'password', placeholder: 'Min 6 caractÃ¨res' },
                 { label: 'PIN (4-6 chiffres)', key: 'pin', type: 'password', placeholder: '1234' },
-                { label: 'Plafond crédit (FCFA)', key: 'creditLimit', type: 'number', placeholder: '100000' },
+                { label: 'Plafond crÃ©dit (FCFA)', key: 'creditLimit', type: 'number', placeholder: '100000' },
               ].map(field => (
                 <div key={field.key}>
                   <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{field.label}</label>
@@ -467,7 +467,7 @@ export default function MerchantUsersPage() {
                 Annuler
               </button>
               <button onClick={handleCreateUser} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}>
-                <i className="ri-user-add-line mr-2" />Créer le client
+                <i className="ri-user-add-line mr-2" />CrÃ©er le client
               </button>
             </div>
           </div>
@@ -476,11 +476,11 @@ export default function MerchantUsersPage() {
 
       <ConfirmDialog
         open={!!confirmSuspend}
-        title={confirmSuspend?.status === 'active' ? 'Suspendre le compte' : 'Réactiver le compte'}
+        title={confirmSuspend?.status === 'active' ? 'Suspendre le compte' : 'RÃ©activer le compte'}
         message={confirmSuspend?.status === 'active'
-          ? `Voulez-vous suspendre le compte de ${confirmSuspend?.name} ? Le client ne pourra plus accéder à la plateforme.`
-          : `Voulez-vous réactiver le compte de ${confirmSuspend?.name} ?`}
-        confirmLabel={confirmSuspend?.status === 'active' ? 'Suspendre' : 'Réactiver'}
+          ? `Voulez-vous suspendre le compte de ${confirmSuspend?.name} ? Le client ne pourra plus accÃ©der Ã  la plateforme.`
+          : `Voulez-vous rÃ©activer le compte de ${confirmSuspend?.name} ?`}
+        confirmLabel={confirmSuspend?.status === 'active' ? 'Suspendre' : 'RÃ©activer'}
         confirmColor={confirmSuspend?.status === 'active' ? '#EF4444' : '#22C55E'}
         icon={confirmSuspend?.status === 'active' ? 'ri-forbid-line' : 'ri-checkbox-circle-line'}
         onConfirm={() => confirmSuspend && handleSuspendToggle(confirmSuspend)}
@@ -492,7 +492,7 @@ export default function MerchantUsersPage() {
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => setShowCreditModal(null)}>
           <div className="w-full max-w-sm rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto" style={cardStyle} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Créditer Wallet</h2>
+              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>CrÃ©diter Wallet</h2>
               <button onClick={() => setShowCreditModal(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer" style={{ color: '#6B7280' }}>
                 <i className="ri-close-line text-lg" />
               </button>
@@ -530,7 +530,7 @@ export default function MerchantUsersPage() {
                 Annuler
               </button>
               <button onClick={handleCreditWallet} disabled={creditLoading} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#ffffff', fontFamily: 'Poppins, sans-serif' }}>
-                {creditLoading ? <><i className="ri-loader-4-line animate-spin mr-2" />Traitement…</> : <><i className="ri-check-line mr-2" />Confirmer</>}
+                {creditLoading ? <><i className="ri-loader-4-line animate-spin mr-2" />Traitementâ€¦</> : <><i className="ri-check-line mr-2" />Confirmer</>}
               </button>
             </div>
           </div>
