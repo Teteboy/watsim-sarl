@@ -182,9 +182,14 @@ export async function merchantOrders(userId: string, page: number, limit: number
 export async function getMerchantProfile(userId: string) {
   const merchant = await prisma.merchant.findUnique({
     where: { userId },
-    include: { user: { select: { fullName: true, email: true, phone: true } } },
+    include: { user: { select: { fullName: true, email: true, phone: true, wallet: true } } },
   });
   if (!merchant) throw new MerchantError(404, 'Merchant profile not found');
+
+  const pendingPayouts = await prisma.payoutRequest.aggregate({
+    where: { merchantId: merchant.id, status: 'PENDING' },
+    _sum: { amount: true },
+  });
 
   return {
     id: merchant.id,
@@ -197,8 +202,8 @@ export async function getMerchantProfile(userId: string) {
     status: merchant.status,
     rating: 4.5,
     totalReviews: 0,
-    walletBalance: 0,
-    pendingPayout: 0,
+    walletBalance: merchant.user?.wallet?.balance ?? 0,
+    pendingPayout: pendingPayouts._sum.amount ?? 0,
     conversionRate: 0,
     avgOrderValue: 0,
   };

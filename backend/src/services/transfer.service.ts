@@ -107,15 +107,16 @@ export async function processTransfer(request: TransferRequest): Promise<Transfe
         data: { balance: { increment: amount } },
       });
 
+      const transferRef = `TRANSFER_${Date.now()}_${senderId.slice(0, 8)}`;
       // Create sender's transaction record (debit/transfer out)
       const senderTx = await tx.transaction.create({
         data: {
           userId: senderId,
           type: 'TRANSFER_OUT',
-          amount: -amount,
+          amount,
           status: 'COMPLETED',
           provider: 'WALLET',
-          providerRef: `TRANSFER_${Date.now()}_${senderId.slice(0, 8)}`,
+          providerRef: `${transferRef}_OUT`,
           metadata: {
             recipientId: recipient.id,
             recipientName: recipient.fullName,
@@ -134,7 +135,7 @@ export async function processTransfer(request: TransferRequest): Promise<Transfe
           amount: amount,
           status: 'COMPLETED',
           provider: 'WALLET',
-          providerRef: `TRANSFER_${Date.now()}_${senderId.slice(0, 8)}`,
+          providerRef: `${transferRef}_IN`,
           metadata: {
             senderId: senderId,
             senderName: sender.fullName,

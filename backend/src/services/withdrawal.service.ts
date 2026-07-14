@@ -310,6 +310,24 @@ export async function processWithdrawal(
   }
 
   try {
+    // Check and deduct wallet balance atomically before initiating payout
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet || wallet.balance < amount) {
+      return {
+        success: false,
+        withdrawalId: '',
+        providerRef: '',
+        status: 'FAILED',
+        message: `Insufficient wallet balance. Available: ${wallet?.balance ?? 0} FCFA`,
+      };
+    }
+
+    // Deduct balance first to prevent double-spend
+    await prisma.wallet.update({
+      where: { userId },
+      data: { balance: { decrement: amount } },
+    });
+
     // Get the appropriate adapter
     const adapter = getPayoutAdapter(provider);
 
@@ -321,12 +339,12 @@ export async function processWithdrawal(
       description: `WATSIM Rewards Withdrawal`,
     });
 
-    // Create or update transaction record
+    // Create transaction record
     const transaction = await prisma.transaction.create({
       data: {
         userId,
         type: 'WITHDRAWAL',
-        amount: -amount,
+        amount,
         status: payoutResult.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
         provider: provider,
         providerRef: payoutResult.providerRef,
@@ -340,11 +358,15 @@ export async function processWithdrawal(
       },
     });
 
-    // If completed immediately (rare but possible), update wallet
-    if (payoutResult.status === 'COMPLETED') {
-      // The wallet was already deducted when creating the pending transaction
-      // But we should verify the transaction completed
-      logger.info({ transactionId: transaction.id, amount }, 'Withdrawal completed immediately');
+    // If payout failed immediately, refund the wallet
+    if (payoutResult.status === 'FAILED') {
+      await prisma.wallet.update({
+        where: { userId },
+        data: { balance: { increment: amount } },
+      });
+      logger.info({ transactionId: transaction.id, amount }, 'Withdrawal failed immediately, wallet refunded');
+    } else {
+      logger.info({ transactionId: transaction.id, amount }, 'Withdrawal initiated, wallet deducted');
     }
 
     return {
@@ -426,10 +448,14 @@ export async function checkWithdrawalStatus(
       },
     });
 
-    // If failed, we might want to refund the wallet
+    // Refund wallet if withdrawal confirmed failed
     if (result.status === 'FAILED') {
-      // Wallet refund logic would go here if needed
-      logger.info({ transactionId }, 'Withdrawal failed, consider wallet refund');
+      const amount = Math.abs(transaction.amount);
+      await prisma.wallet.update({
+        where: { userId: transaction.userId },
+        data: { balance: { increment: amount } },
+      });
+      logger.info({ transactionId, amount }, 'Withdrawal confirmed failed, wallet refunded');
     }
   }
 
