@@ -138,7 +138,7 @@ export default function AdminReportsPage() {
                   rateLabel: 'FCFA/mois/produit',
                   badge: 'Mensuel',
                   badgeColor: '#4A9EFF',
-                  basis: 'Agrégé sur tous les produits actifs',
+                  basis: `${(kpiData?.totalBnplPurchases ?? 0).toLocaleString('fr-FR')} achats BNPL enregistrés`,
                 },
                 {
                   icon: 'ri-user-add-line',
@@ -146,10 +146,10 @@ export default function AdminReportsPage() {
                   label: 'Frais de Création de Compte',
                   total: kpiData?.totalAccountCreationFees ?? 0,
                   rate: kpiData?.feeRates?.accountCreationFee,
-                  rateLabel: 'FCFA/client (unique)',
+                  rateLabel: 'FCFA/premier achat',
                   badge: 'Unique',
                   badgeColor: '#A855F7',
-                  basis: `${(kpiData?.activeUsers ?? 0).toLocaleString('fr-FR')} clients actifs`,
+                  basis: `${(kpiData?.firstPurchases ?? 0).toLocaleString('fr-FR')} premiers achats BNPL`,
                 },
                 {
                   icon: 'ri-truck-line',
@@ -157,10 +157,10 @@ export default function AdminReportsPage() {
                   label: 'Frais de Livraison',
                   total: kpiData?.totalDeliveryFees ?? 0,
                   rate: kpiData?.feeRates?.deliveryFee,
-                  rateLabel: 'FCFA défaut/achat',
+                  rateLabel: 'FCFA/achat',
                   badge: 'Par achat',
                   badgeColor: '#F97316',
-                  basis: 'Agrégé sur tous les produits',
+                  basis: `${(kpiData?.totalBnplPurchases ?? 0).toLocaleString('fr-FR')} achats BNPL enregistrés`,
                 },
                 {
                   icon: 'ri-hand-coin-line',
@@ -171,7 +171,7 @@ export default function AdminReportsPage() {
                   rateLabel: 'FCFA/achat BNPL',
                   badge: 'Par achat',
                   badgeColor: '#22C55E',
-                  basis: `${(kpiData?.totalBnplPurchases ?? 0).toLocaleString('fr-FR')} achats BNPL`,
+                  basis: `${(kpiData?.totalBnplPurchases ?? 0).toLocaleString('fr-FR')} achats BNPL enregistrés`,
                 },
               ].map((fee) => (
                 <div key={fee.label} className="rounded-xl p-4 space-y-2" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>

@@ -269,7 +269,7 @@ export async function reportsSummary() {
   monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
   // Basic metrics
-  const [disbursed, repayments, activeUsers, totalUsers, totalTransactions, activePurchases, totalInst, paidInst, monthRevenue, withdrawals, payouts, storageFeesAgg, deliveryFeesAgg, priceAgg, costAgg, totalBnplPurchases, bnplFeeSettings] = await Promise.all([
+  const [disbursed, repayments, activeUsers, totalUsers, totalTransactions, activePurchases, totalInst, paidInst, monthRevenue, withdrawals, payouts, feesAgg, priceAgg, costAgg, totalBnplPurchases, firstPurchases, bnplFeeSettings] = await Promise.all([
     prisma.bnplPurchase.aggregate({ _sum: { totalAmount: true } }),
     prisma.transaction.aggregate({ where: { type: 'REPAYMENT', status: 'COMPLETED' }, _sum: { amount: true } }),
     prisma.user.count({ where: { role: 'CUSTOMER', isActive: true } }),
@@ -281,11 +281,14 @@ export async function reportsSummary() {
     prisma.transaction.aggregate({ where: { status: 'COMPLETED', createdAt: { gte: monthStart } }, _sum: { amount: true } }),
     prisma.transaction.aggregate({ where: { type: 'WITHDRAWAL', status: 'COMPLETED' }, _sum: { amount: true } }),
     prisma.payoutRequest.aggregate({ where: { status: 'PAID' }, _sum: { amount: true } }),
-    prisma.product.aggregate({ _sum: { storageFee: true } }),
-    prisma.product.aggregate({ _sum: { deliveryFee: true } }),
+    prisma.bnplPurchase.aggregate({
+      _sum: { stockingFee: true, accountCreationFee: true, deliveryFee: true, collectionFee: true, totalFees: true },
+      _count: { _all: true },
+    }),
     prisma.product.aggregate({ _avg: { price: true } }),
     prisma.product.aggregate({ _avg: { costPrice: true } }),
     prisma.bnplPurchase.count(),
+    prisma.bnplPurchase.count({ where: { isFirstPurchase: true } }),
     getBnplFeeSettings(),
   ]);
 
@@ -294,17 +297,12 @@ export async function reportsSummary() {
   const transferPct = totalCompleted > 0 ? Math.round(((payouts._sum.amount ?? 0) / totalCompleted) * 10000) / 100 : 0;
   const withdrawalPct = (monthRevenue._sum.amount ?? 0) > 0 ? Math.round(((withdrawals._sum.amount ?? 0) / (monthRevenue._sum.amount ?? 0)) * 10000) / 100 : 0;
 
-  // Collection fees: collectionFee × total BNPL purchases
-  const totalCollectionFees = totalBnplPurchases * bnplFeeSettings.collectionFee;
-
-  // Account creation fees: accountCreationFee × total customers (each pays once on first BNPL)
-  const totalAccountCreationFees = activeUsers * bnplFeeSettings.accountCreationFee;
-
-  // Delivery fees: sum from products
-  const totalDeliveryFees = deliveryFeesAgg._sum.deliveryFee ?? 0;
-
-  // Storage fees: sum from products
-  const totalStorageFees = storageFeesAgg._sum.storageFee ?? 0;
+  // Actual fee totals from recorded BNPL purchases
+  const totalStorageFees = feesAgg._sum.stockingFee ?? 0;
+  const totalAccountCreationFees = feesAgg._sum.accountCreationFee ?? 0;
+  const totalDeliveryFees = feesAgg._sum.deliveryFee ?? 0;
+  const totalCollectionFees = feesAgg._sum.collectionFee ?? 0;
+  const totalBnplFees = feesAgg._sum.totalFees ?? 0;
 
   // Calculate average margin from price and cost price
   const avgPrice = priceAgg._avg.price ?? 0;
@@ -326,7 +324,9 @@ export async function reportsSummary() {
     totalDeliveryFees,
     totalCollectionFees,
     totalAccountCreationFees,
+    totalBnplFees,
     totalBnplPurchases,
+    firstPurchases,
     avgMargin,
     feeRates: {
       stockingFee: bnplFeeSettings.stockingFee,
