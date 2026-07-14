@@ -322,83 +322,46 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'InvalidMethod', message: 'Method must be mtn, orange, or wave' });
     }
 
-    // Check available balance via referral stats
-    const completedReferrals = await prisma.referral.findMany({
-      where: { 
-        referrerId: userId,
-        firstRewardPaid: true,
-      },
-    });
-    const totalRewards = completedReferrals.reduce((sum, r) => sum + r.firstRewardAmount + r.secondRewardAmount, 0);
-
-    if (amount > totalRewards) {
-      return reply.code(400).send({ error: 'InsufficientBalance', message: 'Insufficient rewards balance' });
+    // Check actual wallet balance — rewards are deposited into the main wallet on conversion
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet || wallet.balance < amount) {
+      return reply.code(400).send({
+        error: 'InsufficientBalance',
+        message: `Insufficient wallet balance. Available: ${wallet?.balance ?? 0} FCFA`,
+      });
     }
 
-    // Create withdrawal transaction
-    const withdrawal = await prisma.transaction.create({
-      data: {
-        userId,
-        type: 'WITHDRAWAL',
-        amount: -amount, // Negative for withdrawal
-        status: 'PENDING',
-        provider: method.toUpperCase(),
-        providerRef: `REWARDS_WITHDRAW_${Date.now()}`,
-        metadata: { 
-          phoneNumber, 
-          method, 
-          source: 'REWARDS',
-          requestedAt: new Date().toISOString(),
-        },
-      },
-    });
-
-    // Process withdrawal via mobile money API
+    // processWithdrawal handles wallet deduction + transaction record atomically
     const withdrawalResult = await processWithdrawal({
       userId,
       amount,
       phoneNumber,
       provider: method.toUpperCase() as WithdrawalProvider,
-      reference: withdrawal.id,
+      reference: `REWARDS_WD_${Date.now()}`,
       metadata: {
         source: 'REWARDS',
-        originalTransactionId: withdrawal.id,
+        phoneNumber,
+        method,
+        requestedAt: new Date().toISOString(),
       },
     });
 
-    // Update transaction with result
-    await prisma.transaction.update({
-      where: { id: withdrawal.id },
-      data: {
-        status: withdrawalResult.status,
-        providerRef: withdrawalResult.providerRef,
-        metadata: {
-          phoneNumber,
-          method,
-          source: 'REWARDS',
-          requestedAt: new Date().toISOString(),
-          payoutResult: {
-            success: withdrawalResult.success,
-            providerRef: withdrawalResult.providerRef,
-            status: withdrawalResult.status,
-            message: withdrawalResult.message,
-            ussdCode: withdrawalResult.ussdCode,
-          },
-        },
-      },
-    });
-
-    // Award badges if withdrawal successful
-    if (withdrawalResult.success) {
-      await checkAndAwardBadges(userId);
+    if (!withdrawalResult.success) {
+      return reply.code(400).send({
+        error: 'WithdrawalFailed',
+        message: withdrawalResult.message || 'Withdrawal could not be processed',
+      });
     }
 
+    // Award badges if withdrawal successful
+    await checkAndAwardBadges(userId);
+
     return {
-      success: withdrawalResult.success,
-      withdrawalId: withdrawal.id,
+      success: true,
+      withdrawalId: withdrawalResult.withdrawalId,
       method,
       phoneNumber,
-      status: 'PENDING',
+      status: withdrawalResult.status,
       message: 'Withdrawal request submitted and is being processed',
     };
   });

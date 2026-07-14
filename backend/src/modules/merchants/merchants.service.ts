@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/db';
 import { getFileUrl } from '../../services/storage-local.service';
 
@@ -9,7 +10,7 @@ export class MerchantError extends Error {
 export async function registerMerchant(input: {
   email: string; phone: string; password: string; fullName: string;
   businessName: string; category: string; city: string;
-  settings?: Record<string, any>;
+  settings?: Record<string, unknown>;
 }) {
   const exists = await prisma.user.findFirst({ where: { OR: [{ email: input.email }, { phone: input.phone }] } });
   if (exists) throw new MerchantError(409, 'Email or phone already registered');
@@ -33,7 +34,7 @@ export async function registerMerchant(input: {
         category: input.category,
         city: input.city,
         status: 'PENDING',
-        settings: input.settings ? (input.settings as any) : undefined,
+        settings: input.settings as Prisma.InputJsonValue ?? undefined,
       },
     });
     await tx.auditLog.create({ data: { userId: user.id, action: 'MERCHANT_REGISTERED', entityId: merchant.id } });
@@ -219,17 +220,17 @@ export async function updateMerchantProfile(userId: string, data: {
 }) {
   const merchant = await getMerchantByUser(userId);
 
-  const updateMerchantData: any = {};
+  const updateMerchantData: { businessName?: string; city?: string; category?: string } = {};
   if (data.name) updateMerchantData.businessName = data.name;
   if (data.city) updateMerchantData.city = data.city;
   if (data.category) updateMerchantData.category = data.category;
 
-  const updateUserData: any = {};
+  const updateUserData: { fullName?: string; email?: string; phone?: string } = {};
   if (data.owner) updateUserData.fullName = data.owner;
   if (data.email) updateUserData.email = data.email;
   if (data.phone) updateUserData.phone = data.phone;
 
-  const [updatedMerchant] = await Promise.all([
+  await Promise.all([
     Object.keys(updateMerchantData).length
       ? prisma.merchant.update({ where: { id: merchant.id }, data: updateMerchantData })
       : merchant,
@@ -243,17 +244,17 @@ export async function updateMerchantProfile(userId: string, data: {
 
 export async function getMerchantSettings(userId: string) {
   const merchant = await getMerchantByUser(userId);
-  return (merchant as any).settings || {};
+  return (merchant.settings as Record<string, unknown>) || {};
 }
 
-export async function updateMerchantSettings(userId: string, newSettings: any) {
+export async function updateMerchantSettings(userId: string, newSettings: Record<string, unknown>) {
   const merchant = await getMerchantByUser(userId);
-  const current = (merchant as any).settings || {};
-  const merged = { ...current, ...newSettings };
+  const current = (merchant.settings as Record<string, unknown>) || {};
+  const merged: Record<string, unknown> = { ...current, ...newSettings };
 
   await prisma.merchant.update({
     where: { id: merchant.id },
-    data: { settings: merged as any },
+    data: { settings: merged as Prisma.InputJsonValue },
   });
 
   return merged;
@@ -274,7 +275,7 @@ export async function getMerchantNotificationPreferences(userId: string) {
   };
 }
 
-export async function updateMerchantNotificationPreferences(userId: string, preferences: any) {
+export async function updateMerchantNotificationPreferences(userId: string, preferences: Record<string, unknown>) {
   const currentSettings = await getMerchantSettings(userId);
   const updated = {
     ...currentSettings,
@@ -446,11 +447,98 @@ export async function createPayoutRequest(userId: string, amount: number, provid
       action: 'PAYOUT_REQUEST_CREATED',
       entityType: 'PayoutRequest',
       entityId: request.id,
-      metadata: { amount, provider } as any,
+      metadata: { amount, provider } as Prisma.InputJsonValue,
     },
   });
 
   return request;
+}
+
+export async function approvePayoutRequest(adminId: string, payoutId: string) {
+  const payout = await prisma.payoutRequest.findUnique({
+    where: { id: payoutId },
+    include: { merchant: true },
+  });
+  if (!payout) throw new Error('Payout request not found');
+  if (payout.status !== 'PENDING') throw new Error(`Payout already ${payout.status}`);
+
+  // Ensure merchant has sufficient wallet balance
+  const wallet = await prisma.wallet.findUnique({ where: { userId: payout.merchant.userId } });
+  if (!wallet || wallet.balance < payout.amount) {
+    throw new Error(`Insufficient merchant wallet balance (${wallet?.balance ?? 0} FCFA)`);
+  }
+
+  // Deduct merchant wallet atomically and mark APPROVED
+  await prisma.$transaction(async (tx) => {
+    await tx.wallet.update({
+      where: { userId: payout.merchant.userId },
+      data: { balance: { decrement: payout.amount } },
+    });
+    await tx.payoutRequest.update({
+      where: { id: payoutId },
+      data: { status: 'APPROVED', processedAt: new Date(), note: `Approved by admin ${adminId}` },
+    });
+    await tx.transaction.create({
+      data: {
+        userId: payout.merchant.userId,
+        type: 'WITHDRAWAL',
+        amount: payout.amount,
+        status: 'PENDING',
+        provider: payout.provider,
+        providerRef: `PAYOUT_${payoutId}`,
+        metadata: { payoutId, approvedBy: adminId, source: 'merchant_payout' } as never,
+      },
+    });
+    await tx.auditLog.create({
+      data: { userId: adminId, action: 'PAYOUT_APPROVED', entityType: 'PayoutRequest', entityId: payoutId, metadata: { amount: payout.amount } as never },
+    });
+  });
+
+  // Trigger CamPay disbursement (non-blocking — status webhook/poll will update)
+  const { processWithdrawal } = await import('../../services/withdrawal.service');
+  const provider = payout.provider.includes('MTN') ? 'MTN' : payout.provider.includes('ORANGE') ? 'ORANGE' : 'CASH';
+  const merchantUser = await prisma.user.findUnique({ where: { id: payout.merchant.userId }, select: { phone: true } });
+  if (merchantUser?.phone) {
+    processWithdrawal({
+      userId: payout.merchant.userId,
+      amount: payout.amount,
+      phoneNumber: merchantUser.phone,
+      provider: provider as import('../../services/withdrawal.service').WithdrawalProvider,
+      reference: payoutId.slice(0, 20),
+      metadata: { payoutId, source: 'merchant_payout_approval' },
+    }).then(async (result) => {
+      await prisma.payoutRequest.update({
+        where: { id: payoutId },
+        data: { status: result.success ? 'PAID' : 'REJECTED', note: result.message },
+      });
+      // Refund wallet if CamPay failed
+      if (!result.success) {
+        await prisma.wallet.update({
+          where: { userId: payout.merchant.userId },
+          data: { balance: { increment: payout.amount } },
+        });
+      }
+    }).catch(() => { /* disbursement will be retried manually */ });
+  } else {
+    // No phone on file — mark as manually pending
+    await prisma.payoutRequest.update({ where: { id: payoutId }, data: { status: 'APPROVED' } });
+  }
+
+  return prisma.payoutRequest.findUnique({ where: { id: payoutId } });
+}
+
+export async function rejectPayoutRequest(adminId: string, payoutId: string, note?: string) {
+  const payout = await prisma.payoutRequest.findUnique({ where: { id: payoutId } });
+  if (!payout) throw new Error('Payout request not found');
+  if (payout.status !== 'PENDING') throw new Error(`Payout already ${payout.status}`);
+  const updated = await prisma.payoutRequest.update({
+    where: { id: payoutId },
+    data: { status: 'REJECTED', processedAt: new Date(), note: note || `Rejected by admin ${adminId}` },
+  });
+  await prisma.auditLog.create({
+    data: { userId: adminId, action: 'PAYOUT_REJECTED', entityType: 'PayoutRequest', entityId: payoutId, metadata: { note } as never },
+  });
+  return updated;
 }
 
 // ===== Merchant Staff/User Management =====
@@ -670,14 +758,20 @@ export async function getMerchantCustomers(
   });
 
   // Aggregate unique customers with their stats
-  const customerMap = new Map<string, any>();
+  type CustomerEntry = {
+    id: string; name: string; email: string; phone: string;
+    kycStatus: string; creditScore: number; creditLimit: number;
+    walletBalance: number; imageUrl: string | null; joinedAt: Date;
+    status: string; totalOrders: number; totalSpent: number; lastPurchaseAt: Date;
+  };
+  const customerMap = new Map<string, CustomerEntry>();
   
   for (const purchase of purchases) {
     const user = purchase.user;
     if (!user) continue;
     
     if (customerMap.has(user.id)) {
-      const existing = customerMap.get(user.id);
+      const existing = customerMap.get(user.id)!;
       existing.totalOrders += 1;
       existing.totalSpent += purchase.totalAmount;
       if (purchase.createdAt > existing.lastPurchaseAt) {
@@ -854,7 +948,7 @@ export async function updateMerchantCustomer(
     where: { userId: customerId, merchantId: merchant.id },
   });
   const totalOrders = purchases.length;
-  const totalSpent = purchases.reduce((sum: number, p: any) => sum + (p.totalAmount || 0), 0);
+  const totalSpent = purchases.reduce((sum: number, p: { totalAmount: number }) => sum + (p.totalAmount || 0), 0);
   
   return {
     id: updated.id,
@@ -967,7 +1061,7 @@ export async function merchantCreditClientWallet(merchantUserId: string, clientU
       type: amount >= 0 ? 'DEPOSIT' : 'WITHDRAWAL',
       amount: Math.abs(amount),
       status: 'COMPLETED',
-      metadata: { note, merchantId: merchant.id, source: 'merchant_client_credit' } as any,
+      metadata: { note, merchantId: merchant.id, source: 'merchant_client_credit' } as Prisma.InputJsonValue,
     },
   });
 
@@ -977,7 +1071,7 @@ export async function merchantCreditClientWallet(merchantUserId: string, clientU
       action: amount >= 0 ? 'CLIENT_WALLET_CREDITED' : 'CLIENT_WALLET_DEBITED',
       entityType: 'Wallet',
       entityId: wallet.id,
-      metadata: { clientUserId, amount, note } as any,
+      metadata: { clientUserId, amount, note } as Prisma.InputJsonValue,
     },
   });
 
@@ -1015,7 +1109,7 @@ export async function merchantContributeToInstallment(merchantUserId: string, in
       amount: paymentAmount,
       status: 'COMPLETED',
       provider: 'MERCHANT_CONTRIBUTION',
-      metadata: { instalmentId, merchantId: merchant.id, note, source: 'merchant_contribution' } as any,
+      metadata: { instalmentId, merchantId: merchant.id, note, source: 'merchant_contribution' } as Prisma.InputJsonValue,
     },
   });
 
@@ -1037,7 +1131,7 @@ export async function merchantContributeToInstallment(merchantUserId: string, in
       action: 'INSTALLMENT_CONTRIBUTION',
       entityType: 'Instalment',
       entityId: instalmentId,
-      metadata: { purchaseId: instalment.purchaseId, amount: paymentAmount, note } as any,
+      metadata: { purchaseId: instalment.purchaseId, amount: paymentAmount, note } as Prisma.InputJsonValue,
     },
   });
 

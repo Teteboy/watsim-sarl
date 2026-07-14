@@ -492,6 +492,24 @@ async sendMessage(convId: string, data: { text?: string; attachmentUrl?: string;
   async updateAllCategoryMargins(marginPercentage: number) {
     return putJson<any>(`${API_PREFIX}/admin/categories/margin/all`, { marginPercentage });
   },
+
+  // Payout management
+  async listPayoutRequests(params: { status?: string; page?: number; limit?: number } = {}) {
+    const q = new URLSearchParams();
+    if (params.status) q.set('status', params.status);
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    return getJson<any>(`${API_PREFIX}/admin/payouts${q.toString() ? `?${q.toString()}` : ''}`);
+  },
+  async approvePayout(id: string) {
+    return postJson<any>(`${API_PREFIX}/admin/payouts/${id}/approve`, {});
+  },
+  async rejectPayout(id: string, note?: string) {
+    return postJson<any>(`${API_PREFIX}/admin/payouts/${id}/reject`, { note });
+  },
+  async updatePayoutStatus(id: string, status: string, note?: string) {
+    return postJson<any>(`${API_PREFIX}/admin/payouts/${id}/status`, { status, note });
+  },
 };
 
 // Merchant API wrapper
@@ -694,17 +712,6 @@ export const accountingApi = {
     return getJson<any>(`${API_PREFIX}/admin/accounting/reports/balance-sheet${q.toString() ? `?${q.toString()}` : ''}`);
   },
 
-  // Payout management (Admin)
-  async listPayoutRequests(params: { status?: string; page?: number; limit?: number } = {}) {
-    const q = new URLSearchParams();
-    if (params.status) q.set('status', params.status);
-    if (params.page) q.set('page', String(params.page));
-    if (params.limit) q.set('limit', String(params.limit));
-    return getJson<any>(`${API_PREFIX}/admin/payouts${q.toString() ? `?${q.toString()}` : ''}`);
-  },
-  async updatePayoutStatus(id: string, status: string, note?: string) {
-    return postJson<any>(`${API_PREFIX}/admin/payouts/${id}/status`, { status, note });
-  },
 };
 
 export type { PlatformCategory } from './mocks';

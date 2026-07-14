@@ -3,6 +3,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { creditLimitSchema, kycDecisionSchema, listFilterSchema, merchantStatusSchema } from './admin.schema';
 import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, setUserActive, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins } from './admin.service';
+import { approvePayoutRequest, rejectPayoutRequest } from '../merchants/merchants.service';
 import { listDisputes, getDisputeById, resolveDispute, listFraudAlerts, getFraudAlertById, resolveFraudAlert } from './admin.service-disputes';
 import { listAllReferrals, getReferralStats } from './admin.service-referrals';
 import { enqueueScoreUpdate } from '../../jobs/queue';
@@ -294,10 +295,32 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
     return { items, total, page, limit };
   });
 
+  app.post('/payouts/:id/approve', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    try {
+      const result = await approvePayoutRequest(req.authUser!.id, id);
+      return result;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to approve payout';
+      return reply.code(400).send({ error: msg });
+    }
+  });
+
+  app.post('/payouts/:id/reject', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { note } = req.body as { note?: string };
+    try {
+      const result = await rejectPayoutRequest(req.authUser!.id, id, note);
+      return result;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to reject payout';
+      return reply.code(400).send({ error: msg });
+    }
+  });
+
   app.post('/payouts/:id/status', async (req) => {
     const { id } = req.params as { id: string };
     const { status, note } = req.body as { status: string; note?: string };
-    const { prisma } = await import('../../config/db');
     const updated = await prisma.payoutRequest.update({
       where: { id },
       data: { status, note, processedAt: status !== 'PENDING' ? new Date() : undefined },

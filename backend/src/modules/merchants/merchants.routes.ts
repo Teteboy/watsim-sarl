@@ -67,11 +67,11 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/settings', async (req) => getMerchantSettings(req.authUser!.id));
-  app.put('/settings', async (req) => updateMerchantSettings(req.authUser!.id, req.body));
+  app.put('/settings', async (req) => updateMerchantSettings(req.authUser!.id, req.body as Record<string, unknown>));
 
   // Dedicated notification preferences endpoints (used by merchant settings)
   app.get('/notification-preferences', async (req) => getMerchantNotificationPreferences(req.authUser!.id));
-  app.put('/notification-preferences', async (req) => updateMerchantNotificationPreferences(req.authUser!.id, req.body));
+  app.put('/notification-preferences', async (req) => updateMerchantNotificationPreferences(req.authUser!.id, req.body as Record<string, unknown>));
 
   app.post('/change-password', async (req) => {
     const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };

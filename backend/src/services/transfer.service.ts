@@ -54,7 +54,7 @@ export async function processTransfer(request: TransferRequest): Promise<Transfe
   }
 
   // Find recipient by phone, email, or user ID
-  let recipient = await prisma.user.findFirst({
+  const recipient = await prisma.user.findFirst({
     where: {
       OR: [
         { phone: recipientIdentifier },

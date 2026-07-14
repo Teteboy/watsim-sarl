@@ -16,13 +16,18 @@ const txTypeLabels: Record<string, string> = {
   DEPOSIT: 'Crédit wallet',
   WITHDRAWAL: 'Retrait',
   REFUND: 'Remboursement client',
+  TRANSFER_IN: 'Virement reçu',
+  TRANSFER_OUT: 'Virement envoyé',
 };
+const txIsCredit = (type: string) => ['DEPOSIT', 'TRANSFER_IN', 'REPAYMENT'].includes(type);
 const txTypeColors: Record<string, string> = {
   PURCHASE: '#4A9EFF',
   REPAYMENT: '#22C55E',
   DEPOSIT: '#4DB049',
   WITHDRAWAL: '#F97316',
   REFUND: '#A855F7',
+  TRANSFER_IN: '#22C55E',
+  TRANSFER_OUT: '#F97316',
 };
 const txTypeIcons: Record<string, string> = {
   PURCHASE: 'ri-shopping-cart-line',
@@ -30,6 +35,8 @@ const txTypeIcons: Record<string, string> = {
   DEPOSIT: 'ri-add-circle-line',
   WITHDRAWAL: 'ri-arrow-down-circle-line',
   REFUND: 'ri-refund-2-line',
+  TRANSFER_IN: 'ri-arrow-left-down-line',
+  TRANSFER_OUT: 'ri-arrow-right-up-line',
 };
 const statusColors: Record<string, string> = {
   COMPLETED: '#22C55E',
@@ -246,10 +253,10 @@ export default function MerchantWalletPage() {
                         <div className="text-right">
                           <p
                             className="text-sm font-semibold"
-                            style={{ color: tx.type === 'DEPOSIT' || tx.type === 'REPAYMENT' ? '#22C55E' : '#F97316', fontFamily: 'Montserrat, sans-serif' }}
+                            style={{ color: txIsCredit(tx.type) ? '#22C55E' : '#F97316', fontFamily: 'Montserrat, sans-serif' }}
                           >
-                            {tx.type === 'DEPOSIT' || tx.type === 'REPAYMENT' ? '+' : '-'}
-                            {fmtFcfa(tx.amount)}
+                            {txIsCredit(tx.type) ? '+' : '-'}
+                            {fmtFcfa(Math.abs(tx.amount))}
                           </p>
                           <span
                             className="text-[10px] px-1.5 py-0.5 rounded-full"
