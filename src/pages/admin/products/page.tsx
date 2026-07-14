@@ -133,6 +133,23 @@ export default function AdminProductsPage() {
       .catch(() => setAvailableMerchants([]));
   }, [showAddModal]);
   const { toasts, addToast, removeToast } = useToast();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) =>
+    setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+
+  const handleBulkProductActive = async (isActive: boolean) => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    try {
+      await adminApi.bulkProductActive(ids, isActive);
+      setProducts(prev => prev.map(p => selectedIds.has(p.id) ? { ...p, isActive, status: isActive ? 'active' : 'inactive' } : p));
+      addToast('success', 'Action groupée', `${ids.length} produit(s) mis à jour.`);
+    } catch {
+      addToast('error', 'Erreur', 'L\'action groupée a échoué.');
+    }
+    setSelectedIds(new Set());
+  };
 
   const allCategories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
   const filtered = products.filter(p => {
@@ -399,11 +416,30 @@ export default function AdminProductsPage() {
           </select>
         </div>
 
+        {/* Bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: 'rgba(77,176,89,0.1)', border: '1px solid #4DB049' }}>
+            <span className="text-sm font-medium" style={{ color: '#014945' }}>{selectedIds.size} sélectionné(s)</span>
+            <div className="flex gap-2 ml-auto">
+              <button onClick={() => handleBulkProductActive(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#22C55E20', color: '#22C55E', border: '1px solid #22C55E' }}>
+                <i className="ri-checkbox-circle-line mr-1" />Activer
+              </button>
+              <button onClick={() => handleBulkProductActive(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#EF444420', color: '#EF4444', border: '1px solid #EF4444' }}>
+                <i className="ri-forbid-line mr-1" />Désactiver
+              </button>
+              <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1' }}>Annuler</button>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-2xl overflow-hidden" style={cardStyle}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid #E8F2F1' }}>
+                  <th className="px-3 py-3">
+                    <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={() => setSelectedIds(prev => prev.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id)))} className="accent-[#4DB049]" />
+                  </th>
                    {['Produit', 'Commercial', 'Catégorie', 'Prix de vente', 'Stock', 'Vendus', 'Frais livraison', 'Frais stockage', 'BNPL', 'Statut', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{h}</th>
                   ))}
@@ -411,7 +447,10 @@ export default function AdminProductsPage() {
               </thead>
               <tbody>
                 {filtered.map((p, idx) => (
-                  <tr key={p.id} className="transition-colors hover:bg-gray-50" style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #F0F7F0' : 'none' }}>
+                  <tr key={p.id} className="transition-colors hover:bg-gray-50" style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #F0F7F0' : 'none', background: selectedIds.has(p.id) ? 'rgba(77,176,89,0.05)' : undefined }}>
+                    <td className="px-3 py-3">
+                      <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleSelect(p.id)} className="accent-[#4DB049]" />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ background: '#F5FAF5' }}>

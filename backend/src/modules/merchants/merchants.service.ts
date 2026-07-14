@@ -10,6 +10,8 @@ export class MerchantError extends Error {
 export async function registerMerchant(input: {
   email: string; phone: string; password: string; fullName: string;
   businessName: string; category: string; city: string;
+  categoryIds?: string[];   // multi-category support
+  allCategories?: boolean;  // assign all existing categories
   settings?: Record<string, unknown>;
 }) {
   const exists = await prisma.user.findFirst({ where: { OR: [{ email: input.email }, { phone: input.phone }] } });
@@ -37,8 +39,43 @@ export async function registerMerchant(input: {
         settings: input.settings as Prisma.InputJsonValue ?? undefined,
       },
     });
+
+    // Resolve which category IDs to assign
+    let catIds: string[] = input.categoryIds ?? [];
+    if (input.allCategories) {
+      const all = await tx.category.findMany({ select: { id: true } });
+      catIds = all.map(c => c.id);
+    }
+    if (catIds.length > 0) {
+      await tx.merchantCategory.createMany({
+        data: catIds.map(categoryId => ({ merchantId: merchant.id, categoryId })),
+        skipDuplicates: true,
+      });
+    }
+
     await tx.auditLog.create({ data: { userId: user.id, action: 'MERCHANT_REGISTERED', entityId: merchant.id } });
     return { user, merchant };
+  });
+}
+
+export async function setMerchantCategories(merchantId: string, categoryIds: string[], allCategories = false) {
+  let catIds = categoryIds;
+  if (allCategories) {
+    const all = await prisma.category.findMany({ select: { id: true } });
+    catIds = all.map(c => c.id);
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.merchantCategory.deleteMany({ where: { merchantId } });
+    if (catIds.length > 0) {
+      await tx.merchantCategory.createMany({
+        data: catIds.map(categoryId => ({ merchantId, categoryId })),
+        skipDuplicates: true,
+      });
+    }
+  });
+  return prisma.merchantCategory.findMany({
+    where: { merchantId },
+    include: { category: { select: { id: true, name: true, slug: true, color: true, icon: true } } },
   });
 }
 
@@ -183,7 +220,10 @@ export async function merchantOrders(userId: string, page: number, limit: number
 export async function getMerchantProfile(userId: string) {
   const merchant = await prisma.merchant.findUnique({
     where: { userId },
-    include: { user: { select: { fullName: true, email: true, phone: true, wallet: true } } },
+    include: {
+      user: { select: { fullName: true, email: true, phone: true, wallet: true } },
+      categories: { include: { category: { select: { id: true, name: true, slug: true, color: true, icon: true } } } },
+    },
   });
   if (!merchant) throw new MerchantError(404, 'Merchant profile not found');
 
@@ -200,6 +240,7 @@ export async function getMerchantProfile(userId: string) {
     phone: merchant.user?.phone || '',
     city: merchant.city || '',
     category: merchant.category || '',
+    categories: merchant.categories.map(mc => mc.category),
     status: merchant.status,
     rating: 4.5,
     totalReviews: 0,

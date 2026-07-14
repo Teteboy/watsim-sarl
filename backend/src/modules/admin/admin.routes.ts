@@ -3,7 +3,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { creditLimitSchema, kycDecisionSchema, listFilterSchema, merchantStatusSchema } from './admin.schema';
 import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, setUserActive, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins } from './admin.service';
-import { approvePayoutRequest, rejectPayoutRequest } from '../merchants/merchants.service';
+import { approvePayoutRequest, rejectPayoutRequest, setMerchantCategories } from '../merchants/merchants.service';
 import { listDisputes, getDisputeById, resolveDispute, listFraudAlerts, getFraudAlertById, resolveFraudAlert } from './admin.service-disputes';
 import { listAllReferrals, getReferralStats } from './admin.service-referrals';
 import { enqueueScoreUpdate } from '../../jobs/queue';
@@ -54,6 +54,66 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
   app.post('/merchants/:id/repair-link', async (req) => {
     const { id } = req.params as { id: string };
     return repairMerchantUserLink(id);
+  });
+
+  // Admin: set categories for a merchant (replaces all existing)
+  app.put('/merchants/:id/categories', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { categoryIds, allCategories } = req.body as { categoryIds?: string[]; allCategories?: boolean };
+    try {
+      const entries = await setMerchantCategories(id, categoryIds ?? [], allCategories ?? false);
+      return { categories: entries.map(e => e.category) };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update categories';
+      return reply.code(400).send({ error: msg });
+    }
+  });
+
+  // Bulk merchant status update
+  app.post('/merchants/bulk-status', async (req, reply) => {
+    const { ids, status } = req.body as { ids: string[]; status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' };
+    if (!ids?.length) return reply.code(400).send({ error: 'ids required' });
+    await prisma.merchant.updateMany({ where: { id: { in: ids } }, data: { status } });
+    await prisma.auditLog.create({ data: { userId: req.authUser!.id, action: `BULK_MERCHANT_${status}`, entityType: 'Merchant', entityId: ids.join(',') } });
+    return { updated: ids.length };
+  });
+
+  // Bulk user active toggle
+  app.post('/users/bulk-active', async (req, reply) => {
+    const { ids, isActive } = req.body as { ids: string[]; isActive: boolean };
+    if (!ids?.length) return reply.code(400).send({ error: 'ids required' });
+    await prisma.user.updateMany({ where: { id: { in: ids } }, data: { isActive } });
+    await prisma.auditLog.create({ data: { userId: req.authUser!.id, action: isActive ? 'BULK_USER_ACTIVATE' : 'BULK_USER_SUSPEND', entityType: 'User', entityId: ids.join(',') } });
+    return { updated: ids.length };
+  });
+
+  // Bulk product activate/deactivate
+  app.post('/products/bulk-active', async (req, reply) => {
+    const { ids, isActive } = req.body as { ids: string[]; isActive: boolean };
+    if (!ids?.length) return reply.code(400).send({ error: 'ids required' });
+    await prisma.product.updateMany({ where: { id: { in: ids } }, data: { isActive } });
+    await prisma.auditLog.create({ data: { userId: req.authUser!.id, action: isActive ? 'BULK_PRODUCT_ACTIVATE' : 'BULK_PRODUCT_DEACTIVATE', entityType: 'Product', entityId: ids.join(',') } });
+    return { updated: ids.length };
+  });
+
+  // Bulk payout approve
+  app.post('/payouts/bulk-approve', async (req, reply) => {
+    const { ids } = req.body as { ids: string[] };
+    if (!ids?.length) return reply.code(400).send({ error: 'ids required' });
+    const results = await Promise.allSettled(ids.map(id => approvePayoutRequest(req.authUser!.id, id)));
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    return { succeeded, failed };
+  });
+
+  // Bulk payout reject
+  app.post('/payouts/bulk-reject', async (req, reply) => {
+    const { ids, note } = req.body as { ids: string[]; note?: string };
+    if (!ids?.length) return reply.code(400).send({ error: 'ids required' });
+    const results = await Promise.allSettled(ids.map(id => rejectPayoutRequest(req.authUser!.id, id, note)));
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    return { succeeded, failed };
   });
 
   app.get('/transactions', { schema: listFilterSchema }, async (req) => {

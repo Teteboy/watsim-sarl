@@ -47,6 +47,8 @@ export default function AdminWalletsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [rejectModal, setRejectModal] = useState<any>(null);
   const [rejectNote, setRejectNote] = useState('');
+  const [selectedPayoutIds, setSelectedPayoutIds] = useState<Set<string>>(new Set());
+  const [bulkPayoutLoading, setBulkPayoutLoading] = useState(false);
 
   const { toasts, addToast, removeToast } = useToast();
   const limit = 20;
@@ -113,6 +115,38 @@ export default function AdminWalletsPage() {
       loadPayouts(payoutPage);
     } catch (e: any) { addToast('error', 'Erreur approbation', e?.message || 'Impossible d\'approuver.'); }
     finally { setActionLoading(null); }
+  };
+
+  const pendingPayouts = payouts.filter(p => p.status === 'PENDING');
+
+  const togglePayoutSelect = (id: string) =>
+    setSelectedPayoutIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleSelectAllPending = () =>
+    setSelectedPayoutIds(prev => prev.size === pendingPayouts.length && pendingPayouts.length > 0
+      ? new Set() : new Set(pendingPayouts.map(p => p.id)));
+
+  const handleBulkApprove = async () => {
+    if (selectedPayoutIds.size === 0) return;
+    setBulkPayoutLoading(true);
+    try {
+      const res = await adminApi.bulkApprovePayouts(Array.from(selectedPayoutIds));
+      addToast('success', 'Approbation groupée', `${res.succeeded} approuvé(s)${res.failed ? `, ${res.failed} échoué(s)` : ''}.`);
+      setSelectedPayoutIds(new Set());
+      loadPayouts(payoutPage);
+    } catch { addToast('error', 'Erreur', 'Approbation groupée échouée.'); }
+    finally { setBulkPayoutLoading(false); }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedPayoutIds.size === 0) return;
+    setBulkPayoutLoading(true);
+    try {
+      const res = await adminApi.bulkRejectPayouts(Array.from(selectedPayoutIds));
+      addToast('success', 'Rejet groupé', `${res.succeeded} rejeté(s)${res.failed ? `, ${res.failed} échoué(s)` : ''}.`);
+      setSelectedPayoutIds(new Set());
+      loadPayouts(payoutPage);
+    } catch { addToast('error', 'Erreur', 'Rejet groupé échoué.'); }
+    finally { setBulkPayoutLoading(false); }
   };
 
   const handleRejectPayout = async () => {
@@ -313,11 +347,37 @@ export default function AdminWalletsPage() {
               </button>
             </div>
 
+            {/* Bulk payout action bar */}
+            {selectedPayoutIds.size > 0 && (
+              <div className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: 'rgba(77,176,89,0.1)', border: '1px solid #4DB049' }}>
+                <span className="text-sm font-medium" style={{ color: '#014945' }}>{selectedPayoutIds.size} sélectionné(s)</span>
+                <div className="flex gap-2 ml-auto">
+                  <button onClick={handleBulkApprove} disabled={bulkPayoutLoading} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-60" style={{ background: '#22C55E20', color: '#22C55E', border: '1px solid #22C55E' }}>
+                    {bulkPayoutLoading ? <i className="ri-loader-4-line animate-spin mr-1" /> : <i className="ri-check-double-line mr-1" />}Approuver
+                  </button>
+                  <button onClick={handleBulkReject} disabled={bulkPayoutLoading} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-60" style={{ background: '#EF444420', color: '#EF4444', border: '1px solid #EF4444' }}>
+                    <i className="ri-close-circle-line mr-1" />Rejeter
+                  </button>
+                  <button onClick={() => setSelectedPayoutIds(new Set())} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1' }}>Annuler</button>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-2xl overflow-hidden" style={cardStyle}>
               <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #E8F2F1' }}>
-                <h3 className="text-sm font-semibold" style={{ color: '#014945', fontFamily: 'Poppins, sans-serif' }}>
-                  Demandes de virement ({payoutTotal})
-                </h3>
+                <div className="flex items-center gap-3">
+                  {pendingPayouts.length > 0 && (
+                    <input type="checkbox"
+                      checked={selectedPayoutIds.size === pendingPayouts.length && pendingPayouts.length > 0}
+                      onChange={toggleSelectAllPending}
+                      className="accent-[#4DB049]"
+                      title="Sélectionner tous les virements en attente"
+                    />
+                  )}
+                  <h3 className="text-sm font-semibold" style={{ color: '#014945', fontFamily: 'Poppins, sans-serif' }}>
+                    Demandes de virement ({payoutTotal})
+                  </h3>
+                </div>
                 <div className="text-xs px-2 py-1 rounded-full" style={{ background: 'rgba(249,115,22,0.1)', color: '#F97316', fontFamily: 'Poppins, sans-serif' }}>
                   <i className="ri-campfire-line mr-1" />Déclenche CamPay à l'approbation
                 </div>
@@ -332,8 +392,11 @@ export default function AdminWalletsPage() {
               ) : (
                 <div className="divide-y" style={{ borderColor: '#F0F7F0' }}>
                   {payouts.map((p: any) => (
-                    <div key={p.id} className="px-5 py-4 flex items-start justify-between gap-4 hover:bg-gray-50 transition-colors">
+                    <div key={p.id} className="px-5 py-4 flex items-start justify-between gap-4 hover:bg-gray-50 transition-colors" style={{ background: selectedPayoutIds.has(p.id) ? 'rgba(77,176,89,0.04)' : undefined }}>
                       <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {p.status === 'PENDING' && (
+                          <input type="checkbox" checked={selectedPayoutIds.has(p.id)} onChange={() => togglePayoutSelect(p.id)} className="accent-[#4DB049] mt-1 flex-shrink-0" />
+                        )}
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                           style={{ background: `${payoutStatusColors[p.status] ?? '#6B7280'}15` }}>
                           <i className="ri-send-plane-line text-base" style={{ color: payoutStatusColors[p.status] ?? '#6B7280' }} />

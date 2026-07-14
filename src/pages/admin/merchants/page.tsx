@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/feature/AdminLayout';
 import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
-// adminMerchants mock removed - always fetch live via adminApi.merchants()
 import { adminApi, authApi, ApiError } from '@/lib/api';
-import { mapMerchant, type BackendMerchant, type Paginated, type UiAdminMerchant } from '@/lib/api-adapters';
+import { mapMerchant, type BackendMerchant, type BackendCategory, type Paginated, type UiAdminMerchant } from '@/lib/api-adapters';
 
-type Merchant = UiAdminMerchant & { 
-  password?: string; 
+type Merchant = UiAdminMerchant & {
+  password?: string;
   userId?: string | null;
-  tempPassword?: string;   // shown in table after reset
+  tempPassword?: string;
 };
 
 const statusColors: Record<string, string> = { active: '#22C55E', pending: '#F97316', suspended: '#EF4444' };
@@ -20,7 +19,45 @@ const categoryIcons: Record<string, string> = {
   'Éducation': 'ri-book-open-line', 'Sport & Loisirs': 'ri-football-line',
 };
 
-const categories = ['Électronique', 'Mode & Vêtements', 'Alimentation', 'Maison & Déco', 'Santé & Beauté', 'Automobile', 'Éducation', 'Sport & Loisirs'];
+function CategoryPicker({ allCategories, selected, onChange, onAllChange }: {
+  allCategories: BackendCategory[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  onAllChange: (all: boolean) => void;
+}) {
+  const [all, setAll] = useState(false);
+  const toggle = (id: string) => {
+    if (selected.includes(id)) onChange(selected.filter(x => x !== id));
+    else onChange([...selected, id]);
+  };
+  const toggleAll = () => {
+    const next = !all;
+    setAll(next);
+    onAllChange(next);
+    if (next) onChange(allCategories.map(c => c.id));
+    else onChange([]);
+  };
+  return (
+    <div className="space-y-2">
+      <label className="text-xs mb-1 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+        Catégories <span className="text-gray-400">(une ou plusieurs)</span>
+      </label>
+      <label className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-gray-50" style={{ border: '1px solid #E8F2F1' }}>
+        <input type="checkbox" checked={all} onChange={toggleAll} className="accent-[#4DB049]" />
+        <span className="text-sm font-medium" style={{ color: '#014945' }}>Toutes les catégories</span>
+      </label>
+      <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto pr-1">
+        {allCategories.map(c => (
+          <label key={c.id} className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-gray-50 text-xs" style={{ border: '1px solid #E8F2F1' }}>
+            <input type="checkbox" checked={selected.includes(c.id)} onChange={() => toggle(c.id)} disabled={all} className="accent-[#4DB049]" />
+            {c.icon && <i className={`${c.icon} text-[#4DB049]`} />}
+            <span style={{ color: '#1A2B1F' }}>{c.name}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function AdminMerchantsPage() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
@@ -28,6 +65,9 @@ export default function AdminMerchantsPage() {
   const [total, setTotal] = useState(0);
   const limit = 20;
   const totalPages = Math.max(1, Math.ceil(total / limit));
+  const [availableCategories, setAvailableCategories] = useState<BackendCategory[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<'ACTIVE' | 'SUSPENDED' | null>(null);
 
   const loadMerchants = async (pageNum: number = 1) => {
     try {
@@ -54,6 +94,10 @@ export default function AdminMerchantsPage() {
 
   useEffect(() => {
     loadMerchants(1);
+    adminApi.categories().then((res: any) => {
+      if (Array.isArray(res?.items)) setAvailableCategories(res.items);
+      else if (Array.isArray(res)) setAvailableCategories(res);
+    }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [search, setSearch] = useState('');
@@ -81,10 +125,12 @@ export default function AdminMerchantsPage() {
     email: '',
     password: '',
     phone: '',
-    category: 'Électronique',
+    category: '',
     city: '',
     operatingMarket: '',
   });
+  const [addCategoryIds, setAddCategoryIds] = useState<string[]>([]);
+  const [addAllCategories, setAddAllCategories] = useState(false);
 
   // Persist temporary passwords across reloads (so admin can see them after refresh)
   const [tempPasswords, setTempPasswords] = useState<Record<string, string>>(() => {
@@ -182,28 +228,45 @@ export default function AdminMerchantsPage() {
         password: addForm.password,
         fullName: addForm.owner,
         businessName: addForm.name,
-        category: addForm.category,
+        category: addCategoryIds.length > 0 ? (availableCategories.find(c => c.id === addCategoryIds[0])?.name ?? addForm.category) : addForm.category,
         city: addForm.city || 'Douala',
-      });
+        categoryIds: addAllCategories ? [] : addCategoryIds,
+        allCategories: addAllCategories,
+      } as any);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Erreur inconnue';
       addToast('error', 'Échec création', msg);
       return;
     }
-    // Reload list from backend
-    try {
-      const res = await adminApi.merchants({ limit: 200 });
-      const data = res as Paginated<BackendMerchant>;
-      const mapped = data.items.map(mapMerchant) as unknown as Merchant[];
-      const withTemps = mapped.map(m => ({
-        ...m,
-        tempPassword: tempPasswords[m.id] || (m as any).tempPassword,
-      }));
-      setMerchants(withTemps);
-    } catch { /* keep local state */ }
+    await loadMerchants(1);
     setShowAddModal(false);
-    setAddForm({ name: '', owner: '', email: '', password: '', phone: '', category: 'Électronique', city: '', operatingMarket: '' });
+    setAddForm({ name: '', owner: '', email: '', password: '', phone: '', category: '', city: '', operatingMarket: '' });
+    setAddCategoryIds([]);
+    setAddAllCategories(false);
     addToast('success', 'Commercial ajouté', `${addForm.name} a été ajouté en attente de validation.`);
+  };
+
+  const handleBulkAction = async (status: 'ACTIVE' | 'SUSPENDED') => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setBulkAction(status);
+    try {
+      await adminApi.bulkMerchantStatus(ids, status);
+      setMerchants(prev => prev.map(m => selectedIds.has(m.id) ? { ...m, status: status.toLowerCase() as Merchant['status'] } : m));
+      addToast('success', 'Action groupée', `${ids.length} commercial(s) mis à jour.`);
+    } catch {
+      addToast('error', 'Erreur', 'L\'action groupée a échoué.');
+    }
+    setSelectedIds(new Set());
+    setBulkAction(null);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  };
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filtered.map(m => m.id)));
   };
 
   const inputStyle = { background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' };
@@ -264,6 +327,24 @@ export default function AdminMerchantsPage() {
           </select>
         </div>
 
+        {/* Bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: 'rgba(77,176,89,0.1)', border: '1px solid #4DB049' }}>
+            <span className="text-sm font-medium" style={{ color: '#014945' }}>{selectedIds.size} sélectionné(s)</span>
+            <div className="flex gap-2 ml-auto">
+              <button onClick={() => handleBulkAction('ACTIVE')} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#22C55E20', color: '#22C55E', border: '1px solid #22C55E' }}>
+                <i className="ri-checkbox-circle-line mr-1" />Activer
+              </button>
+              <button onClick={() => handleBulkAction('SUSPENDED')} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#EF444420', color: '#EF4444', border: '1px solid #EF4444' }}>
+                <i className="ri-forbid-line mr-1" />Suspendre
+              </button>
+              <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1' }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map(m => (
@@ -318,14 +399,20 @@ export default function AdminMerchantsPage() {
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: '1px solid #F0F7F0' }}>
-                    {['Commercial', 'Propriétaire', 'Catégorie', 'Ville', 'Produits', 'Commandes', 'Revenus', 'Note', 'Statut', 'User ID', 'Mot de passe', 'Actions'].map(h => (
+                    <th className="px-3 py-3">
+                      <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} className="accent-[#4DB049]" />
+                    </th>
+                    {['Commercial', 'Propriétaire', 'Catégories', 'Ville', 'Produits', 'Commandes', 'Revenus', 'Note', 'Statut', 'User ID', 'Mot de passe', 'Actions'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: '#4DB049', fontFamily: 'Poppins, sans-serif' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((m, idx) => (
-                    <tr key={m.id} className="transition-colors hover:bg-gray-50" style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #F0F7F0' : 'none' }}>
+                    <tr key={m.id} className="transition-colors hover:bg-gray-50" style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #F0F7F0' : 'none', background: selectedIds.has(m.id) ? 'rgba(77,176,89,0.05)' : undefined }}>
+                      <td className="px-3 py-3">
+                        <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => toggleSelect(m.id)} className="accent-[#4DB049]" />
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(77,176,89,0.15)' }}>
@@ -338,7 +425,18 @@ export default function AdminMerchantsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{m.owner}</td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{m.category}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                          {m.categories.length > 0
+                            ? m.categories.slice(0, 3).map(c => (
+                                <span key={c.id} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs" style={{ background: `${c.color ?? '#4DB049'}20`, color: c.color ?? '#4DB049', border: `1px solid ${c.color ?? '#4DB049'}40` }}>
+                                  {c.icon && <i className={`${c.icon} text-[10px]`} />}{c.name}
+                                </span>
+                              ))
+                            : <span className="text-xs" style={{ color: '#9CA3AF' }}>{m.category || '—'}</span>}
+                          {m.categories.length > 3 && <span className="text-xs" style={{ color: '#6B7280' }}>+{m.categories.length - 3}</span>}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{m.city}</td>
                       <td className="px-4 py-3 text-sm text-center" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{m.products}</td>
                       <td className="px-4 py-3 text-sm text-center" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{m.orders}</td>
@@ -521,12 +619,12 @@ export default function AdminMerchantsPage() {
                   <input type={field.type} value={addForm[field.key as keyof typeof addForm]} onChange={e => setAddForm(prev => ({ ...prev, [field.key]: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none" style={inputStyle} />
                 </div>
               ))}
-              <div>
-                <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Catégorie</label>
-                <select value={addForm.category} onChange={e => setAddForm(prev => ({ ...prev, category: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none cursor-pointer" style={inputStyle}>
-                  {categories.map(c => <option key={c} value={c} style={{ background: '#FFFFFF' }}>{c}</option>)}
-                </select>
-              </div>
+              <CategoryPicker
+                allCategories={availableCategories}
+                selected={addCategoryIds}
+                onChange={setAddCategoryIds}
+                onAllChange={setAddAllCategories}
+              />
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}>Annuler</button>

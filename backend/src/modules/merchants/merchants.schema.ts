@@ -1,15 +1,17 @@
 export const registerMerchantSchema = {
   body: {
     type: 'object',
-    required: ['email', 'phone', 'password', 'fullName', 'businessName', 'category', 'city'],
+    required: ['email', 'phone', 'password', 'fullName', 'businessName', 'city'],
     properties: {
       email: { type: 'string', format: 'email' },
       phone: { type: 'string', minLength: 8 },
       password: { type: 'string', minLength: 8 },
       fullName: { type: 'string', minLength: 2 },
       businessName: { type: 'string', minLength: 2 },
-      category: { type: 'string', minLength: 2 },
+      category: { type: 'string' },
       city: { type: 'string', minLength: 2 },
+      categoryIds: { type: 'array', items: { type: 'string' } },
+      allCategories: { type: 'boolean' },
       settings: { type: 'object' },
     },
   },

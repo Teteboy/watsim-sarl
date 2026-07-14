@@ -11,7 +11,7 @@ import {
   getMerchantPayoutRequests, createPayoutRequest, getMerchantWallet,
   getMerchantStaff, createMerchantStaff, updateMerchantStaff, updateMerchantStaffStatus, deleteMerchantStaff, resetMerchantStaffPassword,
   getMerchantCustomers, createMerchantCustomer, updateMerchantCustomer, updateMerchantCustomerStatus, deleteMerchantCustomer, resetMerchantCustomerPassword,
-  merchantCreditClientWallet, merchantContributeToInstallment
+  merchantCreditClientWallet, merchantContributeToInstallment, setMerchantCategories
 } from './merchants.service';
 import { issueTokens } from '../auth/auth.service';
 import { prisma } from '../../config/db';
@@ -189,6 +189,28 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ===== Merchant Wallet =====
+  // ===== Merchant Categories =====
+  app.get('/categories', async (req) => {
+    const merchant = await getMerchantByUser(req.authUser!.id);
+    const entries = await prisma.merchantCategory.findMany({
+      where: { merchantId: merchant.id },
+      include: { category: { select: { id: true, name: true, slug: true, color: true, icon: true } } },
+    });
+    return { categories: entries.map(e => e.category) };
+  });
+
+  app.put('/categories', async (req, reply) => {
+    try {
+      const merchant = await getMerchantByUser(req.authUser!.id);
+      const { categoryIds, allCategories } = req.body as { categoryIds?: string[]; allCategories?: boolean };
+      const entries = await setMerchantCategories(merchant.id, categoryIds ?? [], allCategories ?? false);
+      return { categories: entries.map(e => e.category) };
+    } catch (err: unknown) {
+      if (err instanceof MerchantError) return reply.code(err.statusCode).send({ error: 'MerchantError', message: err.message });
+      throw err;
+    }
+  });
+
   app.get('/wallet', async (req) => getMerchantWallet(req.authUser!.id));
 
   // ===== Merchant Payout Requests =====

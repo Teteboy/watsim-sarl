@@ -510,12 +510,40 @@ async sendMessage(convId: string, data: { text?: string; attachmentUrl?: string;
   async updatePayoutStatus(id: string, status: string, note?: string) {
     return postJson<any>(`${API_PREFIX}/admin/payouts/${id}/status`, { status, note });
   },
+  async bulkApprovePayouts(ids: string[]) {
+    return postJson<any>(`${API_PREFIX}/admin/payouts/bulk-approve`, { ids });
+  },
+  async bulkRejectPayouts(ids: string[], note?: string) {
+    return postJson<any>(`${API_PREFIX}/admin/payouts/bulk-reject`, { ids, note });
+  },
+
+  // Bulk merchant actions
+  async bulkMerchantStatus(ids: string[], status: 'PENDING' | 'ACTIVE' | 'SUSPENDED') {
+    return postJson<any>(`${API_PREFIX}/admin/merchants/bulk-status`, { ids, status });
+  },
+  async setMerchantCategories(merchantId: string, categoryIds: string[], allCategories?: boolean) {
+    return putJson<any>(`${API_PREFIX}/admin/merchants/${merchantId}/categories`, { categoryIds, allCategories });
+  },
+
+  // Bulk user actions
+  async bulkUserActive(ids: string[], isActive: boolean) {
+    return postJson<any>(`${API_PREFIX}/admin/users/bulk-active`, { ids, isActive });
+  },
+
+  // Bulk product actions
+  async bulkProductActive(ids: string[], isActive: boolean) {
+    return postJson<any>(`${API_PREFIX}/admin/products/bulk-active`, { ids, isActive });
+  },
 };
 
 // Merchant API wrapper
 export const merchantApi = {
   async profile() { return getJson<any>(`${API_PREFIX}/merchant/profile`); },
   async updateProfile(data: any) { return putJson<any>(`${API_PREFIX}/merchant/profile`, data); },
+  async getCategories() { return getJson<any>(`${API_PREFIX}/merchant/categories`); },
+  async setCategories(categoryIds: string[], allCategories?: boolean) {
+    return putJson<any>(`${API_PREFIX}/merchant/categories`, { categoryIds, allCategories });
+  },
   async getSettings() { return getJson<any>(`${API_PREFIX}/merchant/settings`); },
   async updateSettings(data: any) { return putJson<any>(`${API_PREFIX}/merchant/settings`, data); },
 

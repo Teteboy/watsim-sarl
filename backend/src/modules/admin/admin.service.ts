@@ -183,7 +183,10 @@ export async function listMerchants(params: { page: number; limit: number; statu
   const [items, total] = await Promise.all([
     prisma.merchant.findMany({
       where,
-      include: { user: { select: { id: true, email: true, phone: true, fullName: true } } },
+      include: {
+        user: { select: { id: true, email: true, phone: true, fullName: true } },
+        categories: { include: { category: { select: { id: true, name: true, slug: true, color: true, icon: true } } } },
+      },
       orderBy: { createdAt: 'desc' },
       skip: (params.page - 1) * params.limit, take: params.limit,
     }),

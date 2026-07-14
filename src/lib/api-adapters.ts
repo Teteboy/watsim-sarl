@@ -49,6 +49,14 @@ export function mapUser(u: BackendUser): UiAdminUser {
   };
 }
 
+export interface BackendCategory {
+  id: string;
+  name: string;
+  slug: string;
+  color?: string | null;
+  icon?: string | null;
+}
+
 export interface BackendMerchant {
   id: string;
   userId: string;
@@ -59,6 +67,7 @@ export interface BackendMerchant {
   commissionRate: string | number;
   createdAt: string;
   user?: { id: string; email: string; phone: string; fullName: string };
+  categories?: { category: BackendCategory }[];
 }
 
 export interface UiAdminMerchant {
@@ -69,6 +78,7 @@ export interface UiAdminMerchant {
   email: string;
   phone: string;
   category: string;
+  categories: BackendCategory[];
   city: string;
   operatingMarket: string;
   status: 'active' | 'pending' | 'suspended';
@@ -89,6 +99,7 @@ export function mapMerchant(m: BackendMerchant): UiAdminMerchant {
     email: m.user?.email ?? '',
     phone: m.user?.phone ?? '',
     category: m.category,
+    categories: m.categories?.map(mc => mc.category) ?? [],
     city: m.city,
     operatingMarket: m.city,
     status: m.status.toLowerCase() as UiAdminMerchant['status'],

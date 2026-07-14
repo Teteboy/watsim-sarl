@@ -70,6 +70,25 @@ export default function AdminUsersPage() {
   const [creditForm, setCreditForm] = useState({ amount: '', note: '' });
   const [creditLoading, setCreditLoading] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) =>
+    setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleSelectAll = () =>
+    setSelectedIds(prev => prev.size === users.length && users.length > 0 ? new Set() : new Set(users.map(u => u.id)));
+
+  const handleBulkActive = async (isActive: boolean) => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    try {
+      await adminApi.bulkUserActive(ids, isActive);
+      setUsers(prev => prev.map(u => selectedIds.has(u.id) ? { ...u, status: isActive ? 'active' as const : 'suspended' as const } : u));
+      addToast('success', 'Action groupée', `${ids.length} utilisateur(s) mis à jour.`);
+    } catch {
+      addToast('error', 'Erreur', 'L\'action groupée a échoué.');
+    }
+    setSelectedIds(new Set());
+  };
 
   // Server-side pagination: users is already the current page
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -252,11 +271,30 @@ export default function AdminUsersPage() {
           </select>
         </div>
 
+        {/* Bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: 'rgba(77,176,89,0.1)', border: '1px solid #4DB049' }}>
+            <span className="text-sm font-medium" style={{ color: '#014945' }}>{selectedIds.size} sélectionné(s)</span>
+            <div className="flex gap-2 ml-auto">
+              <button onClick={() => handleBulkActive(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#22C55E20', color: '#22C55E', border: '1px solid #22C55E' }}>
+                <i className="ri-user-follow-line mr-1" />Activer
+              </button>
+              <button onClick={() => handleBulkActive(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#EF444420', color: '#EF4444', border: '1px solid #EF4444' }}>
+                <i className="ri-user-forbid-line mr-1" />Suspendre
+              </button>
+              <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1' }}>Annuler</button>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-2xl overflow-hidden" style={cardStyle}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid #E8F2F1' }}>
+                  <th className="px-3 py-3">
+                    <input type="checkbox" checked={selectedIds.size === users.length && users.length > 0} onChange={toggleSelectAll} className="accent-[#4DB049]" />
+                  </th>
                   {['ID', 'Utilisateur', 'Téléphone', 'KYC', 'Score Crédit', 'Plafond', 'Solde Wallet', 'Statut', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{h}</th>
                   ))}
@@ -264,7 +302,10 @@ export default function AdminUsersPage() {
               </thead>
               <tbody>
                 {users.map((user, idx) => (
-                  <tr key={user.id} className="transition-colors hover:bg-gray-50" style={{ borderBottom: idx < users.length - 1 ? '1px solid #F0F7F0' : 'none' }}>
+                  <tr key={user.id} className="transition-colors hover:bg-gray-50" style={{ borderBottom: idx < users.length - 1 ? '1px solid #F0F7F0' : 'none', background: selectedIds.has(user.id) ? 'rgba(77,176,89,0.05)' : undefined }}>
+                    <td className="px-3 py-3">
+                      <input type="checkbox" checked={selectedIds.has(user.id)} onChange={() => toggleSelect(user.id)} className="accent-[#4DB049]" />
+                    </td>
                     <td className="px-4 py-3 text-xs font-mono" style={{ color: '#4DB049' }}>{user.id}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
