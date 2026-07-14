@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { merchantApi } from '@/lib/api';
+import logoGreen from '@/assets/images/logo_green.png';
 
 interface NavItem {
   icon: string;
@@ -72,7 +73,7 @@ export default function AdminSidebar({ collapsed, onToggle, onLogout }: AdminSid
           className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
         >
           <img
-            src="/src/assets/images/logo.png"
+            src={logoGreen}
             alt="WATSIM"
             className="w-full h-full object-contain"
             onError={(e) => {

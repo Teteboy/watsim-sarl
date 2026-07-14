@@ -1,3 +1,5 @@
+import logoWhite from '@/assets/images/logo_white.png';
+
 export default function LandingFooter() {
   return (
     <footer style={{ background: '#014945', borderTop: '1px solid rgba(77,176,89,0.2)' }}>
@@ -10,7 +12,7 @@ export default function LandingFooter() {
                 className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden"
               >
                 <img
-                  src="/src/assets/images/logo_white.png"
+                  src={logoWhite}
                   alt="WATSIM"
                   className="w-full h-full object-contain"
                   onError={(e) => {

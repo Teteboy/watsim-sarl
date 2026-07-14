@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import logoWhite from '@/assets/images/logo_white.png';
 import { Link } from 'react-router-dom';
 import CustomerAuthModal from '@/components/feature/CustomerAuthModal';
 import { useCustomerAuth, getCustomerAuthState } from '@/hooks/useCustomerAuth';
@@ -45,7 +46,7 @@ export default function LandingNav() {
             className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden"
           >
             <img
-              src="/src/assets/images/logo_white.png"
+              src={logoWhite}
               alt="WATSIM"
               className="w-full h-full object-contain"
               onError={(e) => {
