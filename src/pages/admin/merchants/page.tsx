@@ -129,6 +129,8 @@ export default function AdminMerchantsPage() {
     loadMerchants(1);
   };
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null);
+  const [editMerchant, setEditMerchant] = useState<Merchant | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', owner: '', email: '', phone: '', city: '', category: '', commissionRate: '' });
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [confirmAction, setConfirmAction] = useState<{ merchant: Merchant; action: 'approve' | 'reject' | 'suspend' } | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -230,6 +232,41 @@ export default function AdminMerchantsPage() {
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Échec de la réinitialisation';
       addToast('error', 'Erreur', msg);
+    }
+  };
+
+  const openEdit = (merchant: Merchant) => {
+    setEditMerchant(merchant);
+    setEditForm({
+      name: merchant.name,
+      owner: merchant.owner,
+      email: merchant.email,
+      phone: merchant.phone,
+      city: merchant.city,
+      category: merchant.category,
+      commissionRate: '',
+    });
+    setSelectedMerchant(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editMerchant) return;
+    try {
+      const body: any = {
+        businessName: editForm.name,
+        owner: editForm.owner,
+        email: editForm.email,
+        phone: editForm.phone,
+        city: editForm.city,
+        category: editForm.category,
+      };
+      await adminApi.updateMerchant(editMerchant.id, body);
+      setMerchants(prev => prev.map(m => m.id === editMerchant.id ? { ...m, ...body, name: editForm.name } : m));
+      if (selectedMerchant?.id === editMerchant.id) setSelectedMerchant(prev => prev ? { ...prev, ...body, name: editForm.name } : null);
+      setEditMerchant(null);
+      addToast('success', 'Commerçant mis à jour', `${editForm.name} a été modifié avec succès.`);
+    } catch (e: any) {
+      addToast('error', 'Échec', e?.message || 'Impossible de modifier le commerçant.');
     }
   };
 
@@ -544,7 +581,14 @@ export default function AdminMerchantsPage() {
                 </div>
               ))}
             </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
+                <button
+                  onClick={() => openEdit(selectedMerchant)}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap"
+                  style={{ background: '#F5FAF5', color: '#4DB049', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}
+                >
+                  <i className="ri-edit-line mr-2" />Modifier
+                </button>
                 <button
                   onClick={() => handleResetPassword(selectedMerchant)}
                   className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap"
@@ -589,6 +633,41 @@ export default function AdminMerchantsPage() {
                  {selectedMerchant.status === 'pending' ? 'Approuver' : selectedMerchant.status === 'active' ? 'Suspendre' : 'Réactiver'}
                </button>
              </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Merchant Modal */}
+      {editMerchant && (
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => setEditMerchant(null)}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Modifier le Commerçant</h2>
+              <button onClick={() => setEditMerchant(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer" style={{ color: '#6B7280' }}>
+                <i className="ri-close-line text-lg" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: 'Nom de la boutique', key: 'name', type: 'text' },
+                { label: 'Propriétaire', key: 'owner', type: 'text' },
+                { label: 'Email', key: 'email', type: 'email' },
+                { label: 'Téléphone', key: 'phone', type: 'text' },
+                { label: 'Ville', key: 'city', type: 'text' },
+                { label: 'Catégorie', key: 'category', type: 'text' },
+              ].map(field => (
+                <div key={field.key}>
+                  <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{field.label}</label>
+                  <input type={field.type} value={editForm[field.key as keyof typeof editForm]} onChange={e => setEditForm(prev => ({ ...prev, [field.key]: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none" style={inputStyle} />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setEditMerchant(null)} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}>Annuler</button>
+              <button onClick={handleSaveEdit} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}>
+                <i className="ri-save-line mr-2" />Sauvegarder
+              </button>
+            </div>
           </div>
         </div>
       )}

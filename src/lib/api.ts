@@ -257,6 +257,9 @@ export const adminApi = {
     return getJson<any>(url);
   },
   async setMerchantStatus(id: string, status: string) { return postJson<any>(`${API_PREFIX}/admin/merchants/${id}/status`, { status }); },
+  async updateMerchant(id: string, body: { businessName?: string; category?: string; city?: string; commissionRate?: number; owner?: string; email?: string; phone?: string }) {
+    return putJson<any>(`${API_PREFIX}/admin/merchants/${id}`, body);
+  },
   async users(params: { page?: number; limit?: number; role?: string; search?: string } = {}) {
     const q = new URLSearchParams();
     if (typeof params.limit === 'number') q.set('limit', String(Math.min(100, Math.max(1, params.limit))));

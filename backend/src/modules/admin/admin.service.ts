@@ -202,6 +202,49 @@ export async function setMerchantStatus(adminId: string, merchantId: string, sta
   return merchant;
 }
 
+export async function updateMerchant(adminId: string, merchantId: string, data: {
+  businessName?: string;
+  category?: string;
+  city?: string;
+  commissionRate?: number;
+  owner?: string;
+  email?: string;
+  phone?: string;
+}) {
+  const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+  if (!merchant) throw new Error('Merchant not found');
+
+  const merchantData: Prisma.MerchantUpdateInput = {};
+  if (data.businessName !== undefined) merchantData.businessName = data.businessName;
+  if (data.category !== undefined) merchantData.category = data.category;
+  if (data.city !== undefined) merchantData.city = data.city;
+  if (data.commissionRate !== undefined) merchantData.commissionRate = data.commissionRate;
+
+  const userData: Prisma.UserUpdateInput = {};
+  if (data.owner !== undefined) userData.fullName = data.owner;
+  if (data.email !== undefined) userData.email = data.email;
+  if (data.phone !== undefined) userData.phone = data.phone;
+
+  const [updatedMerchant] = await prisma.$transaction([
+    prisma.merchant.update({ where: { id: merchantId }, data: merchantData }),
+    Object.keys(userData).length
+      ? prisma.user.update({ where: { id: merchant.userId }, data: userData })
+      : prisma.user.findUnique({ where: { id: merchant.userId } }),
+  ]);
+
+  await prisma.auditLog.create({
+    data: {
+      userId: adminId,
+      action: 'MERCHANT_UPDATED',
+      entityType: 'Merchant',
+      entityId: merchantId,
+      metadata: { merchantId, ...data } as never,
+    },
+  });
+
+  return updatedMerchant;
+}
+
 export async function listBnplPurchases(params: { page: number; limit: number; status?: string }) {
   const where: Prisma.BnplPurchaseWhereInput = {};
   if (params.status) where.status = params.status;
