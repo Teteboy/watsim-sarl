@@ -119,7 +119,11 @@ export default function TopProductsCard() {
           </div>
         ) : (
           products.map((product, index) => (
-          <div key={product.id} className="flex items-center gap-3">
+          <div
+            key={product.id}
+            onClick={() => navigate(`/admin/products?productId=${product.id}`)}
+            className="flex items-center gap-3 cursor-pointer rounded-lg -mx-2 px-2 py-1.5 transition-colors hover:bg-gray-50"
+          >
             {/* Rank */}
             <div
               className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"

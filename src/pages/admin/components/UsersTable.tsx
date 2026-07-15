@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminApi, tokenStore } from '@/lib/api';
 import { mapUser } from '@/lib/api-adapters';
 
@@ -26,6 +27,7 @@ function ScoreBar({ score }: { score: number }) {
 }
 
 export default function UsersTable() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
 
@@ -207,7 +209,11 @@ export default function UsersTable() {
                       <button className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                         <i className="ri-eye-line text-sm" style={{ color: '#6B7280' }} />
                       </button>
-                      <button className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                      <button
+                        onClick={() => navigate(`/admin/users?userId=${user.id}`)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                        title="Modifier"
+                      >
                         <i className="ri-edit-line text-sm" style={{ color: '#6B7280' }} />
                       </button>
                       <button className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '@/components/feature/AdminLayout';
 import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
@@ -36,6 +37,8 @@ const statusLabels: Record<string, string> = { active: 'Actif', out_of_stock: 'R
 const productCategories = ['Électronique', 'Mode & Vêtements', 'Alimentation', 'Maison & Déco', 'Santé & Beauté', 'Automobile', 'Éducation', 'Sport & Loisirs', 'Électroménager'];
 
 export default function AdminProductsPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<any[]>([]);
   const [availableCategories, setAvailableCategories] = useState<any[]>([]);
   const [page, setPage] = useState(1);
@@ -84,6 +87,17 @@ export default function AdminProductsPage() {
   useEffect(() => {
     loadAdminProducts(1);
   }, []);
+
+  // Open edit modal for productId passed from dashboard
+  useEffect(() => {
+    const productId = searchParams.get('productId');
+    if (!productId || products.length === 0) return;
+    const target = products.find(p => p.id === productId);
+    if (target) {
+      openEdit(target);
+      navigate('/admin/products', { replace: true });
+    }
+  }, [searchParams, products]);
 
   // Load real platform categories
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '@/components/feature/AdminLayout';
 import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
@@ -26,6 +27,8 @@ function ScoreBar({ score }: { score: number }) {
 }
 
 export default function AdminUsersPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -57,6 +60,18 @@ export default function AdminUsersPage() {
   useEffect(() => {
     loadUsers(1);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Open edit modal for userId passed from dashboard
+  useEffect(() => {
+    const userId = searchParams.get('userId');
+    if (!userId || users.length === 0) return;
+    const target = users.find(u => u.id === userId);
+    if (target) {
+      openEdit(target);
+      // Clean the URL without reloading
+      navigate('/admin/users', { replace: true });
+    }
+  }, [searchParams, users]);
 
   const [search, setSearch] = useState('');
   const [kycFilter, setKycFilter] = useState('all');

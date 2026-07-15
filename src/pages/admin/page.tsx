@@ -6,6 +6,7 @@ import TransactionChart from './components/TransactionChart';
 import CategoryChart from './components/CategoryChart';
 import UsersTable from './components/UsersTable';
 import TopProductsCard from './components/TopProductsCard';
+import RecentMerchantsCard from './components/RecentMerchantsCard';
 import AlertsPanel from './components/AlertsPanel';
 import { adminApi, tokenStore } from '@/lib/api';
 
@@ -185,6 +186,7 @@ export default function AdminDashboard() {
               <UsersTable />
             </div>
             <div className="space-y-4">
+              <RecentMerchantsCard />
               <TopProductsCard />
               <AlertsPanel />
             </div>

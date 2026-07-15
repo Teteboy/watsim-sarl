@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '@/components/feature/AdminLayout';
 import Toast, { useToast } from '@/components/base/Toast';
 import ConfirmDialog from '@/components/base/ConfirmDialog';
@@ -60,6 +61,8 @@ function CategoryPicker({ allCategories, selected, onChange, onAllChange }: {
 }
 
 export default function AdminMerchantsPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -99,6 +102,17 @@ export default function AdminMerchantsPage() {
       else if (Array.isArray(res)) setAvailableCategories(res);
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Open merchant detail modal for merchantId passed from dashboard
+  useEffect(() => {
+    const merchantId = searchParams.get('merchantId');
+    if (!merchantId || merchants.length === 0) return;
+    const target = merchants.find(m => m.id === merchantId);
+    if (target) {
+      setSelectedMerchant(target);
+      navigate('/admin/merchants', { replace: true });
+    }
+  }, [searchParams, merchants]);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
