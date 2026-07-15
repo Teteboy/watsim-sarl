@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminApi, tokenStore } from '@/lib/api';
 import { resolveUploadUrl } from '@/lib/utils';
 
 export default function TopProductsCard() {
+  const navigate = useNavigate();
   const [topSold, setTopSold] = useState<any[]>([]);
   const [topRecent, setTopRecent] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'sold' | 'recent'>('sold');
@@ -217,6 +219,7 @@ export default function TopProductsCard() {
           {activeTab === 'sold' ? 'Basé sur les ventes totales' : 'Derniers produits ajoutés'}
         </span>
         <button
+          onClick={() => navigate('/admin/products')}
           className="text-xs font-medium transition-colors cursor-pointer whitespace-nowrap"
           style={{ color: '#4DB049', fontFamily: 'Poppins, sans-serif' }}
         >
