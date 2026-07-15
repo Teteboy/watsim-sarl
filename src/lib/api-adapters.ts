@@ -41,7 +41,7 @@ export function mapUser(u: BackendUser): UiAdminUser {
     creditScore: u.creditScore,
     creditLimit: u.creditLimit,
     walletBalance: 0,
-    joinedAt: u.createdAt?.split('T')[0] ?? '',
+    joinedAt: u.createdAt ?? '',
     status: u.isActive ? 'active' : 'suspended',
     transactions: 0,
     totalSpent: 0,
@@ -107,7 +107,7 @@ export function mapMerchant(m: BackendMerchant): UiAdminMerchant {
     products: 0,
     orders: 0,
     revenue: 0,
-    joinedAt: m.createdAt?.split('T')[0] ?? '',
+    joinedAt: m.createdAt ?? '',
     rating: 0,
   };
 }

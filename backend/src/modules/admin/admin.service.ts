@@ -140,7 +140,7 @@ export async function listUsers(params: { page: number; limit: number; role?: Us
   const [items, total] = await Promise.all([
     prisma.user.findMany({
       where,
-      select: { id: true, email: true, phone: true, fullName: true, role: true, kycStatus: true, creditScore: true, creditLimit: true, isActive: true, createdAt: true, imageUrl: true },
+      select: { id: true, email: true, phone: true, fullName: true, role: true, kycStatus: true, creditScore: true, creditLimit: true, isActive: true, createdAt: true, updatedAt: true, imageUrl: true },
       orderBy: { createdAt: 'desc' },
       skip: (params.page - 1) * params.limit, take: params.limit,
     }),

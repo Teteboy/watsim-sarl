@@ -122,7 +122,7 @@ export default function AdminSettingsPage() {
           name: u.fullName || u.email.split('@')[0],
           email: u.email,
           role: u.role,                    // use real role from DB ('ADMIN')
-          lastLogin: u.updatedAt ? new Date(u.updatedAt).toLocaleString('fr-FR') : 'Jamais',
+          lastLogin: u.updatedAt ? new Date(u.updatedAt).toLocaleString('fr-FR') : (u.createdAt ? new Date(u.createdAt).toLocaleString('fr-FR') : 'Jamais'),
           status: u.isActive ? 'active' : 'inactive',
         }));
 
@@ -167,7 +167,7 @@ export default function AdminSettingsPage() {
         name: u.fullName || u.email.split('@')[0],
         email: u.email,
         role: u.role,
-        lastLogin: u.updatedAt ? new Date(u.updatedAt).toLocaleString('fr-FR') : 'Jamais',
+        lastLogin: u.updatedAt ? new Date(u.updatedAt).toLocaleString('fr-FR') : (u.createdAt ? new Date(u.createdAt).toLocaleString('fr-FR') : 'Jamais'),
         status: u.isActive ? 'active' : 'inactive',
       }));
       setRoles(mapped);

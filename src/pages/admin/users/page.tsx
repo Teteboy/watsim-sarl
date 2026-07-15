@@ -425,7 +425,7 @@ export default function AdminUsersPage() {
                 { label: 'Solde Wallet', value: `${selectedUser.walletBalance.toLocaleString('fr-FR')} FCFA`, icon: 'ri-wallet-3-line' },
                 { label: 'Transactions', value: selectedUser.transactions, icon: 'ri-exchange-line' },
                 { label: 'Total Dépensé', value: `${selectedUser.totalSpent.toLocaleString('fr-FR')} FCFA`, icon: 'ri-money-cny-circle-line' },
-                { label: 'Inscrit le', value: selectedUser.joinedAt, icon: 'ri-calendar-line' },
+                { label: 'Inscrit le', value: selectedUser.joinedAt ? new Date(selectedUser.joinedAt).toLocaleString('fr-FR') : '—', icon: 'ri-calendar-line' },
               ].map(item => (
                 <div key={item.label} className="rounded-xl p-3" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
                   <div className="flex items-center gap-2 mb-1">
