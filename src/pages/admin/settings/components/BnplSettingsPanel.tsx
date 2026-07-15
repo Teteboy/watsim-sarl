@@ -170,7 +170,7 @@ export default function BnplSettingsPanel() {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: cat.enabled ? 'rgba(77,176,89,0.15)' : '#F5FAF5' }}>
-                    <i className={`${categoryIcons[cat.id]} text-base`} style={{ color: cat.enabled ? '#4DB049' : '#9CA3AF' }} />
+                    <i className={`${categoryIcons[cat.slug ?? cat.id]} text-base`} style={{ color: cat.enabled ? '#4DB049' : '#9CA3AF' }} />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>{cat.name}</p>

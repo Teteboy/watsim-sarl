@@ -341,7 +341,8 @@ export async function reportsSummary() {
 
 function toPlatformCategory(c: PrismaCategory, merchantCountMap: Record<string, number>, productCountMap: Record<string, number>) {
   return {
-    id: c.slug,
+    id: c.id,
+    slug: c.slug,
     name: c.name,
     description: c.description || '',
     icon: c.icon || 'ri-price-tag-3-line',
@@ -359,7 +360,8 @@ function toPlatformCategory(c: PrismaCategory, merchantCountMap: Record<string, 
 
 function toBnplConfig(c: PrismaCategory) {
   return {
-    id: c.slug,
+    id: c.id,
+    slug: c.slug,
     name: c.name,
     enabled: c.bnplEnabled,
     maxCredit: c.maxCredit,
@@ -980,7 +982,7 @@ export async function updateBnplFeeSettings(adminId: string, settings: {
 
 // ===== Category Margin Management =====
 
-export async function updateCategoryMargin(adminId: string, categoryId: string, marginPercentage: number) {
+export async function updateCategoryMargin(adminId: string, categoryIdOrSlug: string, marginPercentage: number) {
   // Validate margin percentage
   if (marginPercentage < 0 || marginPercentage > 100) {
     throw new Error('Margin percentage must be between 0 and 100');
@@ -989,9 +991,19 @@ export async function updateCategoryMargin(adminId: string, categoryId: string, 
   const marginDecimal = marginPercentage / 100;
 
   const result = await prisma.$transaction(async (tx) => {
+    // Resolve category by UUID or slug
+    const existingCategory = await tx.category.findFirst({
+      where: { OR: [{ id: categoryIdOrSlug }, { slug: categoryIdOrSlug }] },
+    });
+    if (!existingCategory) {
+      throw new Error('Category not found');
+    }
+    const resolvedCategoryId = existingCategory.id;
+    const oldMargin = Number(existingCategory.markupPercentage ?? 0);
+
     // Update the category margin
     const updatedCategory = await tx.category.update({
-      where: { id: categoryId },
+      where: { id: resolvedCategoryId },
       data: {
         markupPercentage: marginPercentage,
         markupMargin: marginDecimal,
@@ -1001,7 +1013,7 @@ export async function updateCategoryMargin(adminId: string, categoryId: string, 
     // Get all products in this category that have a costPrice
     const products = await tx.product.findMany({
       where: { 
-        categoryId,
+        categoryId: resolvedCategoryId,
         costPrice: { not: null },
         isActive: true,
       },
@@ -1024,12 +1036,12 @@ export async function updateCategoryMargin(adminId: string, categoryId: string, 
         userId: adminId,
         action: 'CATEGORY_MARGIN_UPDATED',
         entityType: 'Category',
-        entityId: categoryId,
+        entityId: resolvedCategoryId,
         metadata: { 
-          categoryId, 
+          categoryId: resolvedCategoryId, 
           marginPercentage, 
           productsUpdated: products.length,
-          oldMargin: updatedCategory.markupPercentage,
+          oldMargin,
         } as never,
       },
     });
