@@ -2,6 +2,7 @@ import { prisma } from '../../config/db';
 import type { KycStatus, MerchantStatus, Prisma, UserRole } from '@prisma/client';
 import type { Category as PrismaCategory } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { deliverNotificationToUser } from '../../services/notification.service';
 import { suggestSellPrice } from '../products/products.service';
 import { resolveImageUrl } from '../../services/storage-local.service';
@@ -484,13 +485,14 @@ export async function updateUser(adminId: string, userId: string, data: { fullNa
   return user;
 }
 
-export async function createAdminUser(data: { email: string; phone: string; fullName: string; password?: string; pin?: string; role?: string; creditLimit?: number }) {
+export async function createAdminUser(data: { email?: string; phone: string; fullName: string; password?: string; pin?: string; role?: string; creditLimit?: number }) {
   const passwordHash = data.password ? await bcrypt.hash(data.password, 12) : await bcrypt.hash(Math.random().toString(36), 12);
   const pinHash = data.pin ? await bcrypt.hash(data.pin, 12) : undefined;
   const userRole = (data.role as UserRole) || 'ADMIN';
+  const email = data.email?.trim().toLowerCase() || `${crypto.randomUUID()}@placeholder.watsim.cm`;
   const user = await prisma.user.create({
     data: {
-      email: data.email.toLowerCase(),
+      email,
       phone: data.phone,
       fullName: data.fullName,
       passwordHash,

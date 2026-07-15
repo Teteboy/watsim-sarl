@@ -150,12 +150,12 @@ export default function AdminSettingsPage() {
   };
 
   const handleInvite = async () => {
-    if (!inviteForm.name || !inviteForm.email) { addToast('error', 'Champs requis', 'Veuillez remplir le nom et l\u2019email.'); return; }
+    if (!inviteForm.name) { addToast('error', 'Champ requis', 'Veuillez remplir le nom complet.'); return; }
     try {
-      // For demo, use a default password - in real app, send email with reset link
+      // Email is optional; backend generates a placeholder when omitted
       await adminApi.createAdminUser({
-        email: inviteForm.email,
-        phone: '+237600000000', // placeholder
+        email: inviteForm.email || undefined,
+        phone: `+237${Date.now().toString().slice(-8)}`, // placeholder unique phone
         fullName: inviteForm.name,
         password: 'Admin@123',
       });
@@ -174,7 +174,7 @@ export default function AdminSettingsPage() {
       setAdmins(items);
       setShowInviteModal(false);
       setInviteForm({ name: '', email: '', role: 'support_agent' });
-      addToast('success', 'Admin créé', `Compte admin créé pour ${inviteForm.email} (mot de passe temporaire: Admin@123)`);
+      addToast('success', 'Admin créé', `Compte admin créé pour ${inviteForm.email || inviteForm.name} (mot de passe temporaire: Admin@123)`);
     } catch (e: any) {
       addToast('error', 'Erreur', e?.message || 'Impossible de créer le compte admin.');
     }
@@ -361,7 +361,7 @@ export default function AdminSettingsPage() {
               <button onClick={() => setShowInviteModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer" style={{ color: '#6B7280' }}><i className="ri-close-line text-lg" /></button>
             </div>
             <div className="space-y-3">
-              {[{ label: 'Nom complet *', key: 'name', type: 'text' }, { label: 'Email *', key: 'email', type: 'email' }].map(field => (
+              {[{ label: 'Nom complet *', key: 'name', type: 'text' }, { label: 'Email', key: 'email', type: 'email' }].map(field => (
                 <div key={field.key}>
                   <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{field.label}</label>
                   <input type={field.type} value={inviteForm[field.key as keyof typeof inviteForm]} onChange={e => setInviteForm(prev => ({ ...prev, [field.key]: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }} />

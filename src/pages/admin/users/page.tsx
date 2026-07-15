@@ -154,15 +154,15 @@ export default function AdminUsersPage() {
   };
 
   const handleCreateUser = async () => {
-    if (!createForm.name || !createForm.email || !createForm.phone) {
-      addToast('error', 'Champs requis', 'Veuillez remplir tous les champs obligatoires.');
+    if (!createForm.name || !createForm.phone) {
+      addToast('error', 'Champs requis', 'Veuillez remplir le nom et le téléphone.');
       return;
     }
 
     try {
       const created = await adminApi.createUser({
         fullName: createForm.name,
-        email: createForm.email,
+        email: createForm.email || undefined,
         phone: createForm.phone,
         creditLimit: Number(createForm.creditLimit) || 100000,
         role: createForm.role || 'CUSTOMER',
@@ -523,7 +523,7 @@ export default function AdminUsersPage() {
               </div>
               {[
                 { label: 'Nom complet *', key: 'name', type: 'text', placeholder: 'Ex: Jean Dupont' },
-                { label: 'Email *', key: 'email', type: 'email', placeholder: 'exemple@email.com' },
+                { label: 'Email', key: 'email', type: 'email', placeholder: 'exemple@email.com' },
                 { label: 'Téléphone *', key: 'phone', type: 'text', placeholder: '+237 6 XX XX XX XX' },
                 { label: 'Mot de passe (optionnel)', key: 'password', type: 'password', placeholder: 'Laisser vide pour auto-générer' },
                 { label: 'PIN 4 chiffres (optionnel)', key: 'pin', type: 'password', placeholder: 'Ex: 1234' },

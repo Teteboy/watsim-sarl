@@ -357,7 +357,7 @@ export const adminApi = {
   async bnplCategorySettings() { return getJson<any>(`${API_PREFIX}/admin/bnpl/category-settings`); },
   async getSystemSettings() { return getJson<Record<string, string>>(`${API_PREFIX}/admin/settings`); },
   async setSystemSetting(key: string, value: string) { return putJson(`${API_PREFIX}/admin/settings/${key}`, { value }); },
-  async createAdminUser(body: { email: string; phone: string; fullName: string; password: string; pin?: string; imageUrl?: string }) {
+  async createAdminUser(body: { email?: string; phone: string; fullName: string; password: string; pin?: string; imageUrl?: string }) {
     return postJson<any>(`${API_PREFIX}/admin/users`, body);
   },
   async resetUserPassword(id: string, password?: string) {
@@ -459,7 +459,7 @@ async sendMessage(convId: string, data: { text?: string; attachmentUrl?: string;
   },
 
   // Create regular customer user from admin panel
-  async createUser(body: { email: string; phone: string; fullName: string; password?: string; pin?: string; creditLimit?: number; role?: string }) {
+  async createUser(body: { email?: string; phone: string; fullName: string; password?: string; pin?: string; creditLimit?: number; role?: string }) {
     return postJson<any>(`${API_PREFIX}/admin/users`, { ...body, role: body.role || 'CUSTOMER' });
   },
 
