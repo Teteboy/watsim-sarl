@@ -69,7 +69,17 @@ export function resolveImageUrl(storedUrl: string | null | undefined): string | 
 export function resolveImageUrl(storedUrl: string | null | undefined, requestBaseUrl: string | undefined): string | null;
 export function resolveImageUrl(storedUrl: string | null | undefined, requestBaseUrl?: string | undefined): string | null {
   if (!storedUrl) return null;
-  if (storedUrl.startsWith('http')) return storedUrl;
+  if (storedUrl.startsWith('http')) {
+    try {
+      const parsed = new URL(storedUrl);
+      if (requestBaseUrl && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') && parsed.pathname.startsWith('/uploads/')) {
+        return `${requestBaseUrl}${parsed.pathname}`;
+      }
+    } catch {
+      return storedUrl;
+    }
+    return storedUrl;
+  }
   const base = requestBaseUrl || getBackendBaseUrl();
   if (storedUrl.startsWith('/uploads/')) return `${base}${storedUrl}`;
   return `${base}/uploads/${storedUrl}`;

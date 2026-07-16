@@ -106,6 +106,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
         include: {
           category: { select: { id: true, name: true, slug: true, color: true, icon: true } },
           merchant: { select: { category: true } },
+          gallery: { orderBy: { sortOrder: 'asc' } },
           _count: { select: { purchases: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -119,6 +120,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
       ...p,
       sold: p._count?.purchases ?? 0,
       imageUrl: resolveImageUrl(p.imageUrl),
+      gallery: p.gallery.map(g => ({ ...g, imageUrl: resolveImageUrl(g.imageUrl) })), 
     }));
 
     return { items: itemsWithSold, total, page, limit };
@@ -127,7 +129,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
   app.post('/products', { schema: productCreateSchema }, async (req, reply) => {
     const merchant = await getMerchantByUser(req.authUser!.id);
     if (merchant.status !== 'ACTIVE') return reply.code(403).send({ error: 'Forbidden', message: 'Merchant not active' });
-    const body = req.body as { name: string; description?: string; price?: number; costPrice?: number; stock?: number; imageUrl?: string; bnplEligible?: boolean; categoryId?: string };
+    const body = req.body as { name: string; description?: string; price?: number; costPrice?: number; stock?: number; imageUrl?: string; gallery?: string[]; bnplEligible?: boolean; categoryId?: string };
 
     let finalPrice = body.price;
     if ((!finalPrice || finalPrice <= 0) && body.costPrice && body.costPrice > 0) {
@@ -148,9 +150,11 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
         bnplEligible: body.bnplEligible ?? true,
         categoryId: body.categoryId,
         merchantId: merchant.id,
+        gallery: body.gallery?.length ? { create: body.gallery.map((imageUrl, sortOrder) => ({ imageUrl, sortOrder })) } : undefined,
       },
       include: {
-        category: { select: { id: true, name: true, slug: true, color: true, icon: true } }
+        category: { select: { id: true, name: true, slug: true, color: true, icon: true } },
+        gallery: { orderBy: { sortOrder: 'asc' } },
       },
     });
     await prisma.auditLog.create({ data: { userId: req.authUser!.id, action: 'PRODUCT_CREATED', entityType: 'Product', entityId: product.id } });
@@ -163,15 +167,19 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing || existing.merchantId !== merchant.id) return reply.code(404).send({ error: 'NotFound' });
     // Merchants are not allowed to change price or costPrice after creation (admin-only)
-    const body = req.body as { price?: number; costPrice?: number; name?: string; description?: string; stock?: number; imageUrl?: string; bnplEligible?: boolean; categoryId?: string };
+    const body = req.body as { price?: number; costPrice?: number; name?: string; description?: string; stock?: number; imageUrl?: string; gallery?: string[]; bnplEligible?: boolean; categoryId?: string };
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { price, costPrice, ...safeUpdate } = body;
+    const { price, costPrice, gallery, ...safeUpdate } = body;
 
     const updated = await prisma.product.update({
       where: { id },
-      data: safeUpdate,
+      data: {
+        ...safeUpdate,
+        ...(gallery !== undefined ? { gallery: { deleteMany: {}, create: gallery.map((imageUrl, sortOrder) => ({ imageUrl, sortOrder })) } } : {}),
+      },
       include: {
-        category: { select: { id: true, name: true, slug: true, color: true, icon: true } }
+        category: { select: { id: true, name: true, slug: true, color: true, icon: true } },
+        gallery: { orderBy: { sortOrder: 'asc' } },
       },
     });
     await prisma.auditLog.create({ data: { userId: req.authUser!.id, action: 'PRODUCT_UPDATED', entityType: 'Product', entityId: id } });

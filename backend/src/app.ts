@@ -104,17 +104,21 @@ export async function buildApp(): Promise<FastifyInstance> {
       return reply.code(400).send({ error: 'No file uploaded' });
     }
     
-    const { extname } = await import('path');
     const { writeFile } = await import('fs/promises');
     const { randomUUID } = await import('crypto');
     const { mkdir } = await import('fs/promises');
     
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedTypes.includes(data.mimetype)) {
-      return reply.code(400).send({ error: 'Invalid file type. Only images allowed.' });
+    const extensions: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+      'image/gif': '.gif',
+      'image/avif': '.avif',
+    };
+    const ext = extensions[data.mimetype];
+    if (!ext) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'Unsupported image format. Use JPEG, PNG, WebP, GIF, or AVIF.' });
     }
-    
-    const ext = extname(data.filename) || '.jpg';
     const filename = `${randomUUID()}${ext}`;
     const uploadDir = resolve(process.cwd(), 'uploads');
     await mkdir(uploadDir, { recursive: true });
@@ -124,8 +128,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     await writeFile(filepath, buffer);
 
     const url = `/uploads/${filename}`;
-    const fullUrl = `${getBackendBaseUrl()}${url}`;
-    return reply.send({ url: fullUrl, fullUrl, filename });
+    const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol;
+    const host = (req.headers['x-forwarded-host'] as string) || req.headers.host;
+    const fullUrl = host ? `${protocol}://${host}${url}` : `${getBackendBaseUrl()}${url}`;
+    return reply.send({ url, fullUrl, filename });
   });
 
   await app.register(messagingRoutes, { prefix: `${prefix}/messages` });
