@@ -271,10 +271,10 @@ export default function AdminMerchantsPage() {
   };
 
   const handleAddMerchant = async () => {
-    if (!addForm.name || !addForm.owner || !addForm.email || !addForm.password) { addToast('error', 'Champs requis', 'Veuillez remplir tous les champs obligatoires.'); return; }
+    if (!addForm.name || !addForm.owner || !addForm.password) { addToast('error', 'Champs requis', 'Veuillez remplir tous les champs obligatoires.'); return; }
     try {
       await authApi.registerMerchant({
-        email: addForm.email,
+        email: addForm.email?.trim() || undefined,
         phone: addForm.phone || '+237000000000',
         password: addForm.password,
         fullName: addForm.owner,
@@ -705,7 +705,7 @@ export default function AdminMerchantsPage() {
               {[
                 { label: 'Nom de la boutique *', key: 'name', type: 'text' },
                 { label: 'Propriétaire *', key: 'owner', type: 'text' },
-                { label: 'Email *', key: 'email', type: 'email' },
+                { label: 'Email (optionnel)', key: 'email', type: 'email' },
                 { label: 'Mot de passe *', key: 'password', type: 'password' },
                 { label: 'Téléphone', key: 'phone', type: 'text' },
                 { label: 'Ville', key: 'city', type: 'text' },

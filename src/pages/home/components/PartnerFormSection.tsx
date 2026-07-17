@@ -13,6 +13,7 @@ const SECTOR_TO_CATEGORY: Record<string, string> = {
 export default function PartnerFormSection() {
   const { register } = useMerchantAuth();
   const [submitted, setSubmitted] = useState(false);
+  const [generatedEmail, setGeneratedEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,14 +32,16 @@ export default function PartnerFormSection() {
       const res = await register({
         businessName: String(fd.get('company_name') ?? ''),
         fullName: String(fd.get('contact_name') ?? ''),
-        email: String(fd.get('email') ?? ''),
+        email: String(fd.get('email') ?? '').trim() || undefined,
         phone: String(fd.get('phone') ?? ''),
         password: String(fd.get('password') ?? ''),
         city: String(fd.get('city') ?? ''),
         category: SECTOR_TO_CATEGORY[String(fd.get('sector') ?? '')] ?? 'Autre',
       });
-      if (res.ok) setSubmitted(true);
-      else setError(res.message ?? 'Inscription échouée');
+      if (res.ok) {
+        setGeneratedEmail(res.email ?? null);
+        setSubmitted(true);
+      } else setError(res.message ?? 'Inscription échouée');
     } finally {
       setLoading(false);
     }
@@ -76,10 +79,10 @@ export default function PartnerFormSection() {
           >
             <i className="ri-checkbox-circle-line text-5xl mb-4" style={{ color: '#22C55E' }} />
             <h3 className="font-bold text-xl mb-2" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
-              Demande envoyée !
+              Compte créé !
             </h3>
             <p className="text-sm" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
-              Notre équipe vous contactera sous 48h pour valider votre dossier.
+              Votre compte est en attente de validation. Utilisez cet email pour vous connecter : {generatedEmail ?? '—'}
             </p>
           </div>
         ) : (
@@ -122,12 +125,11 @@ export default function PartnerFormSection() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm mb-2" style={{ color: 'rgba(10,36,32,0.6)', fontFamily: 'Poppins, sans-serif' }}>
-                  Email *
+                  Email (optionnel)
                 </label>
                 <input
                   type="email"
                   name="email"
-                  required
                   placeholder="contact@entreprise.cm"
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none"
                   style={inputStyle}

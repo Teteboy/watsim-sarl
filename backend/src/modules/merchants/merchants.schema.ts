@@ -1,9 +1,9 @@
 export const registerMerchantSchema = {
   body: {
     type: 'object',
-    required: ['email', 'phone', 'password', 'fullName', 'businessName', 'city'],
+    required: ['phone', 'password', 'fullName', 'businessName', 'city'],
     properties: {
-      email: { type: 'string', format: 'email' },
+      email: { type: 'string', format: 'email', nullable: true },
       phone: { type: 'string', minLength: 8 },
       password: { type: 'string', minLength: 8 },
       fullName: { type: 'string', minLength: 2 },

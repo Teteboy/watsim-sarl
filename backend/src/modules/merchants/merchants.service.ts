@@ -9,20 +9,21 @@ export class MerchantError extends Error {
 }
 
 export async function registerMerchant(input: {
-  email: string; phone: string; password: string; fullName: string;
+  email?: string; phone: string; password: string; fullName: string;
   businessName: string; category: string; city: string;
   categoryIds?: string[];   // multi-category support
   allCategories?: boolean;  // assign all existing categories
   settings?: Record<string, unknown>;
 }) {
-  const exists = await prisma.user.findFirst({ where: { OR: [{ email: input.email }, { phone: input.phone }] } });
+  const email = input.email?.trim().toLowerCase() || `${crypto.randomUUID()}@placeholder.watsim.cm`;
+  const exists = await prisma.user.findFirst({ where: { OR: [{ email }, { phone: input.phone }] } });
   if (exists) throw new MerchantError(409, 'Email or phone already registered');
   const passwordHash = await bcrypt.hash(input.password, 12);
 
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        email: input.email,
+        email,
         phone: input.phone,
         passwordHash,
         fullName: input.fullName,

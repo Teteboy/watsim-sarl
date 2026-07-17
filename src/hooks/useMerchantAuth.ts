@@ -37,9 +37,9 @@ export function useMerchantAuth() {
   }, []);
 
   const register = useCallback(async (input: {
-    email: string; phone: string; password: string; fullName: string;
+    email?: string; phone: string; password: string; fullName: string;
     businessName: string; category: string; city: string;
-  }): Promise<{ ok: boolean; message?: string }> => {
+  }): Promise<{ ok: boolean; message?: string; email?: string }> => {
     try {
       const res = await authApi.registerMerchant(input);
       tokenStore.setTokens(res.accessToken, res.refreshToken);
@@ -47,7 +47,7 @@ export function useMerchantAuth() {
       const state: MerchantAuthState = { isAuthenticated: true, merchantEmail: res.user.email };
       sessionStorage.setItem(AUTH_KEY, JSON.stringify(state));
       setAuthState(state);
-      return { ok: true };
+      return { ok: true, email: res.user.email };
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue';
       return { ok: false, message: msg };

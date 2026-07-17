@@ -230,7 +230,7 @@ export const authApi = {
   async register(input: { email: string; phone: string; password: string; fullName: string }) {
     return postJson<any>(`${API_PREFIX}/auth/register`, input);
   },
-  async registerMerchant(input: any) {
+  async registerMerchant(input: { email?: string; phone: string; password: string; fullName: string; businessName: string; category: string; city: string; categoryIds?: string[]; allCategories?: boolean; settings?: Record<string, unknown> }) {
     return postJson<any>(`${API_PREFIX}/merchants/register`, input);
   },
   async logout() {
