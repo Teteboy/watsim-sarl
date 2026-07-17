@@ -11,6 +11,8 @@ services:
     environment:
       DATABASE_URL: postgresql://watsim:allpha01@db:5432/watsim_db?schema=public
       REDIS_URL: redis://redis:6379
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -47,3 +49,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  uploads:

@@ -256,7 +256,7 @@ export const adminApi = {
     const url = `${API_PREFIX}/admin/merchants${q.toString() ? `?${q.toString()}` : ''}`;
     return getJson<any>(url);
   },
-  async setMerchantStatus(id: string, status: string) { return postJson<any>(`${API_PREFIX}/admin/merchants/${id}/status`, { status }); },
+  async setMerchantStatus(id: string, status: string) { return putJson<any>(`${API_PREFIX}/admin/merchants/${id}/status`, { status }); },
   async updateMerchant(id: string, body: { businessName?: string; category?: string; city?: string; commissionRate?: number; owner?: string; email?: string; phone?: string }) {
     return putJson<any>(`${API_PREFIX}/admin/merchants/${id}`, body);
   },
