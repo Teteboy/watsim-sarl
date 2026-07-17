@@ -838,6 +838,55 @@ export async function getMerchantCustomers(
     }
   }
 
+  // Also include customers that this merchant created directly, even before any purchase
+  const createdByMerchant = await prisma.auditLog.findMany({
+    where: {
+      action: 'MERCHANT_CREATED_CUSTOMER',
+      metadata: { path: ['merchantId'], equals: merchant.id },
+    },
+    select: { entityId: true },
+    distinct: ['entityId'],
+  });
+  const createdUserIds = createdByMerchant.map(a => a.entityId).filter((id): id is string => !!id);
+  if (createdUserIds.length > 0) {
+    const createdUsers = await prisma.user.findMany({
+      where: { id: { in: createdUserIds } },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        kycStatus: true,
+        creditScore: true,
+        creditLimit: true,
+        isActive: true,
+        imageUrl: true,
+        createdAt: true,
+        wallet: { select: { balance: true } },
+      },
+    });
+    for (const user of createdUsers) {
+      if (!customerMap.has(user.id)) {
+        customerMap.set(user.id, {
+          id: user.id,
+          name: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          kycStatus: user.kycStatus.toLowerCase(),
+          creditScore: user.creditScore,
+          creditLimit: user.creditLimit,
+          walletBalance: user.wallet?.balance || 0,
+          imageUrl: user.imageUrl ? getFileUrl(user.imageUrl) : null,
+          joinedAt: user.createdAt,
+          status: user.isActive ? 'active' : 'suspended',
+          totalOrders: 0,
+          totalSpent: 0,
+          lastPurchaseAt: user.createdAt,
+        });
+      }
+    }
+  }
+
   let customers = Array.from(customerMap.values());
 
   // Apply search filter
