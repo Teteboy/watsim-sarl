@@ -147,11 +147,11 @@ export default function MerchantUsersPage() {
   };
 
   const handleCreateUser = async () => {
-    if (!createForm.name || !createForm.email || !createForm.phone || !createForm.password) {
-      addToast('error', 'Champs requis', 'Veuillez remplir tous les champs obligatoires.');
+    if (!createForm.name || !createForm.phone) {
+      addToast('error', 'Champs requis', 'Le nom et le téléphone sont obligatoires.');
       return;
     }
-    if (createForm.password.length < 6) {
+    if (createForm.password && createForm.password.length < 6) {
       addToast('error', 'Erreur', 'Le mot de passe doit contenir au moins 6 caractères.');
       return;
     }
@@ -163,9 +163,9 @@ export default function MerchantUsersPage() {
     try {
       await merchantApi.createMerchantCustomer({
         fullName: createForm.name,
-        email: createForm.email,
+        email: createForm.email || undefined,
         phone: createForm.phone,
-        password: createForm.password,
+        password: createForm.password || undefined,
         pin: createForm.pin || undefined,
         creditLimit: createForm.creditLimit ? parseInt(createForm.creditLimit) : 100000,
       });
@@ -443,9 +443,9 @@ export default function MerchantUsersPage() {
             <div className="space-y-3">
               {[
                 { label: 'Nom complet *', key: 'name', type: 'text', placeholder: 'Ex: Jean Dupont' },
-                { label: 'Email *', key: 'email', type: 'email', placeholder: 'exemple@email.com' },
+                { label: 'Email (optionnel)', key: 'email', type: 'email', placeholder: 'exemple@email.com' },
                 { label: 'Téléphone *', key: 'phone', type: 'text', placeholder: '+237 6 XX XX XX XX' },
-                { label: 'Mot de passe *', key: 'password', type: 'password', placeholder: 'Min 6 caractères' },
+                { label: 'Mot de passe (optionnel)', key: 'password', type: 'password', placeholder: 'Laisser vide pour auto-générer' },
                 { label: 'PIN (4-6 chiffres)', key: 'pin', type: 'password', placeholder: '1234' },
                 { label: 'Plafond crédit (FCFA)', key: 'creditLimit', type: 'number', placeholder: '100000' },
               ].map(field => (

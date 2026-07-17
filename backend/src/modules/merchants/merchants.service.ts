@@ -916,31 +916,34 @@ export async function createMerchantCustomer(
   merchantUserId: string,
   data: {
     fullName: string;
-    email: string;
+    email?: string;
     phone: string;
-    password: string;
+    password?: string;
     pin?: string;
     creditLimit?: number;
   }
 ) {
   const merchant = await getMerchantByUser(merchantUserId);
-  
+
+  const email = data.email?.trim().toLowerCase() || `${crypto.randomUUID()}@placeholder.watsim.cm`;
+
   // Check email/phone uniqueness
-  const existing = await prisma.user.findFirst({ 
-    where: { OR: [{ email: data.email }, { phone: data.phone }] } 
+  const existing = await prisma.user.findFirst({
+    where: { OR: [{ email }, { phone: data.phone }] }
   });
   if (existing) throw new MerchantError(409, 'Email ou téléphone déjà utilisé');
-  
+
   const bcrypt = await import('bcryptjs');
-  const passwordHash = await bcrypt.hash(data.password, 12);
+  const password = data.password || Math.random().toString(36).slice(-12);
+  const passwordHash = await bcrypt.hash(password, 12);
   let pinHash: string | null = null;
   if (data.pin) {
     pinHash = await bcrypt.hash(data.pin, 10);
   }
-  
+
   const user = await prisma.user.create({
     data: {
-      email: data.email,
+      email,
       phone: data.phone,
       passwordHash,
       pinHash,

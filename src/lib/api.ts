@@ -672,7 +672,7 @@ export const merchantApi = {
     if (params?.search) q.set('search', params.search);
     return getJson<any>(`${API_PREFIX}/merchant/customers${q.toString() ? `?${q.toString()}` : ''}`);
   },
-  async createMerchantCustomer(body: { fullName: string; email: string; phone: string; password: string; pin?: string; creditLimit?: number }) {
+  async createMerchantCustomer(body: { fullName: string; email?: string; phone: string; password?: string; pin?: string; creditLimit?: number }) {
     return postJson<any>(`${API_PREFIX}/merchant/customers`, body);
   },
   async updateMerchantCustomer(id: string, body: { fullName?: string; email?: string; phone?: string; creditLimit?: number }) {
