@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { creditLimitSchema, kycDecisionSchema, listFilterSchema, merchantStatusSchema } from './admin.schema';
-import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, updateMerchant, setUserActive, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, bulkDeleteAdminProducts, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins } from './admin.service';
+import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, updateMerchant, setUserActive, deleteAdminUser, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, bulkDeleteAdminProducts, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins } from './admin.service';
 import { approvePayoutRequest, rejectPayoutRequest, setMerchantCategories } from '../merchants/merchants.service';
 import { listDisputes, getDisputeById, resolveDispute, listFraudAlerts, getFraudAlertById, resolveFraudAlert } from './admin.service-disputes';
 import { listAllReferrals, getReferralStats } from './admin.service-referrals';
@@ -38,6 +38,17 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const { isActive } = req.body as { isActive: boolean };
     return setUserActive(req.authUser!.id, id, isActive);
+  });
+
+  app.delete('/users/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    try {
+      const result = await deleteAdminUser(req.authUser!.id, id);
+      return result;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete user';
+      return reply.code(400).send({ error: msg });
+    }
   });
 
   app.get('/merchants', { schema: listFilterSchema }, async (req) => {

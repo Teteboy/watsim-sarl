@@ -82,6 +82,7 @@ export default function AdminUsersPage() {
   const [createUser, setCreateUser] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', email: '', phone: '', creditLimit: '', password: '', pin: '', role: 'CUSTOMER' });
   const [confirmSuspend, setConfirmSuspend] = useState<User | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<User | null>(null);
   const [showCreditModal, setShowCreditModal] = useState<User | null>(null);
   const [creditForm, setCreditForm] = useState({ amount: '', note: '' });
   const [creditLoading, setCreditLoading] = useState(false);
@@ -142,6 +143,18 @@ export default function AdminUsersPage() {
   const openEdit = (user: User) => {
     setEditUser(user);
     setEditForm({ name: user.name, email: user.email, phone: user.phone, creditLimit: String(user.creditLimit), status: user.status });
+  };
+
+  const handleDeleteUser = async (user: User) => {
+    setConfirmDelete(null);
+    try {
+      await adminApi.deleteUser(user.id);
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+      if (selectedUser?.id === user.id) setSelectedUser(null);
+      addToast('success', 'Utilisateur supprimé', `${user.name} a été supprimé.`);
+    } catch (e: any) {
+      addToast('error', 'Échec suppression', e?.message || `Impossible de supprimer ${user.name}.`);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -368,6 +381,9 @@ export default function AdminUsersPage() {
                         <button onClick={() => setConfirmSuspend(user)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors cursor-pointer" title={user.status === 'active' ? 'Suspendre' : 'Réactiver'}>
                           <i className={`${user.status === 'active' ? 'ri-forbid-line' : 'ri-checkbox-circle-line'} text-sm`} style={{ color: user.status === 'active' ? '#EF4444' : '#22C55E' }} />
                         </button>
+                        <button onClick={() => setConfirmDelete(user)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors cursor-pointer" title="Supprimer">
+                          <i className="ri-delete-bin-line text-sm" style={{ color: '#EF4444' }} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -580,6 +596,17 @@ export default function AdminUsersPage() {
         icon={confirmSuspend?.status === 'active' ? 'ri-forbid-line' : 'ri-checkbox-circle-line'}
         onConfirm={() => confirmSuspend && handleSuspendToggle(confirmSuspend)}
         onCancel={() => setConfirmSuspend(null)}
+      />
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Supprimer l'utilisateur"
+        message={`Voulez-vous vraiment supprimer ${confirmDelete?.name} ? Cette action est irréversible. Les comptes avec achats ou transactions ne peuvent pas être supprimés.`}
+        confirmLabel="Supprimer"
+        confirmColor="#EF4444"
+        icon="ri-delete-bin-line"
+        onConfirm={() => confirmDelete && handleDeleteUser(confirmDelete)}
+        onCancel={() => setConfirmDelete(null)}
       />
 
       {/* Credit Wallet Modal */}

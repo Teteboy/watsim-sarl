@@ -528,6 +528,63 @@ export async function updateUser(adminId: string, userId: string, data: { fullNa
   return user;
 }
 
+export async function deleteAdminUser(adminId: string, userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, role: true, isActive: true },
+  });
+  if (!user) throw new Error('User not found');
+  if (user.role === 'ADMIN') throw new Error('Admin users cannot be deleted');
+
+  const [purchaseCount, transactionCount, messageCount, productCount, referralCount] = await Promise.all([
+    prisma.bnplPurchase.count({ where: { userId } }),
+    prisma.transaction.count({ where: { userId } }),
+    prisma.message.count({ where: { senderId: userId } }),
+    prisma.product.count({ where: { merchant: { userId } } }),
+    prisma.referral.count({ where: { OR: [{ referrerId: userId }, { referredId: userId }] } }),
+  ]);
+
+  if (purchaseCount > 0 || transactionCount > 0) {
+    throw new Error('Cannot delete a user with BNPL purchases or transactions. Suspend the account instead.');
+  }
+  if (messageCount > 0) {
+    throw new Error('Cannot delete a user with chat messages. Suspend the account instead.');
+  }
+  if (productCount > 0) {
+    throw new Error('Cannot delete a merchant with products. Delete or transfer the products first.');
+  }
+  if (referralCount > 0) {
+    throw new Error('Cannot delete a user with referral history. Suspend the account instead.');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.wallet.deleteMany({ where: { userId } });
+    await tx.refreshToken.deleteMany({ where: { userId } });
+    await tx.userSession.deleteMany({ where: { userId } });
+    await tx.kycDocument.deleteMany({ where: { userId } });
+    await tx.userBadge.deleteMany({ where: { userId } });
+    await tx.userNotification.deleteMany({ where: { userId } });
+    await tx.notification.deleteMany({ where: { createdById: userId } });
+    await tx.conversationParticipant.deleteMany({ where: { userId } });
+    await tx.message.deleteMany({ where: { senderId: userId } });
+    await tx.supportTicket.deleteMany({ where: { userId } });
+    await tx.auditLog.updateMany({ where: { userId }, data: { userId: null } });
+    await tx.user.delete({ where: { id: userId } });
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: adminId,
+      action: 'USER_DELETED',
+      entityType: 'User',
+      entityId: userId,
+      metadata: { deletedEmail: user.email, deletedRole: user.role } as never,
+    },
+  });
+
+  return { success: true };
+}
+
 export async function createAdminUser(data: { email?: string; phone: string; fullName: string; password?: string; pin?: string; role?: string; creditLimit?: number }) {
   const passwordHash = data.password ? await bcrypt.hash(data.password, 12) : await bcrypt.hash(Math.random().toString(36), 12);
   const pinHash = data.pin ? await bcrypt.hash(data.pin, 12) : undefined;

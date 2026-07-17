@@ -271,6 +271,13 @@ export const adminApi = {
   async setUserActive(id: string, active: boolean) { return putJson<any>(`${API_PREFIX}/admin/users/${id}/active`, { active }); },
   async setKyc(id: string, status: string) { return putJson<any>(`${API_PREFIX}/admin/users/${id}/kyc`, { status }); },
   async setCreditLimit(id: string, limit: number) { return putJson<any>(`${API_PREFIX}/admin/users/${id}/credit-limit`, { limit }); },
+  async deleteUser(id: string) {
+    const headers: Record<string, string> = {};
+    if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
+    const res = await fetch(`${API_PREFIX}/admin/users/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
+    if (!res.ok) throw new ApiError(`Request failed ${res.status}`);
+    return true;
+  },
   async transactions(params: { page?: number; limit?: number } = {}) {
     const q = new URLSearchParams();
     if (typeof params.limit === 'number') q.set('limit', String(Math.min(100, Math.max(1, params.limit))));
