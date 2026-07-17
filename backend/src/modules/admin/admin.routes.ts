@@ -353,8 +353,8 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
 
   app.post('/users/:userId/wallet/credit', async (req) => {
     const { userId } = req.params as { userId: string };
-    const { amount, note } = req.body as { amount: number; note?: string };
-    return adminCreditClientWallet(req.authUser!.id, userId, amount, note);
+    const { amount, note, provider, phone } = req.body as { amount: number; note?: string; provider?: 'ORANGE_MONEY' | 'MTN_MOMO'; phone?: string };
+    return adminCreditClientWallet(req.authUser!.id, userId, amount, note, provider, phone);
   });
 
   app.post('/installments/:instalmentId/contribute', async (req) => {

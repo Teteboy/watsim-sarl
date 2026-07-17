@@ -77,7 +77,7 @@ export default function MerchantUsersPage() {
   const [createForm, setCreateForm] = useState({ name: '', email: '', phone: '', password: '', pin: '', creditLimit: '' });
   const [confirmSuspend, setConfirmSuspend] = useState<Customer | null>(null);
   const [showCreditModal, setShowCreditModal] = useState<Customer | null>(null);
-  const [creditForm, setCreditForm] = useState({ amount: '', note: '' });
+  const [creditForm, setCreditForm] = useState({ amount: '', note: '', provider: '', phone: '' });
   const [creditLoading, setCreditLoading] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
@@ -108,16 +108,22 @@ export default function MerchantUsersPage() {
   const handleCreditWallet = async () => {
     if (!showCreditModal) return;
     const amount = Number(creditForm.amount);
-    if (!amount || amount === 0) {
-      addToast('error', 'Montant invalide', 'Veuillez saisir un montant.');
+    if (!amount || amount <= 0) {
+      addToast('error', 'Montant invalide', 'Veuillez saisir un montant positif.');
+      return;
+    }
+    const provider = creditForm.provider as 'ORANGE_MONEY' | 'MTN_MOMO' | undefined;
+    const phone = creditForm.phone?.trim() || undefined;
+    if (!provider || !phone) {
+      addToast('error', 'Informations manquantes', 'Veuillez choisir un opérateur et saisir un numéro.');
       return;
     }
     setCreditLoading(true);
     try {
-      await merchantApi.creditClientWallet(showCreditModal.id, amount, creditForm.note || undefined);
-      addToast('success', amount > 0 ? 'Wallet crédité' : 'Wallet débité', `${amount > 0 ? 'Ajout' : 'Retrait'} de ${Math.abs(amount)} FCFA pour ${showCreditModal.name}.`);
+      const result = await merchantApi.creditClientWallet(showCreditModal.id, amount, creditForm.note || undefined, provider, phone);
+      addToast('success', 'Paiement initié', `Un dépôt de ${amount} FCFA a été initié pour ${showCreditModal.name}.${result.ussdCode ? ` Code USSD: ${result.ussdCode}` : ''}`);
       setShowCreditModal(null);
-      setCreditForm({ amount: '', note: '' });
+      setCreditForm({ amount: '', note: '', provider: '', phone: '' });
       await loadCustomers(page);
     } catch (e: any) {
       addToast('error', 'Erreur', e?.message || 'Opération échouée.');
@@ -303,7 +309,7 @@ export default function MerchantUsersPage() {
                         <button onClick={() => openEdit(customer)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" title="Modifier">
                           <i className="ri-edit-line text-sm" style={{ color: '#6B7280' }} />
                         </button>
-                        <button onClick={() => { setShowCreditModal(customer); setCreditForm({ amount: '', note: '' }); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-green-50 transition-colors cursor-pointer" title="Créditer Wallet">
+                        <button onClick={() => { setShowCreditModal(customer); setCreditForm({ amount: '', note: '', provider: '', phone: '' }); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-green-50 transition-colors cursor-pointer" title="Créditer Wallet">
                           <i className="ri-wallet-3-line text-sm" style={{ color: '#4DB049' }} />
                         </button>
                         <button onClick={() => setConfirmSuspend(customer)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors cursor-pointer" title={customer.status === 'active' ? 'Suspendre' : 'Réactiver'}>
@@ -520,6 +526,30 @@ export default function MerchantUsersPage() {
                   value={creditForm.note}
                   onChange={e => setCreditForm({ ...creditForm, note: e.target.value })}
                   placeholder="Note de transaction"
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Opérateur *</label>
+                <select
+                  value={creditForm.provider}
+                  onChange={e => setCreditForm({ ...creditForm, provider: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={inputStyle}
+                >
+                  <option value="">Choisir...</option>
+                  <option value="ORANGE_MONEY">Orange Money</option>
+                  <option value="MTN_MOMO">MTN MoMo</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Numéro mobile-money *</label>
+                <input
+                  type="text"
+                  value={creditForm.phone}
+                  onChange={e => setCreditForm({ ...creditForm, phone: e.target.value })}
+                  placeholder="+237 6 XX XX XX XX"
                   className="w-full px-3 py-2 rounded-lg text-sm"
                   style={inputStyle}
                 />

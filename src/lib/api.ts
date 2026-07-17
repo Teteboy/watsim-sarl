@@ -433,8 +433,8 @@ async sendMessage(convId: string, data: { text?: string; attachmentUrl?: string;
   async creditMerchantWallet(merchantId: string, amount: number, note?: string) {
     return postJson<any>(`${API_PREFIX}/admin/wallets/${merchantId}/credit`, { amount, note });
   },
-  async creditClientWallet(userId: string, amount: number, note?: string) {
-    return postJson<any>(`${API_PREFIX}/admin/users/${userId}/wallet/credit`, { amount, note });
+  async creditClientWallet(userId: string, amount: number, note?: string, provider?: 'ORANGE_MONEY' | 'MTN_MOMO', phone?: string) {
+    return postJson<any>(`${API_PREFIX}/admin/users/${userId}/wallet/credit`, { amount, note, provider, phone });
   },
   async contributeToInstallment(instalmentId: string, amount: number, note?: string) {
     return postJson<any>(`${API_PREFIX}/admin/installments/${instalmentId}/contribute`, { amount, note });
@@ -695,8 +695,8 @@ export const merchantApi = {
   async resetMerchantCustomerPassword(id: string, password?: string) {
     return postJson<any>(`${API_PREFIX}/merchant/customers/${id}/reset-password`, { password });
   },
-  async creditClientWallet(customerId: string, amount: number, note?: string) {
-    return postJson<any>(`${API_PREFIX}/merchant/customers/${customerId}/wallet/credit`, { amount, note });
+  async creditClientWallet(customerId: string, amount: number, note?: string, provider?: 'ORANGE_MONEY' | 'MTN_MOMO', phone?: string) {
+    return postJson<any>(`${API_PREFIX}/merchant/customers/${customerId}/wallet/credit`, { amount, note, provider, phone });
   },
   async contributeToInstallment(instalmentId: string, amount: number, note?: string) {
     return postJson<any>(`${API_PREFIX}/merchant/installments/${instalmentId}/contribute`, { amount, note });

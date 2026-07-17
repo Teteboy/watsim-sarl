@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { deliverNotificationToUser } from '../../services/notification.service';
 import { suggestSellPrice } from '../products/products.service';
 import { resolveImageUrl } from '../../services/storage-local.service';
+import { initiatePayment } from '../payments/payments.service';
 
 export async function listAllConversations(params: { page?: number; limit?: number; search?: string }) {
   const page = params.page || 1;
@@ -1345,45 +1346,46 @@ export async function adminCreditMerchantWallet(adminId: string, merchantId: str
   return { walletBalance: updatedWallet.balance, currency: updatedWallet.currency };
 }
 
-export async function adminCreditClientWallet(adminId: string, userId: string, amount: number, note?: string) {
+export async function adminCreditClientWallet(
+  adminId: string,
+  userId: string,
+  amount: number,
+  note?: string,
+  provider?: 'ORANGE_MONEY' | 'MTN_MOMO',
+  phone?: string
+) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error('User not found');
+  if (!amount || amount < 1) throw new Error('Amount must be at least 1');
 
-  // Ensure wallet exists
-  const wallet = await prisma.wallet.upsert({
-    where: { userId },
-    create: { userId, balance: 0 },
-    update: {},
-  });
-
-  const newBalance = wallet.balance + amount;
-  const updatedWallet = await prisma.wallet.update({
-    where: { userId },
-    data: { balance: newBalance },
-  });
-
-  // Create transaction record
-  await prisma.transaction.create({
+  // Create a real-money-backed pending deposit instead of directly crediting the wallet
+  const tx = await prisma.transaction.create({
     data: {
       userId,
-      type: amount >= 0 ? 'DEPOSIT' : 'WITHDRAWAL',
-      amount: Math.abs(amount),
-      status: 'COMPLETED',
-      metadata: { note, adminId, source: 'admin_client_credit' } as never,
+      type: 'DEPOSIT',
+      amount,
+      status: 'PENDING',
+      provider: provider || undefined,
+      metadata: { note, adminId, source: 'admin_client_credit_pending' } as never,
     },
   });
 
   await prisma.auditLog.create({
     data: {
       userId: adminId,
-      action: amount >= 0 ? 'CLIENT_WALLET_CREDITED' : 'CLIENT_WALLET_DEBITED',
-      entityType: 'Wallet',
-      entityId: wallet.id,
-      metadata: { userId, amount, note } as never,
+      action: 'CLIENT_WALLET_CREDIT_INITIATED',
+      entityType: 'Transaction',
+      entityId: tx.id,
+      metadata: { userId, amount, note, provider, phone } as never,
     },
   });
 
-  return { walletBalance: updatedWallet.balance, currency: updatedWallet.currency };
+  if (provider && phone) {
+    const payment = await initiatePayment({ transactionId: tx.id, amount, provider, phone, userId });
+    return { transactionId: tx.id, status: 'PENDING', ...payment };
+  }
+
+  return { transactionId: tx.id, status: 'PENDING' };
 }
 
 export async function adminContributeToInstallment(adminId: string, instalmentId: string, amount: number, note?: string) {

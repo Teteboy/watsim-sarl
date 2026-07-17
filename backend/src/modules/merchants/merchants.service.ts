@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/db';
 import { getFileUrl } from '../../services/storage-local.service';
+import { initiatePayment } from '../payments/payments.service';
 
 export class MerchantError extends Error {
   constructor(public statusCode: number, message: string) { super(message); }
@@ -1129,46 +1130,47 @@ export async function resetMerchantCustomerPassword(
   return { success: true, password: newPassword ? undefined : password };
 }
 
-export async function merchantCreditClientWallet(merchantUserId: string, clientUserId: string, amount: number, note?: string) {
+export async function merchantCreditClientWallet(
+  merchantUserId: string,
+  clientUserId: string,
+  amount: number,
+  note?: string,
+  provider?: 'ORANGE_MONEY' | 'MTN_MOMO',
+  phone?: string
+) {
   const merchant = await getMerchantByUser(merchantUserId);
   const client = await prisma.user.findUnique({ where: { id: clientUserId } });
   if (!client) throw new MerchantError(404, 'Client not found');
+  if (!amount || amount < 1) throw new MerchantError(400, 'Amount must be at least 1');
 
-  // Ensure wallet exists
-  const wallet = await prisma.wallet.upsert({
-    where: { userId: clientUserId },
-    create: { userId: clientUserId, balance: 0 },
-    update: {},
-  });
-
-  const newBalance = wallet.balance + amount;
-  const updatedWallet = await prisma.wallet.update({
-    where: { userId: clientUserId },
-    data: { balance: newBalance },
-  });
-
-  // Create transaction record
-  await prisma.transaction.create({
+  // Create a real-money-backed pending deposit instead of directly crediting the wallet
+  const tx = await prisma.transaction.create({
     data: {
       userId: clientUserId,
-      type: amount >= 0 ? 'DEPOSIT' : 'WITHDRAWAL',
-      amount: Math.abs(amount),
-      status: 'COMPLETED',
-      metadata: { note, merchantId: merchant.id, source: 'merchant_client_credit' } as Prisma.InputJsonValue,
+      type: 'DEPOSIT',
+      amount,
+      status: 'PENDING',
+      provider: provider || undefined,
+      metadata: { note, merchantId: merchant.id, source: 'merchant_client_credit_pending' } as Prisma.InputJsonValue,
     },
   });
 
   await prisma.auditLog.create({
     data: {
       userId: merchantUserId,
-      action: amount >= 0 ? 'CLIENT_WALLET_CREDITED' : 'CLIENT_WALLET_DEBITED',
-      entityType: 'Wallet',
-      entityId: wallet.id,
-      metadata: { clientUserId, amount, note } as Prisma.InputJsonValue,
+      action: 'CLIENT_WALLET_CREDIT_INITIATED',
+      entityType: 'Transaction',
+      entityId: tx.id,
+      metadata: { clientUserId, amount, note, provider, phone } as Prisma.InputJsonValue,
     },
   });
 
-  return { walletBalance: updatedWallet.balance, currency: updatedWallet.currency };
+  if (provider && phone) {
+    const payment = await initiatePayment({ transactionId: tx.id, amount, provider, phone, userId: clientUserId });
+    return { transactionId: tx.id, status: 'PENDING', ...payment };
+  }
+
+  return { transactionId: tx.id, status: 'PENDING' };
 }
 
 export async function merchantContributeToInstallment(merchantUserId: string, instalmentId: string, amount: number, note?: string) {
