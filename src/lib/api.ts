@@ -268,9 +268,9 @@ export const adminApi = {
     if (params.search) q.set('search', params.search);
     return getJson<any>(`${API_PREFIX}/admin/users${q.toString() ? `?${q.toString()}` : ''}`);
   },
-  async setUserActive(id: string, active: boolean) { return postJson<any>(`${API_PREFIX}/admin/users/${id}/active`, { active }); },
-  async setKyc(id: string, status: string) { return postJson<any>(`${API_PREFIX}/admin/users/${id}/kyc`, { status }); },
-  async setCreditLimit(id: string, limit: number) { return postJson<any>(`${API_PREFIX}/admin/users/${id}/credit-limit`, { limit }); },
+  async setUserActive(id: string, active: boolean) { return putJson<any>(`${API_PREFIX}/admin/users/${id}/active`, { active }); },
+  async setKyc(id: string, status: string) { return putJson<any>(`${API_PREFIX}/admin/users/${id}/kyc`, { status }); },
+  async setCreditLimit(id: string, limit: number) { return putJson<any>(`${API_PREFIX}/admin/users/${id}/credit-limit`, { limit }); },
   async transactions(params: { page?: number; limit?: number } = {}) {
     const q = new URLSearchParams();
     if (typeof params.limit === 'number') q.set('limit', String(Math.min(100, Math.max(1, params.limit))));
@@ -344,7 +344,7 @@ export const adminApi = {
   },
   async createNotification(body: any) { return postJson<any>(`${API_PREFIX}/admin/notifications`, body); },
   async updateNotificationStatus(id: string, status: string) {
-    return postJson<any>(`${API_PREFIX}/admin/notifications/${id}/status`, { status });
+    return putJson<any>(`${API_PREFIX}/admin/notifications/${id}/status`, { status });
   },
   // Categories & BNPL settings (admin settings page)
   async categories() { return getJson<any>(`${API_PREFIX}/admin/categories`); },
