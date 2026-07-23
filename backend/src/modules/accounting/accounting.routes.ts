@@ -1,7 +1,9 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
+import { requireAdminPermission } from '../../middleware/admin-permissions';
 import { prisma } from '../../config/db';
+import type { Prisma } from '@prisma/client';
 import {
   AccountingError,
   ensureChartSeeded,
@@ -21,6 +23,7 @@ function parsePeriod(q: { from?: string; to?: string }) {
 export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
   app.addHook('preHandler', authorize('ADMIN'));
+  app.addHook('preHandler', requireAdminPermission('ACCOUNTING'));
 
   app.get('/chart', async () => {
     await ensureChartSeeded();
@@ -107,7 +110,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   // ===== Admin Payout Management =====
   app.get('/payouts', async (req) => {
     const q = req.query as { status?: string; page?: string; limit?: string };
-    const where: any = {};
+    const where: Prisma.PayoutRequestWhereInput = {};
     if (q.status) where.status = q.status;
 
     const page = Number(q.page) || 1;

@@ -1136,7 +1136,7 @@ export async function merchantCreditClientWallet(
   clientUserId: string,
   amount: number,
   note?: string,
-  provider?: 'ORANGE_MONEY' | 'MTN_MOMO',
+  provider?: 'ORANGE_MONEY' | 'MTN_MOMO' | 'CASH',
   phone?: string
 ) {
   const merchant = await getMerchantByUser(merchantUserId);
@@ -1152,7 +1152,12 @@ export async function merchantCreditClientWallet(
       amount,
       status: 'PENDING',
       provider: provider || undefined,
-      metadata: { note, merchantId: merchant.id, source: 'merchant_client_credit_pending' } as Prisma.InputJsonValue,
+      metadata: {
+        note,
+        merchantId: merchant.id,
+        source: provider === 'CASH' ? 'merchant_client_cash_deposit' : 'merchant_client_credit_pending',
+        cashDeposit: provider === 'CASH',
+      } as Prisma.InputJsonValue,
     },
   });
 
@@ -1165,6 +1170,10 @@ export async function merchantCreditClientWallet(
       metadata: { clientUserId, amount, note, provider, phone } as Prisma.InputJsonValue,
     },
   });
+
+  if (provider === 'CASH') {
+    return { transactionId: tx.id, status: 'PENDING', approvalRequired: true };
+  }
 
   if (provider && phone) {
     const payment = await initiatePayment({ transactionId: tx.id, amount, provider, phone, userId: clientUserId });

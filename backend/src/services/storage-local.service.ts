@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { resolve, extname } from 'path';
+import { resolve } from 'path';
 import { randomUUID } from 'crypto';
 import { env } from '../config/env';
 
@@ -15,7 +15,9 @@ async function ensureUploadDir(): Promise<void> {
 
 export async function uploadKycDocument(userId: string, originalName: string, buffer: Buffer, contentType: string): Promise<string> {
   await ensureUploadDir();
-  const ext = originalName.includes('.') ? originalName.split('.').pop() : 'bin';
+  const ext = originalName.includes('.')
+    ? originalName.split('.').pop()
+    : contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
   const filename = `kyc_${userId}_${Date.now()}_${randomUUID().slice(0, 8)}.${ext}`;
   const filepath = resolve(UPLOAD_DIR, filename);
   await fs.writeFile(filepath, buffer);

@@ -1,5 +1,5 @@
 import { prisma } from '../../config/db';
-import type { KycStatus, MerchantStatus, Prisma, UserRole } from '@prisma/client';
+import type { AdminRole, KycStatus, MerchantStatus, Prisma, UserRole } from '@prisma/client';
 import type { Category as PrismaCategory } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -141,7 +141,7 @@ export async function listUsers(params: { page: number; limit: number; role?: Us
   const [items, total] = await Promise.all([
     prisma.user.findMany({
       where,
-      select: { id: true, email: true, phone: true, fullName: true, role: true, kycStatus: true, creditScore: true, creditLimit: true, isActive: true, createdAt: true, updatedAt: true, imageUrl: true },
+      select: { id: true, email: true, phone: true, fullName: true, role: true, adminRole: true, kycStatus: true, creditScore: true, creditLimit: true, isActive: true, createdAt: true, updatedAt: true, imageUrl: true },
       orderBy: { createdAt: 'desc' },
       skip: (params.page - 1) * params.limit, take: params.limit,
     }),
@@ -586,10 +586,11 @@ export async function deleteAdminUser(adminId: string, userId: string) {
   return { success: true };
 }
 
-export async function createAdminUser(data: { email?: string; phone: string; fullName: string; password?: string; pin?: string; role?: string; creditLimit?: number }) {
+export async function createAdminUser(data: { email?: string; phone: string; fullName: string; password?: string; pin?: string; role?: string; adminRole?: AdminRole; creditLimit?: number }) {
   const passwordHash = data.password ? await bcrypt.hash(data.password, 12) : await bcrypt.hash(Math.random().toString(36), 12);
   const pinHash = data.pin ? await bcrypt.hash(data.pin, 12) : undefined;
   const userRole = (data.role as UserRole) || 'ADMIN';
+  const adminRole = userRole === 'ADMIN' ? (data.adminRole || 'SUPPORT') : null;
   const email = data.email?.trim().toLowerCase() || `${crypto.randomUUID()}@placeholder.watsim.cm`;
   const user = await prisma.user.create({
     data: {
@@ -599,13 +600,26 @@ export async function createAdminUser(data: { email?: string; phone: string; ful
       passwordHash,
       pinHash,
       role: userRole,
+      adminRole,
       kycStatus: userRole === 'ADMIN' ? 'VERIFIED' : 'PENDING',
       isActive: true,
       creditLimit: data.creditLimit ?? (userRole === 'CUSTOMER' ? 100000 : undefined),
     },
-    select: { id: true, email: true, phone: true, fullName: true, role: true, isActive: true, createdAt: true, creditLimit: true },
+    select: { id: true, email: true, phone: true, fullName: true, role: true, adminRole: true, isActive: true, createdAt: true, creditLimit: true },
   });
   return user;
+}
+
+export async function updateAdminRole(actorId: string, userId: string, adminRole: AdminRole) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } });
+  if (!user || user.role !== 'ADMIN') throw new Error('Administrative user not found');
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { adminRole },
+    select: { id: true, email: true, fullName: true, role: true, adminRole: true, isActive: true, updatedAt: true },
+  });
+  await prisma.auditLog.create({ data: { userId: actorId, action: 'ADMIN_ROLE_UPDATED', entityType: 'User', entityId: userId, metadata: { adminRole } as never } });
+  return updated;
 }
 
 export async function resetUserPassword(id: string, newPassword?: string) {
@@ -1351,7 +1365,7 @@ export async function adminCreditClientWallet(
   userId: string,
   amount: number,
   note?: string,
-  provider?: 'ORANGE_MONEY' | 'MTN_MOMO',
+  provider?: 'ORANGE_MONEY' | 'MTN_MOMO' | 'CASH',
   phone?: string
 ) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -1366,7 +1380,12 @@ export async function adminCreditClientWallet(
       amount,
       status: 'PENDING',
       provider: provider || undefined,
-      metadata: { note, adminId, source: 'admin_client_credit_pending' } as never,
+      metadata: {
+        note,
+        adminId,
+        source: provider === 'CASH' ? 'admin_client_cash_deposit' : 'admin_client_credit_pending',
+        cashDeposit: provider === 'CASH',
+      } as never,
     },
   });
 
@@ -1379,6 +1398,10 @@ export async function adminCreditClientWallet(
       metadata: { userId, amount, note, provider, phone } as never,
     },
   });
+
+  if (provider === 'CASH') {
+    return { transactionId: tx.id, status: 'PENDING', approvalRequired: true };
+  }
 
   if (provider && phone) {
     const payment = await initiatePayment({ transactionId: tx.id, amount, provider, phone, userId });

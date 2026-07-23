@@ -18,20 +18,20 @@ const settingsTabs = [
 // Hardcoded list removed — Roles & Access tab now shows ONLY real users with role 'ADMIN' from the database.
 
 const roleLabels: Record<string, string> = {
-  ADMIN: 'Administrateur',
-  super_admin: 'Super Admin',
-  finance_admin: 'Admin Finance',
-  support_agent: 'Agent Support',
-  security_agent: 'Agent Sécurité',
+  SUPER_ADMIN: 'Super Admin',
+  OPERATIONS: 'Administration Opérations',
+  FINANCE: 'Administration Finance',
+  SUPPORT: 'Agent Support',
+  SECURITY: 'Agent Sécurité',
 };
 const cardStyle = { background: '#FFFFFF', border: '1px solid #E8F2F1' };
 
 const roleColors: Record<string, string> = {
-  ADMIN: '#4DB049',
-  super_admin: '#4DB049',
-  finance_admin: '#22C55E',
-  support_agent: '#4A9EFF',
-  security_agent: '#EF4444',
+  SUPER_ADMIN: '#4DB049',
+  OPERATIONS: '#0EA5E9',
+  FINANCE: '#22C55E',
+  SUPPORT: '#4A9EFF',
+  SECURITY: '#EF4444',
 };
 
 function ToggleSwitch({ enabled, onChange }: { enabled: boolean; onChange: () => void }) {
@@ -46,7 +46,7 @@ export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState('bnpl');
   const [saved, setSaved] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'support_agent' });
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'SUPPORT' });
   const [editRoleUser, setEditRoleUser] = useState<any | null>(null);
   const [editRoleValue, setEditRoleValue] = useState('');
   const [roles, setRoles] = useState<any[]>([]);
@@ -121,7 +121,7 @@ export default function AdminSettingsPage() {
           id: u.id,
           name: u.fullName || u.email.split('@')[0],
           email: u.email,
-          role: u.role,                    // use real role from DB ('ADMIN')
+          role: u.adminRole || 'SUPPORT',
           lastLogin: u.updatedAt ? new Date(u.updatedAt).toLocaleString('fr-FR') : (u.createdAt ? new Date(u.createdAt).toLocaleString('fr-FR') : 'Jamais'),
           status: u.isActive ? 'active' : 'inactive',
         }));
@@ -158,6 +158,7 @@ export default function AdminSettingsPage() {
         phone: `+237${Date.now().toString().slice(-8)}`, // placeholder unique phone
         fullName: inviteForm.name,
         password: 'Admin@123',
+        adminRole: inviteForm.role as 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY',
       });
       // reload admins
       const res: any = await adminApi.users({ role: 'ADMIN', limit: 50 });
@@ -166,25 +167,30 @@ export default function AdminSettingsPage() {
         id: u.id,
         name: u.fullName || u.email.split('@')[0],
         email: u.email,
-        role: u.role,
+        role: u.adminRole || 'SUPPORT',
         lastLogin: u.updatedAt ? new Date(u.updatedAt).toLocaleString('fr-FR') : (u.createdAt ? new Date(u.createdAt).toLocaleString('fr-FR') : 'Jamais'),
         status: u.isActive ? 'active' : 'inactive',
       }));
       setRoles(mapped);
       setAdmins(items);
       setShowInviteModal(false);
-      setInviteForm({ name: '', email: '', role: 'support_agent' });
+      setInviteForm({ name: '', email: '', role: 'SUPPORT' });
       addToast('success', 'Admin créé', `Compte admin créé pour ${inviteForm.email || inviteForm.name} (mot de passe temporaire: Admin@123)`);
     } catch (e: any) {
       addToast('error', 'Erreur', e?.message || 'Impossible de créer le compte admin.');
     }
   };
 
-  const handleSaveRole = () => {
+  const handleSaveRole = async () => {
     if (!editRoleUser) return;
-    setRoles(prev => prev.map(r => r.id === editRoleUser.id ? { ...r, role: editRoleValue } : r));
-    setEditRoleUser(null);
-    addToast('success', 'Rôle modifié', `Le rôle de ${editRoleUser.name} a été mis à jour.`);
+    try {
+      await adminApi.updateAdminRole(editRoleUser.id, editRoleValue as 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY');
+      setRoles(prev => prev.map(r => r.id === editRoleUser.id ? { ...r, role: editRoleValue } : r));
+      setEditRoleUser(null);
+      addToast('success', 'Rôle modifié', `Le rôle de ${editRoleUser.name} a été mis à jour.`);
+    } catch (error: any) {
+      addToast('error', 'Erreur', error?.message || 'Impossible de modifier ce rôle.');
+    }
   };
 
   return (

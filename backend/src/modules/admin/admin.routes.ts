@@ -1,18 +1,21 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
+import { authorizeAdminRequest } from '../../middleware/admin-permissions';
 import { creditLimitSchema, kycDecisionSchema, listFilterSchema, merchantStatusSchema } from './admin.schema';
-import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, updateMerchant, setUserActive, deleteAdminUser, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, bulkDeleteAdminProducts, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins } from './admin.service';
+import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, updateMerchant, setUserActive, deleteAdminUser, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, bulkDeleteAdminProducts, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins, updateAdminRole } from './admin.service';
 import { approvePayoutRequest, rejectPayoutRequest, setMerchantCategories } from '../merchants/merchants.service';
 import { listDisputes, getDisputeById, resolveDispute, listFraudAlerts, getFraudAlertById, resolveFraudAlert } from './admin.service-disputes';
 import { listAllReferrals, getReferralStats } from './admin.service-referrals';
 import { enqueueScoreUpdate } from '../../jobs/queue';
 import { prisma } from '../../config/db';
 import { TransactionType, TransactionStatus } from '@prisma/client';
+import { initiateCashDepositPayment } from '../payments/payments.service';
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
   app.addHook('preHandler', authorize('ADMIN'));
+  app.addHook('preHandler', authorizeAdminRequest);
 
 app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
     const q = req.query as { page?: number; limit?: number; role?: 'ADMIN' | 'MERCHANT' | 'CUSTOMER'; kycStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED'; search?: string };
@@ -222,6 +225,13 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
     return updateUser(req.authUser!.id, id, body);
   });
 
+  app.put('/users/:id/admin-role', async (req) => {
+    const { id } = req.params as { id: string };
+    const { adminRole } = req.body as { adminRole: 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY' };
+    if (!['SUPER_ADMIN', 'OPERATIONS', 'FINANCE', 'SUPPORT', 'SECURITY'].includes(adminRole)) throw new Error('Invalid administrative role');
+    return updateAdminRole(req.authUser!.id, id, adminRole);
+  });
+
   // Reset password for any user (merchants, admins, customers)
   app.post('/users/:id/reset-password', async (req) => {
     const { id } = req.params as { id: string };
@@ -353,7 +363,7 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
 
   app.post('/users/:userId/wallet/credit', async (req) => {
     const { userId } = req.params as { userId: string };
-    const { amount, note, provider, phone } = req.body as { amount: number; note?: string; provider?: 'ORANGE_MONEY' | 'MTN_MOMO'; phone?: string };
+    const { amount, note, provider, phone } = req.body as { amount: number; note?: string; provider?: 'ORANGE_MONEY' | 'MTN_MOMO' | 'CASH'; phone?: string };
     return adminCreditClientWallet(req.authUser!.id, userId, amount, note, provider, phone);
   });
 
@@ -467,6 +477,96 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
 
   app.get('/referrals/stats', async () => {
     return getReferralStats();
+  });
+
+  app.get('/deposits/cash', { schema: listFilterSchema }, async (req) => {
+    const q = req.query as { page?: number; limit?: number; status?: string };
+    const where: { type: TransactionType; provider: string; status?: TransactionStatus } = {
+      type: TransactionType.DEPOSIT,
+      provider: 'CASH',
+    };
+    if (q.status && Object.values(TransactionStatus).includes(q.status as TransactionStatus)) {
+      where.status = q.status as TransactionStatus;
+    }
+    const [deposits, total] = await Promise.all([
+      prisma.transaction.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: ((q.page ?? 1) - 1) * (q.limit ?? 20),
+        take: q.limit ?? 20,
+        include: { user: { select: { id: true, fullName: true, phone: true, email: true } } },
+      }),
+      prisma.transaction.count({ where }),
+    ]);
+    return {
+      deposits: deposits.map(deposit => ({
+        id: deposit.id,
+        userId: deposit.userId,
+        userName: deposit.user.fullName,
+        userPhone: deposit.user.phone,
+        userEmail: deposit.user.email,
+        amount: deposit.amount,
+        status: deposit.status,
+        createdAt: deposit.createdAt,
+        metadata: deposit.metadata,
+      })),
+      pagination: { page: q.page ?? 1, limit: q.limit ?? 20, total, totalPages: Math.ceil(total / (q.limit ?? 20)) },
+    };
+  });
+
+  app.put('/deposits/cash/:id/approve', async (req) => {
+    const { id } = req.params as { id: string };
+    const { provider, phone } = req.body as { provider: 'ORANGE_MONEY' | 'MTN_MOMO'; phone: string };
+    if (!['ORANGE_MONEY', 'MTN_MOMO'].includes(provider) || !phone?.trim()) {
+      throw new Error('CamPay provider and phone are required');
+    }
+    const deposit = await prisma.transaction.findFirst({ where: { id, type: TransactionType.DEPOSIT, provider: 'CASH' } });
+    if (!deposit) throw new Error('Cash deposit not found');
+    if (deposit.status !== 'PENDING') throw new Error('Cash deposit is not pending');
+    if (deposit.providerRef) throw new Error('CamPay payment has already been initiated for this deposit');
+
+    const payment = await initiateCashDepositPayment({
+      transactionId: deposit.id,
+      amount: deposit.amount,
+      provider,
+      phone: phone.trim(),
+    });
+    await prisma.auditLog.create({
+      data: {
+        userId: req.authUser!.id,
+        action: 'CASH_DEPOSIT_CAMPAY_INITIATED',
+        entityType: 'Transaction',
+        entityId: deposit.id,
+        metadata: { provider, phone: phone.trim() } as never,
+      },
+    });
+    return { success: true, id, status: 'PENDING', message: 'CamPay payment initiated. The wallet will be credited after confirmation.', ...payment };
+  });
+
+  app.put('/deposits/cash/:id/reject', async (req) => {
+    const { id } = req.params as { id: string };
+    const { reason } = req.body as { reason?: string };
+    const deposit = await prisma.transaction.findFirst({ where: { id, type: TransactionType.DEPOSIT, provider: 'CASH' } });
+    if (!deposit) throw new Error('Cash deposit not found');
+    if (deposit.status !== 'PENDING') throw new Error('Cash deposit is not pending');
+
+    await prisma.transaction.update({
+      where: { id },
+      data: {
+        status: 'FAILED',
+        metadata: {
+          ...(deposit.metadata as Record<string, unknown> || {}),
+          adminRejected: true,
+          rejectedAt: new Date().toISOString(),
+          rejectedBy: req.authUser!.id,
+          rejectReason: reason || 'No reason provided',
+        },
+      },
+    });
+    await prisma.auditLog.create({
+      data: { userId: req.authUser!.id, action: 'CASH_DEPOSIT_REJECTED', entityType: 'Transaction', entityId: id, metadata: { reason } as never },
+    });
+    return { success: true, id, status: 'FAILED', message: 'Cash deposit rejected.' };
   });
 
   // ===== Cash Withdrawals =====

@@ -141,7 +141,9 @@ class CamPayPayoutAdapter implements PayoutAdapter {
         } else if (err.message) {
           message = err.message;
         }
-      } catch (_) {}
+      } catch {
+        message = 'Payout failed. Please try again.';
+      }
 
       return {
         providerRef: `FAILED_${Date.now()}`,

@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
+import { requireAdminPermission } from '../../middleware/admin-permissions';
 import { listPublicitiesSchema, createPublicitySchema, updatePublicitySchema } from './publicities.schema';
 import { listPublicities, createPublicity, updatePublicity, deletePublicity } from './publicities.service';
 
@@ -18,9 +19,10 @@ export async function publicityRoutes(app: FastifyInstance): Promise<void> {
   // Admin routes below - auth hooks apply only to routes after this point
   app.addHook('preHandler', authenticate);
   app.addHook('preHandler', authorize('ADMIN'));
+  app.addHook('preHandler', requireAdminPermission('PUBLICITIES'));
 
   app.get('/', { schema: listPublicitiesSchema }, async (req) => {
-    const q = req.query as any;
+    const q = req.query as { page?: number; limit?: number; status?: 'ACTIVE' | 'INACTIVE'; type?: string; search?: string };
     return listPublicities({
       page: q.page ?? 1,
       limit: q.limit ?? 20,

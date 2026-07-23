@@ -1,0 +1,5 @@
+CREATE TYPE "AdminRole" AS ENUM ('SUPER_ADMIN', 'OPERATIONS', 'FINANCE', 'SUPPORT', 'SECURITY');
+
+ALTER TABLE "User" ADD COLUMN "adminRole" "AdminRole";
+
+UPDATE "User" SET "adminRole" = 'SUPER_ADMIN' WHERE "role" = 'ADMIN';

@@ -57,8 +57,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   // Initialize WebSocket service
-  const wsService = new WebSocketService(app);
-  (app as any).wsService = wsService;
+  new WebSocketService(app);
 
   app.get('/health', async () => ({ status: 'ok', service: 'watsim-backend', timestamp: new Date().toISOString() }));
 

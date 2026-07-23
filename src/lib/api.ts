@@ -367,8 +367,11 @@ export const adminApi = {
   async bnplCategorySettings() { return getJson<any>(`${API_PREFIX}/admin/bnpl/category-settings`); },
   async getSystemSettings() { return getJson<Record<string, string>>(`${API_PREFIX}/admin/settings`); },
   async setSystemSetting(key: string, value: string) { return putJson(`${API_PREFIX}/admin/settings/${key}`, { value }); },
-  async createAdminUser(body: { email?: string; phone: string; fullName: string; password: string; pin?: string; imageUrl?: string }) {
-    return postJson<any>(`${API_PREFIX}/admin/users`, body);
+  async createAdminUser(body: { email?: string; phone: string; fullName: string; password: string; pin?: string; imageUrl?: string; adminRole?: 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY' }) {
+    return postJson<any>(`${API_PREFIX}/admin/users`, { ...body, role: 'ADMIN' });
+  },
+  async updateAdminRole(id: string, adminRole: 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY') {
+    return putJson<any>(`${API_PREFIX}/admin/users/${id}/admin-role`, { adminRole });
   },
   async resetUserPassword(id: string, password?: string) {
     return postJson<any>(`${API_PREFIX}/admin/users/${id}/reset-password`, { password });
@@ -433,7 +436,7 @@ async sendMessage(convId: string, data: { text?: string; attachmentUrl?: string;
   async creditMerchantWallet(merchantId: string, amount: number, note?: string) {
     return postJson<any>(`${API_PREFIX}/admin/wallets/${merchantId}/credit`, { amount, note });
   },
-  async creditClientWallet(userId: string, amount: number, note?: string, provider?: 'ORANGE_MONEY' | 'MTN_MOMO', phone?: string) {
+  async creditClientWallet(userId: string, amount: number, note?: string, provider?: 'ORANGE_MONEY' | 'MTN_MOMO' | 'CASH', phone?: string) {
     return postJson<any>(`${API_PREFIX}/admin/users/${userId}/wallet/credit`, { amount, note, provider, phone });
   },
   async contributeToInstallment(instalmentId: string, amount: number, note?: string) {
@@ -451,6 +454,20 @@ async sendMessage(convId: string, data: { text?: string; attachmentUrl?: string;
   },
   async referralStats() {
     return getJson<any>(`${API_PREFIX}/admin/referrals/stats`);
+  },
+
+  async cashDeposits(params: { page?: number; limit?: number; status?: string } = {}) {
+    const q = new URLSearchParams();
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    if (params.status) q.set('status', params.status);
+    return getJson<any>(`${API_PREFIX}/admin/deposits/cash${q.toString() ? `?${q.toString()}` : ''}`);
+  },
+  async approveCashDeposit(id: string, provider: 'ORANGE_MONEY' | 'MTN_MOMO', phone: string) {
+    return putJson<any>(`${API_PREFIX}/admin/deposits/cash/${id}/approve`, { provider, phone });
+  },
+  async rejectCashDeposit(id: string, reason?: string) {
+    return putJson<any>(`${API_PREFIX}/admin/deposits/cash/${id}/reject`, { reason });
   },
 
   // Cash Withdrawals
@@ -695,7 +712,7 @@ export const merchantApi = {
   async resetMerchantCustomerPassword(id: string, password?: string) {
     return postJson<any>(`${API_PREFIX}/merchant/customers/${id}/reset-password`, { password });
   },
-  async creditClientWallet(customerId: string, amount: number, note?: string, provider?: 'ORANGE_MONEY' | 'MTN_MOMO', phone?: string) {
+  async creditClientWallet(customerId: string, amount: number, note?: string, provider?: 'ORANGE_MONEY' | 'MTN_MOMO' | 'CASH', phone?: string) {
     return postJson<any>(`${API_PREFIX}/merchant/customers/${customerId}/wallet/credit`, { amount, note, provider, phone });
   },
   async contributeToInstallment(instalmentId: string, amount: number, note?: string) {

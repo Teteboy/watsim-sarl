@@ -112,16 +112,16 @@ export default function MerchantUsersPage() {
       addToast('error', 'Montant invalide', 'Veuillez saisir un montant positif.');
       return;
     }
-    const provider = creditForm.provider as 'ORANGE_MONEY' | 'MTN_MOMO' | undefined;
+    const provider = creditForm.provider as 'ORANGE_MONEY' | 'MTN_MOMO' | 'CASH' | undefined;
     const phone = creditForm.phone?.trim() || undefined;
-    if (!provider || !phone) {
-      addToast('error', 'Informations manquantes', 'Veuillez choisir un opérateur et saisir un numéro.');
+    if (!provider || (provider !== 'CASH' && !phone)) {
+      addToast('error', 'Informations manquantes', provider === 'CASH' ? 'Veuillez choisir un mode de dépôt.' : 'Veuillez choisir un opérateur et saisir un numéro.');
       return;
     }
     setCreditLoading(true);
     try {
       const result = await merchantApi.creditClientWallet(showCreditModal.id, amount, creditForm.note || undefined, provider, phone);
-      addToast('success', 'Paiement initié', `Un dépôt de ${amount} FCFA a été initié pour ${showCreditModal.name}.${result.ussdCode ? ` Code USSD: ${result.ussdCode}` : ''}`);
+      addToast('success', result.approvalRequired ? 'Dépôt cash en attente' : 'Paiement initié', result.approvalRequired ? `Le dépôt cash de ${amount} FCFA pour ${showCreditModal.name} doit être approuvé par un administrateur.` : `Un dépôt de ${amount} FCFA a été initié pour ${showCreditModal.name}.${result.ussdCode ? ` Code USSD: ${result.ussdCode}` : ''}`);
       setShowCreditModal(null);
       setCreditForm({ amount: '', note: '', provider: '', phone: '' });
       await loadCustomers(page);
@@ -541,9 +541,10 @@ export default function MerchantUsersPage() {
                   <option value="">Choisir...</option>
                   <option value="ORANGE_MONEY">Orange Money</option>
                   <option value="MTN_MOMO">MTN MoMo</option>
+                  <option value="CASH">Espèces (validation administrateur)</option>
                 </select>
               </div>
-              <div>
+              {creditForm.provider !== 'CASH' && <div>
                 <label className="block text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Numéro mobile-money *</label>
                 <input
                   type="text"
@@ -553,7 +554,7 @@ export default function MerchantUsersPage() {
                   className="w-full px-3 py-2 rounded-lg text-sm"
                   style={inputStyle}
                 />
-              </div>
+              </div>}
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowCreditModal(null)} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}>

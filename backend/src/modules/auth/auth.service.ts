@@ -59,7 +59,7 @@ export async function registerCustomer(input: {
       creditLimit: 50000, // Starter limit for BNPL before KYC delivery verification
       referralCode: generateReferralCode(),
       wallet: { create: { balance: 0 } },
-    } as any,
+    },
   });
 }
 
@@ -108,16 +108,16 @@ export async function setPinForUser(userId: string, pin: string): Promise<void> 
   const hash = await hashPin(pin);
   await prisma.user.update({
     where: { id: userId },
-    data: { pinHash: hash, pinSetAt: new Date() } as any,
+    data: { pinHash: hash, pinSetAt: new Date() },
   });
 }
 
 export async function verifyPinCredentials(phone: string, pin: string): Promise<User> {
   const user = await prisma.user.findUnique({ where: { phone } });
-  if (!user || !user.isActive || !(user as any).pinHash) {
+  if (!user || !user.isActive || !user.pinHash) {
     throw new AuthError(401, 'Invalid credentials or PIN not set');
   }
-  const ok = await verifyPin(pin, (user as any).pinHash);
+  const ok = await verifyPin(pin, user.pinHash);
   if (!ok) throw new AuthError(401, 'Invalid credentials');
   return user;
 }

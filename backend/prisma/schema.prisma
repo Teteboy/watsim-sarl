@@ -13,6 +13,14 @@ enum UserRole {
   CUSTOMER
 }
 
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATIONS
+  FINANCE
+  SUPPORT
+  SECURITY
+}
+
 enum KycStatus {
   PENDING
   VERIFIED
@@ -59,6 +67,7 @@ model User {
   pinHash      String?
   pinSetAt     DateTime?
   role         UserRole  @default(CUSTOMER)
+  adminRole    AdminRole?
   fullName     String
   kycStatus    KycStatus @default(PENDING)
   creditScore  Int       @default(50)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { merchantApi } from '@/lib/api';
+import { merchantApi, tokenStore } from '@/lib/api';
 import logoGreen from '@/assets/images/logo_green.png';
 
 interface NavItem {
@@ -45,6 +45,7 @@ export default function AdminSidebar({ collapsed, onToggle, onLogout }: AdminSid
         { icon: 'ri-exchange-line', label: 'Transactions', path: '/admin/transactions' },
         { icon: 'ri-bank-card-line', label: 'Crédits BNPL', path: '/admin/bnpl' },
         { icon: 'ri-wallet-3-line', label: 'Wallets Commerciaux', path: '/admin/wallets' },
+        { icon: 'ri-arrow-down-circle-line', label: 'Dépôts Cash', path: '/admin/deposits' },
         { icon: 'ri-money-dollar-circle-line', label: 'Retraits Cash', path: '/admin/withdrawals' },
         { icon: 'ri-book-3-line', label: 'Comptabilité OHADA', path: '/admin/accounting' },
         { icon: 'ri-file-chart-2-line', label: 'Rapports', path: '/admin/reports' },
@@ -59,6 +60,17 @@ export default function AdminSidebar({ collapsed, onToggle, onLogout }: AdminSid
       ],
     },
   ];
+  const adminRole = tokenStore.getUser()?.adminRole as 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY' | undefined;
+  const allowedPaths: Record<NonNullable<typeof adminRole>, string[]> = {
+    SUPER_ADMIN: navGroups.flatMap(group => group.items.map(item => item.path)),
+    OPERATIONS: ['/admin', '/admin/users', '/admin/merchants', '/admin/products', '/admin/publicities', '/admin/bnpl', '/admin/reports'],
+    FINANCE: ['/admin', '/admin/transactions', '/admin/bnpl', '/admin/wallets', '/admin/deposits', '/admin/withdrawals', '/admin/accounting', '/admin/reports'],
+    SUPPORT: ['/admin', '/admin/users', '/admin/messaging', '/admin/notifications'],
+    SECURITY: ['/admin', '/admin/users', '/admin/disputes'],
+  };
+  const visibleNavGroups = navGroups
+    .map(group => ({ ...group, items: group.items.filter(item => !!adminRole && allowedPaths[adminRole].includes(item.path)) }))
+    .filter(group => group.items.length > 0);
 
   return (
     <aside
@@ -105,7 +117,7 @@ export default function AdminSidebar({ collapsed, onToggle, onLogout }: AdminSid
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-        {navGroups.map((group) => (
+        {visibleNavGroups.map((group) => (
           <div key={group.groupLabel} className="mb-4">
             {!collapsed && (
               <p className="text-xs uppercase tracking-widest px-3 mb-2" style={{ color: '#9CA3AF', fontFamily: 'Poppins, sans-serif' }}>

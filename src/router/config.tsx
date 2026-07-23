@@ -17,6 +17,7 @@ import AdminWalletsPage from "../pages/admin/wallets/page";
 import AdminNotificationsPage from "../pages/admin/notifications/page";
 import AdminMessagingPage from "../pages/admin/messaging/page";
 import AdminWithdrawalsPage from "../pages/admin/withdrawals/page";
+import AdminCashDepositsPage from "../pages/admin/deposits/page";
 import AdminGuard from "../components/feature/AdminGuard";
 import MerchantLoginPage from "../pages/merchant/login/page";
 import MerchantDashboard from "../pages/merchant/page";
@@ -99,6 +100,10 @@ const routes: RouteObject[] = [
   {
     path: "/admin/withdrawals",
     element: <AdminGuard><AdminWithdrawalsPage /></AdminGuard>,
+  },
+  {
+    path: "/admin/deposits",
+    element: <AdminGuard><AdminCashDepositsPage /></AdminGuard>,
   },
   {
     path: "/admin/messaging",

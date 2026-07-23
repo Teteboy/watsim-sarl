@@ -370,7 +370,7 @@ export async function merchantSelfRoutes(app: FastifyInstance): Promise<void> {
   app.post('/customers/:customerId/wallet/credit', async (req, reply) => {
     try {
       const { customerId } = req.params as { customerId: string };
-      const { amount, note, provider, phone } = req.body as { amount: number; note?: string; provider?: 'ORANGE_MONEY' | 'MTN_MOMO'; phone?: string };
+      const { amount, note, provider, phone } = req.body as { amount: number; note?: string; provider?: 'ORANGE_MONEY' | 'MTN_MOMO' | 'CASH'; phone?: string };
       const result = await merchantCreditClientWallet(req.authUser!.id, customerId, amount, note, provider, phone);
       return result;
     } catch (err: unknown) {

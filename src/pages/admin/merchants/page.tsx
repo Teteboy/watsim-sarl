@@ -112,7 +112,7 @@ export default function AdminMerchantsPage() {
       setSelectedMerchant(target);
       navigate('/admin/merchants', { replace: true });
     }
-  }, [searchParams, merchants]);
+  }, [searchParams, merchants, navigate]);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');

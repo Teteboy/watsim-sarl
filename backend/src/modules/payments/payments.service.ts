@@ -53,6 +53,37 @@ export async function initiatePayment(input: {
   return { providerRef: result.providerRef, redirectUrl: result.redirectUrl, ussdCode: result.ussdCode };
 }
 
+export async function initiateCashDepositPayment(input: {
+  transactionId: string;
+  amount: number;
+  provider: Exclude<Provider, 'WALLET'>;
+  phone: string;
+}) {
+  const adapter = getAdapter(input.provider);
+  const result = await adapter.initiatePayment({
+    amount: input.amount,
+    currency: 'XAF',
+    phone: input.phone,
+    reference: input.transactionId,
+    callbackUrl: `${env.FRONTEND_URL}/payment/callback`,
+  });
+  const transaction = await prisma.transaction.findUnique({ where: { id: input.transactionId } });
+  if (!transaction) throw new PaymentError(404, 'Transaction not found');
+  await prisma.transaction.update({
+    where: { id: input.transactionId },
+    data: {
+      providerRef: result.providerRef,
+      metadata: {
+        ...(transaction.metadata as Record<string, unknown> || {}),
+        campayProvider: input.provider,
+        campayPhone: input.phone,
+        campayInitiatedAt: new Date().toISOString(),
+      },
+    },
+  });
+  return { providerRef: result.providerRef, redirectUrl: result.redirectUrl, ussdCode: result.ussdCode };
+}
+
 async function processWalletPayment(userId: string, transactionId: string, amount: number) {
   return prisma.$transaction(async (tx) => {
     const wallet = await tx.wallet.findUnique({ where: { userId } });
@@ -70,10 +101,12 @@ async function processWalletPayment(userId: string, transactionId: string, amoun
 export async function getStatus(transactionId: string) {
   const tx = await prisma.transaction.findUnique({ where: { id: transactionId } });
   if (!tx) throw new PaymentError(404, 'Transaction not found');
-  if (tx.status !== 'PENDING' || !tx.providerRef || !tx.provider) {
+  const metadata = tx.metadata as { campayProvider?: Provider } | null;
+  const paymentProvider = tx.provider === 'CASH' ? metadata?.campayProvider : tx.provider as Provider | null;
+  if (tx.status !== 'PENDING' || !tx.providerRef || !paymentProvider) {
     return { transactionId, status: tx.status, amount: tx.amount };
   }
-  const adapter = getAdapter(tx.provider as Provider);
+  const adapter = getAdapter(paymentProvider);
   const verify = await adapter.verifyPayment(tx.providerRef);
   if (verify.status === 'COMPLETED' || verify.status === 'FAILED') {
     await handleProviderResult(tx.id, verify.status);
@@ -82,6 +115,7 @@ export async function getStatus(transactionId: string) {
 }
 
 export async function handleProviderResult(transactionId: string, status: 'COMPLETED' | 'FAILED'): Promise<void> {
+  let completed = false;
   await prisma.$transaction(async (tx) => {
     const t = await tx.transaction.findUnique({ where: { id: transactionId } });
     if (!t || t.status !== 'PENDING') return;
@@ -89,12 +123,27 @@ export async function handleProviderResult(transactionId: string, status: 'COMPL
       where: { id: transactionId },
       data: { status: status === 'COMPLETED' ? 'COMPLETED' : 'FAILED' },
     });
-    if (status === 'COMPLETED') await applyTransactionEffects(tx, transactionId);
+    if (status === 'COMPLETED') {
+      await applyTransactionEffects(tx, transactionId);
+      completed = true;
+    }
   });
+  if (!completed) return;
+
   const t = await prisma.transaction.findUnique({ where: { id: transactionId } });
-  if (t && status === 'COMPLETED') {
-    await enqueueScoreUpdate(t.userId);
-    await notifyUser(t.userId, `Paiement de ${t.amount} XAF confirmé.`);
+  if (!t) return;
+  await enqueueScoreUpdate(t.userId);
+  await notifyUser(t.userId, `Paiement de ${t.amount} XAF confirmé.`);
+  if (t.type === 'PURCHASE' && t.purchaseId) {
+    const purchase = await prisma.bnplPurchase.findUnique({
+      where: { id: t.purchaseId },
+      select: { isFirstPurchase: true },
+    });
+    if (purchase?.isFirstPurchase) {
+      processFirstReward(t.userId).catch((err) => {
+        logger.warn({ err, purchaseId: t.purchaseId, userId: t.userId }, 'Failed to process first referral reward');
+      });
+    }
   }
 }
 

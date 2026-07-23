@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { logger } from '../../config/logger';
-import { registerSchema, loginSchema, refreshSchema, logoutSchema, pinLoginSchema, setPinSchema, registerWithPinSchema, sendOtpSchema, verifyOtpSchema } from './auth.schema';
+import { loginSchema, refreshSchema, logoutSchema, pinLoginSchema, setPinSchema, registerWithPinSchema, sendOtpSchema, verifyOtpSchema } from './auth.schema';
 import { AuthError, issueTokens, registerCustomer, revokeRefreshToken, rotateRefreshToken, verifyCredentials, recordAudit, setPinForUser, verifyPinCredentials, verifyPin } from './auth.service';
 import { generateAndSendOtp, verifyOtp } from '../../services/otp.service';
 import { authenticate } from '../../middleware/authenticate';
@@ -122,7 +122,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       await recordAudit(user.id, 'USER_LOGIN', undefined, req.ip);
       const requestBaseUrl = `${(req.headers['x-forwarded-proto'] as string) || 'http'}://${req.headers['host'] || `localhost:${process.env.PORT || 3001}`}`;
       return {
-        user: { id: user.id, email: user.email, phone: user.phone, fullName: user.fullName, role: user.role, kycStatus: user.kycStatus, creditScore: user.creditScore, creditLimit: user.creditLimit, imageUrl: resolveImageUrl(user.imageUrl, requestBaseUrl) },
+        user: { id: user.id, email: user.email, phone: user.phone, fullName: user.fullName, role: user.role, adminRole: user.adminRole, kycStatus: user.kycStatus, creditScore: user.creditScore, creditLimit: user.creditLimit, imageUrl: resolveImageUrl(user.imageUrl, requestBaseUrl) },
         ...tokens,
       };
     } catch (e) {
@@ -253,7 +253,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
       // If 2FA is enabled and no OTP provided, send 2FA OTP
       if (securitySettings.twoFAEnabled && !body.otp2fa) {
-        const otp = await initiate2FALogin(user.id);
+        await initiate2FALogin(user.id);
         return {
           requires2FA: true,
           message: 'Please enter the 6-digit code sent to your phone',
@@ -338,9 +338,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (!/^\d{4,6}$/.test(newPin)) {
       return reply.code(400).send({ error: 'BadRequest', message: 'PIN must be 4–6 digits' });
     }
-    let payload: any;
+    let payload: { purpose?: string; sub?: string };
     try {
-      payload = app.jwt.verify(verificationToken);
+      payload = app.jwt.verify<{ purpose?: string; sub?: string }>(verificationToken);
     } catch {
       return reply.code(401).send({ error: 'InvalidToken', message: 'Verification token is invalid or expired' });
     }

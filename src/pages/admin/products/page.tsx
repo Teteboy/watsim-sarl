@@ -97,7 +97,7 @@ export default function AdminProductsPage() {
       openEdit(target);
       navigate('/admin/products', { replace: true });
     }
-  }, [searchParams, products]);
+  }, [searchParams, products, navigate]);
 
   // Load real platform categories
   useEffect(() => {
