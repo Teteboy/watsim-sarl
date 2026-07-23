@@ -6,11 +6,12 @@ interface AdminHeaderProps {
   sidebarCollapsed: boolean;
   breadcrumb: string[];
   onLogout: () => void;
-  adminProfile?: { fullName?: string; imageUrl?: string };
+  adminProfile?: { fullName?: string; email?: string; imageUrl?: string; adminRole?: string | null };
 }
 
 export default function AdminHeader({ sidebarCollapsed, breadcrumb, onLogout, adminProfile }: AdminHeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const roleLabel = ({ SUPER_ADMIN: 'Super Admin', OPERATIONS: 'Opérations', FINANCE: 'Finance', SUPPORT: 'Support', SECURITY: 'Sécurité' } as Record<string, string>)[adminProfile?.adminRole || ''] || 'Administrateur';
   const [notifications, setNotifications] = useState<any[]>([]);
 
   useEffect(() => {
@@ -127,7 +128,7 @@ export default function AdminHeader({ sidebarCollapsed, breadcrumb, onLogout, ad
             style={{ background: '#FFFFFF', border: '1px solid #E8F2F1' }}
           >
             <div className="px-4 py-2.5 border-b" style={{ borderColor: '#F0F7F0' }}>
-              <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Super Admin</p>
+              <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{roleLabel}</p>
             </div>
             <button
               onClick={onLogout}

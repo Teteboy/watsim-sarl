@@ -12,6 +12,8 @@ interface CashDeposit {
   amount: number;
   status: 'PENDING' | 'COMPLETED' | 'FAILED';
   createdAt: string;
+  originType?: 'MERCHANT' | 'ADMIN';
+  originName?: string;
   metadata?: {
     note?: string;
     source?: string;
@@ -146,7 +148,7 @@ export default function AdminCashDepositsPage() {
               : filtered.map(deposit => <tr key={deposit.id} style={{ borderBottom: '1px solid #F0F7F0' }}>
                 <td className="px-5 py-4"><p className="text-sm font-medium" style={{ color: '#1A2B1F' }}>{deposit.userName || 'Inconnu'}</p><p className="text-xs" style={{ color: '#6B7280' }}>{deposit.userPhone || deposit.userEmail || '—'}</p></td>
                 <td className="px-5 py-4"><p className="text-sm font-bold" style={{ color: '#014945' }}>{formatAmount(deposit.amount)}</p><p className="text-xs" style={{ color: '#6B7280' }}>{deposit.metadata?.note || 'Aucune note'}</p></td>
-                <td className="px-5 py-4"><span className="text-xs" style={{ color: '#6B7280' }}>{deposit.metadata?.source?.startsWith('merchant') ? 'Commerçant' : 'Administrateur'}</span></td>
+                <td className="px-5 py-4"><p className="text-xs font-medium" style={{ color: '#1A2B1F' }}>{deposit.originName || (deposit.originType === 'MERCHANT' ? 'Commerçant' : 'Administrateur')}</p><p className="text-xs" style={{ color: '#6B7280' }}>{deposit.originType === 'MERCHANT' ? 'Commerçant' : 'Administrateur'}</p></td>
                 <td className="px-5 py-4"><span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium" style={statusStyle(deposit.status)}>{statusLabel(deposit.status)}</span></td>
                 <td className="px-5 py-4"><p className="text-sm" style={{ color: '#1A2B1F' }}>{formatDate(deposit.createdAt)}</p></td>
                 <td className="px-5 py-4">{deposit.status === 'PENDING' ? deposit.metadata?.campayInitiatedAt ? <span className="text-xs" style={{ color: '#D97706' }}>CamPay en attente</span> : <div className="flex gap-2"><button onClick={() => setApproveId(deposit.id)} disabled={processing === deposit.id} className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF' }}>{processing === deposit.id ? '...' : 'Valider via CamPay'}</button><button onClick={() => setRejectId(deposit.id)} disabled={processing === deposit.id} className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50" style={{ background: 'rgba(239,68,68,0.1)', color: '#DC2626' }}>Rejeter</button></div> : <span className="text-xs" style={{ color: deposit.status === 'COMPLETED' ? '#16A34A' : '#DC2626' }}>{deposit.status === 'COMPLETED' ? 'Wallet crédité' : deposit.metadata?.rejectReason || 'Rejeté'}</span>}</td>

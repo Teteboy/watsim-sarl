@@ -12,7 +12,7 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children, breadcrumb }: AdminLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [adminProfile, setAdminProfile] = useState<{ fullName?: string; imageUrl?: string }>({});
+  const [adminProfile, setAdminProfile] = useState<{ fullName?: string; email?: string; imageUrl?: string; adminRole?: string | null }>({});
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
 
@@ -21,7 +21,9 @@ export default function AdminLayout({ children, breadcrumb }: AdminLayoutProps) 
     if (user) {
       setAdminProfile({
         fullName: user.fullName || user.email,
+        email: user.email,
         imageUrl: user.imageUrl,
+        adminRole: user.adminRole,
       });
     }
   }, []);
@@ -51,6 +53,7 @@ export default function AdminLayout({ children, breadcrumb }: AdminLayoutProps) 
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((v) => !v)}
         onLogout={handleLogout}
+        adminProfile={adminProfile}
       />
       <AdminHeader sidebarCollapsed={sidebarCollapsed} breadcrumb={breadcrumb} onLogout={handleLogout} adminProfile={adminProfile} />
       <main

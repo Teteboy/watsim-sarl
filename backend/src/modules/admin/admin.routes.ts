@@ -498,18 +498,39 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
       }),
       prisma.transaction.count({ where }),
     ]);
+    const origins = deposits.map(deposit => deposit.metadata as { merchantId?: string; adminId?: string; source?: string } | null);
+    const merchantIds = [...new Set(origins.flatMap(origin => origin?.merchantId ? [origin.merchantId] : []))];
+    const adminIds = [...new Set(origins.flatMap(origin => origin?.adminId ? [origin.adminId] : []))];
+    const [merchants, admins] = await Promise.all([
+      prisma.merchant.findMany({ where: { id: { in: merchantIds } }, select: { id: true, businessName: true } }),
+      prisma.user.findMany({ where: { id: { in: adminIds }, role: 'ADMIN' }, select: { id: true, fullName: true, email: true } }),
+    ]);
+    const merchantNames = new Map(merchants.map(merchant => [merchant.id, merchant.businessName]));
+    const adminNames = new Map(admins.map(admin => [admin.id, admin.fullName || admin.email]));
+
     return {
-      deposits: deposits.map(deposit => ({
-        id: deposit.id,
-        userId: deposit.userId,
-        userName: deposit.user.fullName,
-        userPhone: deposit.user.phone,
-        userEmail: deposit.user.email,
-        amount: deposit.amount,
-        status: deposit.status,
-        createdAt: deposit.createdAt,
-        metadata: deposit.metadata,
-      })),
+      deposits: deposits.map(deposit => {
+        const metadata = deposit.metadata as { merchantId?: string; adminId?: string; source?: string } | null;
+        const originType = metadata?.merchantId || metadata?.source?.startsWith('merchant') ? 'MERCHANT' : 'ADMIN';
+        const originName = metadata?.merchantId
+          ? merchantNames.get(metadata.merchantId) || 'Commerçant introuvable'
+          : metadata?.adminId
+            ? adminNames.get(metadata.adminId) || 'Administrateur introuvable'
+            : originType === 'MERCHANT' ? 'Commerçant' : 'Administrateur';
+        return {
+          id: deposit.id,
+          userId: deposit.userId,
+          userName: deposit.user.fullName,
+          userPhone: deposit.user.phone,
+          userEmail: deposit.user.email,
+          amount: deposit.amount,
+          status: deposit.status,
+          createdAt: deposit.createdAt,
+          metadata: deposit.metadata,
+          originType,
+          originName,
+        };
+      }),
       pagination: { page: q.page ?? 1, limit: q.limit ?? 20, total, totalPages: Math.ceil(total / (q.limit ?? 20)) },
     };
   });

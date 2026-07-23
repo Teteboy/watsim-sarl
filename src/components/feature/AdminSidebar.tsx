@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { merchantApi, tokenStore } from '@/lib/api';
+import { tokenStore } from '@/lib/api';
+import { resolveUploadUrl } from '@/lib/utils';
 import logoGreen from '@/assets/images/logo_green.png';
 
 interface NavItem {
@@ -19,9 +19,10 @@ interface AdminSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
   onLogout: () => void;
+  adminProfile?: { fullName?: string; email?: string; imageUrl?: string; adminRole?: string | null };
 }
 
-export default function AdminSidebar({ collapsed, onToggle, onLogout }: AdminSidebarProps) {
+export default function AdminSidebar({ collapsed, onToggle, onLogout, adminProfile }: AdminSidebarProps) {
   const navGroups: NavGroup[] = [
     {
       groupLabel: 'Dashboard',
@@ -60,7 +61,11 @@ export default function AdminSidebar({ collapsed, onToggle, onLogout }: AdminSid
       ],
     },
   ];
-  const adminRole = tokenStore.getUser()?.adminRole as 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY' | undefined;
+  const adminRole = (adminProfile?.adminRole || tokenStore.getUser()?.adminRole) as 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY' | undefined;
+  const adminName = adminProfile?.fullName || tokenStore.getUser()?.fullName || tokenStore.getUser()?.email || 'Administrateur';
+  const adminEmail = adminProfile?.email || tokenStore.getUser()?.email || '';
+  const adminInitials = adminName.split(' ').map((name: string) => name[0] || '').join('').slice(0, 2).toUpperCase() || 'A';
+  const adminRoleLabel = ({ SUPER_ADMIN: 'Super Admin', OPERATIONS: 'Opérations', FINANCE: 'Finance', SUPPORT: 'Support', SECURITY: 'Sécurité' } as Record<string, string>)[adminRole || ''] || 'Administrateur';
   const allowedPaths: Record<NonNullable<typeof adminRole>, string[]> = {
     SUPER_ADMIN: navGroups.flatMap(group => group.items.map(item => item.path)),
     OPERATIONS: ['/admin', '/admin/users', '/admin/merchants', '/admin/products', '/admin/publicities', '/admin/bnpl', '/admin/reports'],
@@ -177,14 +182,16 @@ export default function AdminSidebar({ collapsed, onToggle, onLogout }: AdminSid
             className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold"
             style={{ background: '#4DB049', color: '#FFFFFF' }}
           >
-            SA
+            {adminProfile?.imageUrl ? (
+              <img src={resolveUploadUrl(adminProfile.imageUrl) ?? ''} alt="Profile" className="w-full h-full rounded-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+            ) : adminInitials}
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate" style={{ color: '#014945', fontFamily: 'Poppins, sans-serif' }}>
-                Super Admin
+                {adminName}
               </p>
-              <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>admin@watsim.cm</p>
+              <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{adminRoleLabel}{adminEmail ? ` · ${adminEmail}` : ''}</p>
             </div>
           )}
           {!collapsed && (
