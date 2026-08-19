@@ -1110,6 +1110,7 @@ class LanguageService extends ChangeNotifier {
   String get insufficientFunds =>
       _isFrench ? 'Fonds insuffisants' : 'Insufficient funds';
   String get helloUser => _isFrench ? 'Bonjour' : 'Hello';
+  String get guest => _isFrench ? 'Invité' : 'Guest';
   String get newBalanceLabel => _isFrench ? 'Nouveau solde' : 'New balance';
 }
 

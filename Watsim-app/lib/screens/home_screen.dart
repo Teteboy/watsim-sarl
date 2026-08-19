@@ -468,13 +468,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.w600)),
             Text(
               _loading
-                  ? 'Loading...'
-                  : '${(_profile?['fullName'] ?? _profile?['name'] ?? _profile?['phone'] ?? _profile?['email'] ?? 'Guest')}',
+                  ? lang.loading
+                  : '${(_profile?['fullName'] ?? _profile?['name'] ?? _profile?['phone'] ?? _profile?['email'] ?? lang.guest)}',
               style: const TextStyle(
                 color: Colors.white54,
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ],
         ),
