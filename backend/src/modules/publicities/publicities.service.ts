@@ -38,6 +38,8 @@ export async function createPublicity(data: any) {
   return prisma.publicity.create({
     data: {
       name: data.name,
+      description: data.description ?? null,
+      aim: data.aim ?? null,
       merchantId: data.merchantId || null,
       type: data.type,
       position: data.position,
@@ -53,6 +55,8 @@ export async function createPublicity(data: any) {
 export async function updatePublicity(id: string, data: any) {
   const updateData: any = {};
   if (data.name !== undefined) updateData.name = data.name;
+  if (data.description !== undefined) updateData.description = data.description ?? null;
+  if (data.aim !== undefined) updateData.aim = data.aim ?? null;
   if (data.status !== undefined) updateData.status = data.status;
   if (data.budget !== undefined) updateData.budget = data.budget;
   if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
@@ -61,7 +65,7 @@ export async function updatePublicity(id: string, data: any) {
   if (data.startDate !== undefined) updateData.startDate = new Date(data.startDate);
   if (data.endDate !== undefined) updateData.endDate = new Date(data.endDate);
   if (data.merchantId !== undefined) updateData.merchantId = data.merchantId;
-  
+
   return prisma.publicity.update({
     where: { id },
     data: updateData,

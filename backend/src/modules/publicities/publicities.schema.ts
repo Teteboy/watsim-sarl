@@ -17,6 +17,8 @@ export const createPublicitySchema = {
     required: ['name', 'type', 'position'],
     properties: {
       name: { type: 'string', minLength: 1 },
+      description: { type: 'string' },
+      aim: { type: 'string' },
       merchantId: { type: 'string' },
       type: { type: 'string' },
       position: { type: 'string' },
@@ -34,6 +36,8 @@ export const updatePublicitySchema = {
     type: 'object',
     properties: {
       name: { type: 'string' },
+      description: { type: 'string' },
+      aim: { type: 'string' },
       merchantId: { type: 'string' },
       status: { type: 'string' },
       type: { type: 'string' },

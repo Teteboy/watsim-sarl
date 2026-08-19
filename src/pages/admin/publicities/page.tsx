@@ -63,6 +63,8 @@ export default function AdminPublicitiesPage() {
 
   const [newPub, setNewPub] = useState({
     name: '',
+    description: '',
+    aim: '',
     merchant: '',
     merchantId: '',
     type: 'banner',
@@ -149,6 +151,8 @@ export default function AdminPublicitiesPage() {
     try {
       const created = await adminApi.createPublicity({
         name: newPub.name,
+        description: newPub.description || undefined,
+        aim: newPub.aim || undefined,
         merchantId: newPub.merchantId || undefined,
         type: newPub.type.toUpperCase(),
         position: newPub.position.toUpperCase(),
@@ -171,6 +175,8 @@ export default function AdminPublicitiesPage() {
     try {
       await adminApi.updatePublicity(editingPub.id, {
         name: editingPub.name,
+        description: editingPub.description ?? undefined,
+        aim: editingPub.aim ?? undefined,
         status: editingPub.status?.toUpperCase(),
         budget: Number(editingPub.budget),
         imageUrl: editingPub.image || editingPub.imageUrl,
@@ -597,6 +603,34 @@ export default function AdminPublicitiesPage() {
 
               <div>
                 <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                  Description
+                </label>
+                <textarea
+                  value={newPub.description}
+                  onChange={(e) => setNewPub({ ...newPub, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                  style={inputStyle}
+                  rows={3}
+                  placeholder="Ex: Découvrez nos nouveaux téléphones Samsung avec paiement échelonné."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                  Objectif / Aim
+                </label>
+                <textarea
+                  value={newPub.aim}
+                  onChange={(e) => setNewPub({ ...newPub, aim: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                  style={inputStyle}
+                  rows={2}
+                  placeholder="Ex: Augmenter les ventes de la gamme Galaxy de 20%"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
                   Commercial *
                 </label>
                 <input
@@ -796,6 +830,34 @@ export default function AdminPublicitiesPage() {
                   onChange={(e) => setEditingPub({ ...editingPub, name: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                   style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                  Description
+                </label>
+                <textarea
+                  value={editingPub.description || ''}
+                  onChange={(e) => setEditingPub({ ...editingPub, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                  style={inputStyle}
+                  rows={3}
+                  placeholder="Ex: Découvrez nos nouveaux téléphones Samsung avec paiement échelonné."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                  Objectif / Aim
+                </label>
+                <textarea
+                  value={editingPub.aim || ''}
+                  onChange={(e) => setEditingPub({ ...editingPub, aim: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                  style={inputStyle}
+                  rows={2}
+                  placeholder="Ex: Augmenter les ventes de la gamme Galaxy de 20%"
                 />
               </div>
 
@@ -1045,6 +1107,23 @@ export default function AdminPublicitiesPage() {
                         </p>
                       </div>
                     </div>
+
+                    {(detailPub.description || detailPub.aim) && (
+                      <div className="rounded-xl p-4 space-y-3" style={{ background: '#F9FAFB' }}>
+                        {detailPub.description && (
+                          <div>
+                            <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Description</p>
+                            <p className="text-sm font-medium whitespace-pre-wrap" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{detailPub.description}</p>
+                          </div>
+                        )}
+                        {detailPub.aim && (
+                          <div>
+                            <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Objectif / Aim</p>
+                            <p className="text-sm font-medium whitespace-pre-wrap" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{detailPub.aim}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="rounded-xl p-4" style={{ background: '#F5FAF5' }}>
                       <p className="text-xs font-medium mb-3 uppercase tracking-wider" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>

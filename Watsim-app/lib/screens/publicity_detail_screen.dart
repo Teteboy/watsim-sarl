@@ -30,6 +30,10 @@ class PublicityDetailScreen extends StatelessWidget {
 
   String get _type => publicity['type']?.toString() ?? '';
 
+  String get _description => publicity['description']?.toString() ?? '';
+
+  String get _aim => publicity['aim']?.toString() ?? '';
+
   String? get _startDate {
     final raw = publicity['startDate'];
     if (raw == null) return null;
@@ -134,6 +138,53 @@ class PublicityDetailScreen extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 24),
+                  if (_description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        _description,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 15,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  if (_aim.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.primaryGreen.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.track_changes_outlined,
+                              color: AppColors.primaryGreen,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _aim,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   _infoCard(),
                 ],
               ),
