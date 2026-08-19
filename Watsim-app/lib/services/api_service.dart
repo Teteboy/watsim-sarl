@@ -8,29 +8,22 @@ import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── API Configuration ───────────────────────────────────────────────────
-// IMPORTANT: Update these values for your environment:
-//
-// For Android Emulator: 10.0.2.2:3001
-// For iOS Simulator:     127.0.0.1:3001
-// For Physical Device: YOUR_COMPUTER_IP:3001 (e.g., 192.168.1.100:3001)
-//
 // IMPORTANT:
 // - Set the base URL via --dart-define when running the app.
 // - Example:
-//   flutter run --dart-define=WATSIM_API_BASE=http://192.168.1.197:3001/api/v1
-//   flutter run --dart-define=WATSIM_API_ROOT=http://192.168.1.197:3001
+//   flutter run --dart-define=WATSIM_API_BASE=https://watsimsarl.synchroerp.cloud/api/v1
+//   flutter run --dart-define=WATSIM_API_ROOT=https://watsimsarl.synchroerp.cloud
 //
-// Make sure your phone and computer are on the same WiFi network,
-// and your backend is bound to 0.0.0.0:3001 (not localhost only).
+// Default points to the hosted production backend.
 const String kApiBase = String.fromEnvironment(
   'WATSIM_API_BASE',
-  defaultValue: 'http://192.168.1.197:3001/api/v1',
+  defaultValue: 'https://watsimsarl.synchroerp.cloud/api/v1',
 );
 
-// Base URL without API prefix for health checks
+// Base URL without API prefix for health checks and WebSocket
 const String kBaseUrl = String.fromEnvironment(
   'WATSIM_API_ROOT',
-  defaultValue: 'http://192.168.1.197:3001',
+  defaultValue: 'https://watsimsarl.synchroerp.cloud',
 );
 
 class ApiException implements Exception {
