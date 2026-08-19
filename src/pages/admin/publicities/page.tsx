@@ -32,18 +32,25 @@ const publicityStatuses = [
 
 export default function AdminPublicitiesPage() {
   const [publicities, setPublicities] = useState<any[]>([]);
+  const [merchants, setMerchants] = useState<{ id: string; businessName: string }[]>([]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const res = await adminApi.publicities({ page: 1, limit: 100 });
+        const [pubRes, merchRes] = await Promise.all([
+          adminApi.publicities({ page: 1, limit: 100 }),
+          adminApi.merchants({ page: 1, limit: 100 }),
+        ]);
         if (!mounted) return;
-        const items = Array.isArray(res) ? res : res.items ?? [];
+        const items = Array.isArray(pubRes) ? pubRes : pubRes.items ?? [];
+        const merchItems = Array.isArray(merchRes) ? merchRes : merchRes.items ?? [];
         setPublicities(items);
+        setMerchants(merchItems);
       } catch {
         // fallback to empty
         setPublicities([]);
+        setMerchants([]);
       }
     })();
     return () => { mounted = false; };
@@ -65,7 +72,6 @@ export default function AdminPublicitiesPage() {
     name: '',
     description: '',
     aim: '',
-    merchant: '',
     merchantId: '',
     type: 'banner',
     budget: 0,
@@ -163,7 +169,7 @@ export default function AdminPublicitiesPage() {
       });
       setPublicities((prev) => [created, ...prev]);
       setShowAddModal(false);
-      setNewPub({ name: '', merchant: '', merchantId: '', type: 'banner', budget: 0, position: 'homepage_hero', startDate: '', endDate: '', image: '' });
+      setNewPub({ name: '', description: '', aim: '', merchantId: '', type: 'banner', budget: 0, position: 'homepage_hero', startDate: '', endDate: '', image: '' });
       addToast('success', 'Publicité créée', `La publicité a été créée avec succès.`);
     } catch (e: any) {
       addToast('error', 'Erreur', e?.message || 'Échec de la création.');
@@ -180,6 +186,7 @@ export default function AdminPublicitiesPage() {
         status: editingPub.status?.toUpperCase(),
         budget: Number(editingPub.budget),
         imageUrl: editingPub.image || editingPub.imageUrl,
+        merchantId: editingPub.merchantId || editingPub.merchant?.id || undefined,
         position: editingPub.position,
         type: editingPub.type?.toUpperCase(),
         startDate: editingPub.startDate,
@@ -633,14 +640,17 @@ export default function AdminPublicitiesPage() {
                 <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
                   Commercial *
                 </label>
-                <input
-                  type="text"
-                  value={newPub.merchant}
-                  onChange={(e) => setNewPub({ ...newPub, merchant: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                <select
+                  value={newPub.merchantId}
+                  onChange={(e) => setNewPub({ ...newPub, merchantId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
                   style={inputStyle}
-                  placeholder="Ex: TechShop Yaoundé"
-                />
+                >
+                  <option value="" style={{ background: '#FFFFFF' }}>Sélectionner un marchand...</option>
+                  {merchants.map((m) => (
+                    <option key={m.id} value={m.id} style={{ background: '#FFFFFF' }}>{m.businessName || 'Sans nom'}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -859,6 +869,23 @@ export default function AdminPublicitiesPage() {
                   rows={2}
                   placeholder="Ex: Augmenter les ventes de la gamme Galaxy de 20%"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                  Commercial
+                </label>
+                <select
+                  value={editingPub.merchantId || editingPub.merchant?.id || ''}
+                  onChange={(e) => setEditingPub({ ...editingPub, merchantId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
+                  style={inputStyle}
+                >
+                  <option value="" style={{ background: '#FFFFFF' }}>Sélectionner un marchand...</option>
+                  {merchants.map((m) => (
+                    <option key={m.id} value={m.id} style={{ background: '#FFFFFF' }}>{m.businessName || 'Sans nom'}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
