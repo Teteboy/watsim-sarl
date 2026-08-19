@@ -123,6 +123,10 @@ export async function initiate2FALogin(userId: string): Promise<string> {
     await sendSms(user.phone, `[WATSIM] Your verification code is: ${otp}. Valid for 5 minutes.`);
   }
 
+  // Always log the code so it can be seen in server logs even if SMS fails
+  logger.warn({ userId, phone: user?.phone, otp }, `[WATSIM_OTP] 2FA OTP for ${user?.phone ?? userId}: ${otp}`);
+  console.warn(`\n🔓 [WATSIM_OTP] 2FA OTP for ${user?.phone ?? userId}: ${otp}\n`);
+
   logger.info({ userId }, '2FA OTP sent');
 
   // Clean up expired entries periodically
