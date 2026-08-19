@@ -11,6 +11,7 @@ import 'screens/messaging_screen.dart';
 import 'screens/app_lock_screen.dart';
 import 'services/language_service.dart';
 import 'services/app_lock_manager.dart';
+import 'services/websocket_service.dart';
 import 'notification_state.dart';
 
 void main() {
@@ -50,6 +51,7 @@ class _WatsimAppState extends State<WatsimApp> with WidgetsBindingObserver {
     _lockManager.initialize().then((_) {
       _lockManager.addListener(_onLockChanged);
     });
+    _connectWebSocketIfLoggedIn();
   }
 
   @override
@@ -85,6 +87,7 @@ class _WatsimAppState extends State<WatsimApp> with WidgetsBindingObserver {
         state == AppLifecycleState.hidden) {
       _lockManager.updateLastActive();
     } else if (state == AppLifecycleState.resumed) {
+      _connectWebSocketIfLoggedIn();
       _checkLock();
     }
   }
@@ -92,6 +95,12 @@ class _WatsimAppState extends State<WatsimApp> with WidgetsBindingObserver {
   Future<void> _checkLock() async {
     if (await AuthService.isLoggedIn() && await _lockManager.shouldLock()) {
       _lockManager.lock();
+    }
+  }
+
+  Future<void> _connectWebSocketIfLoggedIn() async {
+    if (await AuthService.isLoggedIn()) {
+      await WebSocketService.instance.connect();
     }
   }
 
