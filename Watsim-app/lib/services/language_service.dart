@@ -507,6 +507,12 @@ class LanguageService extends ChangeNotifier {
       _isFrench ? 'Numéro de téléphone ou ID' : 'Phone number or ID';
   String get nameOptional => _isFrench ? 'Nom (optionnel)' : 'Name (optional)';
   String get startChat => _isFrench ? 'Démarrer le chat' : 'Start Chat';
+  String get supportChat =>
+      _isFrench ? 'Contacter le support Watsim' : 'Chat with Watsim Support';
+  String get orStartWithPhone => _isFrench
+      ? 'Ou démarrez avec un numéro de téléphone'
+      : 'Or start with a phone number';
+  String get loading => _isFrench ? 'Chargement...' : 'Loading...';
   String get videoCallSoon =>
       _isFrench ? 'Appel vidéo bientôt disponible' : 'Video call coming soon';
   String callingName(String name) =>

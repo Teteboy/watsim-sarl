@@ -458,6 +458,8 @@ class _NewChatSheet extends StatefulWidget {
 }
 
 class _NewChatSheetState extends State<_NewChatSheet> {
+  bool _startingSupport = false;
+
   Future<void> _start() async {
     final phone = widget.phoneCtrl.text.trim();
     if (phone.isEmpty) return;
@@ -479,6 +481,27 @@ class _NewChatSheetState extends State<_NewChatSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
+    }
+  }
+
+  Future<void> _startSupport() async {
+    setState(() => _startingSupport = true);
+    try {
+      final convId = await ApiService.getOrCreateSupportConversation();
+      if (!mounted) return;
+      Navigator.pop(context);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ChatScreen(convId: convId)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'Could not open support';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) setState(() => _startingSupport = false);
     }
   }
 
@@ -514,7 +537,33 @@ class _NewChatSheetState extends State<_NewChatSheet> {
           const SizedBox(height: 4),
           Text(lang.newConversationSub,
               style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _startingSupport ? null : _startSupport,
+              icon: _startingSupport
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.support_agent_rounded),
+              label: Text(_startingSupport ? lang.loading : lang.supportChat),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryGreen,
+                side: BorderSide(color: AppColors.primaryGreen),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const Divider(height: 32),
+          Text(lang.orStartWithPhone,
+              style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
+          const SizedBox(height: 12),
           TextField(
             controller: widget.phoneCtrl,
             keyboardType: TextInputType.phone,
