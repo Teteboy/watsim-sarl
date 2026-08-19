@@ -1265,30 +1265,28 @@ class _ChatScreenState extends State<ChatScreen> {
         config: Config(
           height: 280,
           checkPlatformCompatibility: true,
-          emojiViewConfig: EmojiViewConfig(
+          emojiViewConfig: const EmojiViewConfig(
             emojiSizeMax: 28,
             backgroundColor: AppColors.offWhite,
             columns: 8,
-            emojiSizeMin: 20,
           ),
-          categoryViewConfig: CategoryViewConfig(
+          categoryViewConfig: const CategoryViewConfig(
             backgroundColor: AppColors.offWhite,
             indicatorColor: AppColors.primaryGreen,
             iconColor: AppColors.textMuted,
             iconColorSelected: AppColors.primaryGreen,
             backspaceColor: AppColors.primaryGreen,
           ),
-          bottomActionBarConfig: BottomActionBarConfig(
+          bottomActionBarConfig: const BottomActionBarConfig(
             backgroundColor: AppColors.offWhite,
             buttonColor: AppColors.primaryGreen,
             buttonIconColor: Colors.white,
             showBackspaceButton: true,
           ),
-          searchViewConfig: SearchViewConfig(
+          searchViewConfig: const SearchViewConfig(
             backgroundColor: AppColors.offWhite,
             buttonIconColor: AppColors.primaryGreen,
             hintText: 'Rechercher un emoji',
-            textStyle: const TextStyle(color: AppColors.textPrimary),
           ),
         ),
       ),

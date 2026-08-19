@@ -39,7 +39,6 @@ class LanguageService extends ChangeNotifier {
   String get security => _isFrench ? 'Sécurité' : 'Security';
   String get securitySubtitle =>
       _isFrench ? 'PIN, Biométrie, 2FA' : 'PIN, Biometrics, 2FA';
-  String get creditScore => _isFrench ? 'Score de crédit' : 'Credit Score';
   String get creditScoreSubtitle => _isFrench
       ? 'Consultez votre score et nos conseils'
       : 'View your credit score and tips';
@@ -839,8 +838,6 @@ class LanguageService extends ChangeNotifier {
       _isFrench ? 'Confirmer la livraison' : 'Confirm Delivery';
   String get deliveryReceipt =>
       _isFrench ? 'Reçu de livraison' : 'Delivery Receipt';
-  String get totalOrderValue =>
-      _isFrench ? 'VALEUR TOTALE DE LA COMMANDE' : 'TOTAL ORDER VALUE';
   String get downloadReceipt =>
       _isFrench ? 'Télécharger le reçu' : 'Download Receipt';
   String get close => _isFrench ? 'Fermer' : 'Close';

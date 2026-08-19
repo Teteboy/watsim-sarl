@@ -997,6 +997,7 @@ class ApiService {
       body: jsonEncode({
         'participantPhones': [phone]
       }),
+    );
     final body = _decode(res);
     return body['conversationId'] as String;
   }

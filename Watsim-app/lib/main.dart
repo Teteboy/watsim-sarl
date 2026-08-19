@@ -12,6 +12,7 @@ import 'screens/app_lock_screen.dart';
 import 'services/language_service.dart';
 import 'services/app_lock_manager.dart';
 import 'services/websocket_service.dart';
+import 'services/auth_service.dart';
 import 'notification_state.dart';
 
 void main() {
