@@ -40,6 +40,8 @@ export async function createPublicity(data: any) {
       name: data.name,
       description: data.description ?? null,
       aim: data.aim ?? null,
+      location: data.location ?? null,
+      phoneNumber: data.phoneNumber ?? null,
       merchantId: data.merchantId || null,
       type: data.type,
       position: data.position,
@@ -57,6 +59,8 @@ export async function updatePublicity(id: string, data: any) {
   if (data.name !== undefined) updateData.name = data.name;
   if (data.description !== undefined) updateData.description = data.description ?? null;
   if (data.aim !== undefined) updateData.aim = data.aim ?? null;
+  if (data.location !== undefined) updateData.location = data.location ?? null;
+  if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber ?? null;
   if (data.status !== undefined) updateData.status = data.status;
   if (data.budget !== undefined) updateData.budget = data.budget;
   if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;

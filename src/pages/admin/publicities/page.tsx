@@ -72,6 +72,8 @@ export default function AdminPublicitiesPage() {
     name: '',
     description: '',
     aim: '',
+    location: '',
+    phoneNumber: '',
     merchantId: '',
     type: 'banner',
     budget: 0,
@@ -159,6 +161,8 @@ export default function AdminPublicitiesPage() {
         name: newPub.name,
         description: newPub.description || undefined,
         aim: newPub.aim || undefined,
+        location: newPub.location || undefined,
+        phoneNumber: newPub.phoneNumber || undefined,
         merchantId: newPub.merchantId || undefined,
         type: newPub.type.toUpperCase(),
         position: newPub.position.toUpperCase(),
@@ -169,7 +173,7 @@ export default function AdminPublicitiesPage() {
       });
       setPublicities((prev) => [created, ...prev]);
       setShowAddModal(false);
-      setNewPub({ name: '', description: '', aim: '', merchantId: '', type: 'banner', budget: 0, position: 'homepage_hero', startDate: '', endDate: '', image: '' });
+      setNewPub({ name: '', description: '', aim: '', location: '', phoneNumber: '', merchantId: '', type: 'banner', budget: 0, position: 'homepage_hero', startDate: '', endDate: '', image: '' });
       addToast('success', 'Publicité créée', `La publicité a été créée avec succès.`);
     } catch (e: any) {
       addToast('error', 'Erreur', e?.message || 'Échec de la création.');
@@ -183,6 +187,8 @@ export default function AdminPublicitiesPage() {
         name: editingPub.name,
         description: editingPub.description ?? undefined,
         aim: editingPub.aim ?? undefined,
+        location: editingPub.location ?? undefined,
+        phoneNumber: editingPub.phoneNumber ?? undefined,
         status: editingPub.status?.toUpperCase(),
         budget: Number(editingPub.budget),
         imageUrl: editingPub.image || editingPub.imageUrl,
@@ -636,6 +642,35 @@ export default function AdminPublicitiesPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                    Localisation
+                  </label>
+                  <input
+                    type="text"
+                    value={newPub.location}
+                    onChange={(e) => setNewPub({ ...newPub, location: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={inputStyle}
+                    placeholder="Ex: Douala, Akwa"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                    Téléphone
+                  </label>
+                  <input
+                    type="text"
+                    value={newPub.phoneNumber}
+                    onChange={(e) => setNewPub({ ...newPub, phoneNumber: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={inputStyle}
+                    placeholder="Ex: +237 6XX XXX XXX"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
                   Commercial *
@@ -869,6 +904,35 @@ export default function AdminPublicitiesPage() {
                   rows={2}
                   placeholder="Ex: Augmenter les ventes de la gamme Galaxy de 20%"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                    Localisation
+                  </label>
+                  <input
+                    type="text"
+                    value={editingPub.location || ''}
+                    onChange={(e) => setEditingPub({ ...editingPub, location: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={inputStyle}
+                    placeholder="Ex: Douala, Akwa"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs mb-1.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                    Téléphone
+                  </label>
+                  <input
+                    type="text"
+                    value={editingPub.phoneNumber || ''}
+                    onChange={(e) => setEditingPub({ ...editingPub, phoneNumber: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={inputStyle}
+                    placeholder="Ex: +237 6XX XXX XXX"
+                  />
+                </div>
               </div>
 
               <div>
@@ -1147,6 +1211,18 @@ export default function AdminPublicitiesPage() {
                           <div>
                             <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Objectif / Aim</p>
                             <p className="text-sm font-medium whitespace-pre-wrap" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{detailPub.aim}</p>
+                          </div>
+                        )}
+                        {detailPub.location && (
+                          <div>
+                            <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Localisation</p>
+                            <p className="text-sm font-medium" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{detailPub.location}</p>
+                          </div>
+                        )}
+                        {detailPub.phoneNumber && (
+                          <div>
+                            <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Téléphone</p>
+                            <p className="text-sm font-medium" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{detailPub.phoneNumber}</p>
                           </div>
                         )}
                       </div>

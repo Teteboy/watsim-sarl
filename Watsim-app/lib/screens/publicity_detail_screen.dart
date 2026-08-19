@@ -30,6 +30,10 @@ class PublicityDetailScreen extends StatelessWidget {
 
   String get _aim => publicity['aim']?.toString() ?? '';
 
+  String get _location => publicity['location']?.toString() ?? '';
+
+  String get _phoneNumber => publicity['phoneNumber']?.toString() ?? '';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,6 +155,64 @@ class PublicityDetailScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (_location.isNotEmpty || _phoneNumber.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.deepTeal,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_location.isNotEmpty)
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.location_on_outlined,
+                                    color: AppColors.primaryGreen,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _location,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            if (_location.isNotEmpty && _phoneNumber.isNotEmpty)
+                              const SizedBox(height: 10),
+                            if (_phoneNumber.isNotEmpty)
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.phone_outlined,
+                                    color: AppColors.primaryGreen,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    _phoneNumber,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
                           ],
                         ),
                       ),

@@ -174,7 +174,7 @@ class WebSocketService {
         timestamp: newMessage.createdAt.toISOString(),
       };
 
-      this.broadcastToConversation(data.conversationId as string, broadcastMessage);
+      this.broadcastToConversation(data.conversationId as string, broadcastMessage, client.userId);
 
     } catch (error) {
       console.error('Error handling new message:', error);

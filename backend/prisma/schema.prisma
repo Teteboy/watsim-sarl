@@ -401,6 +401,8 @@ model Publicity {
   name        String
   description String?
   aim         String?
+  location    String?
+  phoneNumber String?
   type        PublicityType
   position    PublicityPosition
   budget      Int               @default(0)
