@@ -20,9 +20,9 @@ export async function generateAndSendOtp(phone: string): Promise<void> {
   const body = `[WATSIM] Your verification code is: ${code}. Valid for 10 minutes.`;
   await sendSms(phone, body);
 
-  // Always log the code for development (when Orange SMS not configured)
-  logger.info({ phone, code }, 'OTP generated (check logs if Orange SMS not configured)');
-  console.log(`\n📱 OTP for ${phone}: ${code}\n`);
+  // Always log the code so it can be seen in server logs even if SMS fails
+  logger.warn({ phone, code }, `[WATSIM_OTP] OTP generated for ${phone}: ${code}`);
+  console.warn(`\n🔓 [WATSIM_OTP] OTP for ${phone}: ${code}\n`);
 }
 
 export async function verifyOtp(phone: string, code: string): Promise<boolean> {
