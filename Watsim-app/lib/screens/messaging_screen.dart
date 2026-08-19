@@ -46,6 +46,8 @@ class _MessagingScreenState extends State<MessagingScreen> {
   Future<void> _loadConversations() async {
     setState(() => _loading = true);
     try {
+      final currentUser = await AuthService.currentUser;
+      final currentUserId = currentUser?['id'] as String?;
       final raw = await ApiService.fetchConversations();
       final mapped = raw
           .map((e) {
@@ -64,11 +66,15 @@ class _MessagingScreenState extends State<MessagingScreen> {
               } else {
                 ts = DateTime.now();
               }
+              final senderMap = last['sender'] as Map<String, dynamic>?;
+              final senderId =
+                  (senderMap?['id'] ?? last['senderId'] ?? last['fromId'] ?? '')
+                      .toString();
               messages.add(AppMessage(
                 id: last['id']?.toString() ?? '${id}_last',
                 conversationId: id,
                 text: (last['text'] ?? last['body'] ?? '').toString(),
-                isMe: false,
+                isMe: senderId.isNotEmpty && senderId == currentUserId,
                 timestamp: ts,
               ));
             }
@@ -615,6 +621,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isTyping = false;
   bool _showAttachMenu = false;
   bool _showEmojiPicker = false;
+  bool _loadingMessages = true;
   Conversation get _conv =>
       NotificationState.instance.getConversation(widget.convId) ??
       Conversation(
@@ -706,10 +713,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadBackendMessages([String? convId]) async {
     final targetConvId = convId ?? widget.convId;
+    if (mounted) setState(() => _loadingMessages = true);
     final currentUser = await AuthService.currentUser;
     final currentUserId = currentUser?['id'] as String?;
     try {
-      final raw = await ApiService.fetchMessages(targetConvId, limit: 200);
+      final raw = await ApiService.fetchMessages(targetConvId, limit: 50);
 
       // Map backend payload to AppMessage (keep compatible with existing UI)
       final mapped = raw.map((e) {
@@ -743,11 +751,16 @@ class _ChatScreenState extends State<ChatScreen> {
       }).toList();
 
       if (mounted) {
-        setState(() => _backendMessages = mapped);
+        setState(() {
+          _backendMessages = mapped;
+          _loadingMessages = false;
+        });
       }
 
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _loadingMessages = false);
+    }
   }
 
   MessageAttachment? _mapBackendAttachment(
@@ -854,30 +867,37 @@ class _ChatScreenState extends State<ChatScreen> {
             children: [
               // ── Messages ─────────────────────────────────────────
               Expanded(
-                child: ListView.builder(
-                  controller: _scroll,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                  itemCount: _backendMessages.isNotEmpty
-                      ? _backendMessages.length
-                      : conv.messages.length,
-                  itemBuilder: (_, i) {
-                    final useBackend = _backendMessages.isNotEmpty;
-                    final m =
-                        useBackend ? _backendMessages[i] : conv.messages[i];
-                    final prevMsg = useBackend
-                        ? (i > 0 ? _backendMessages[i - 1] : null)
-                        : (i > 0 ? conv.messages[i - 1] : null);
-                    final showDate = prevMsg == null ||
-                        !_sameDay(prevMsg.timestamp, m.timestamp);
-                    return Column(
-                      children: [
-                        if (showDate) _DateDivider(dt: m.timestamp),
-                        _MessageBubble(message: m),
-                      ],
-                    );
-                  },
-                ),
+                child: _loadingMessages &&
+                        _backendMessages.isEmpty &&
+                        conv.messages.isEmpty
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                            color: AppColors.primaryGreen))
+                    : ListView.builder(
+                        controller: _scroll,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 12),
+                        itemCount: _backendMessages.isNotEmpty
+                            ? _backendMessages.length
+                            : conv.messages.length,
+                        itemBuilder: (_, i) {
+                          final useBackend = _backendMessages.isNotEmpty;
+                          final m = useBackend
+                              ? _backendMessages[i]
+                              : conv.messages[i];
+                          final prevMsg = useBackend
+                              ? (i > 0 ? _backendMessages[i - 1] : null)
+                              : (i > 0 ? conv.messages[i - 1] : null);
+                          final showDate = prevMsg == null ||
+                              !_sameDay(prevMsg.timestamp, m.timestamp);
+                          return Column(
+                            children: [
+                              if (showDate) _DateDivider(dt: m.timestamp),
+                              _MessageBubble(message: m),
+                            ],
+                          );
+                        },
+                      ),
               ),
 
               // ── Attachment quick-menu ─────────────────────────────
