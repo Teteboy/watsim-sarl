@@ -58,5 +58,17 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-export const env = parsed.data;
+let env = parsed.data;
+
+// Derive Orange SMS basic-auth header from client id/secret if not provided directly
+if (!env.ORANGE_SMS_AUTH_HEADER && env.ORANGE_SMS_CLIENT_ID && env.ORANGE_SMS_CLIENT_SECRET) {
+  env = {
+    ...env,
+    ORANGE_SMS_AUTH_HEADER: Buffer.from(
+      `${env.ORANGE_SMS_CLIENT_ID}:${env.ORANGE_SMS_CLIENT_SECRET}`
+    ).toString('base64'),
+  };
+}
+
+export { env };
 export type Env = typeof env;
