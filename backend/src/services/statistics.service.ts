@@ -1,7 +1,8 @@
 import { prisma } from '../config/db';
+import { TransactionStatus } from '@prisma/client';
 
 export async function getUserStatistics(userId: string) {
-  const completedStatuses = ['COMPLETED'] as const;
+  const completedStatuses: TransactionStatus[] = ['COMPLETED'];
 
   const [
     wallet,
@@ -11,7 +12,7 @@ export async function getUserStatistics(userId: string) {
   ] = await Promise.all([
     prisma.wallet.findUnique({ where: { userId } }),
     prisma.transaction.findMany({
-      where: { userId, status: { in: completedStatuses as unknown as string[] } },
+      where: { userId, status: { in: completedStatuses } },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.transaction.findMany({
