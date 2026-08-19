@@ -182,6 +182,7 @@ class ApiService {
   }
 
   /// Check if token is expired (or about to expire within 60s) and refresh if needed.
+  /// Clears auth and throws if the refresh token is also expired/invalid.
   static Future<void> _ensureValidToken() async {
     final token = await AuthService.getAccessToken();
     if (token == null || token.isEmpty) return;
@@ -196,10 +197,19 @@ class ApiService {
       final expiry = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
       if (DateTime.now()
           .isAfter(expiry.subtract(const Duration(seconds: 60)))) {
-        await _refreshToken();
+        final refreshed = await _refreshToken();
+        if (!refreshed) {
+          await AuthService.clear();
+          throw const ApiException(
+              401, 'Session expired. Please log in again.');
+        }
       }
+    } on ApiException {
+      rethrow;
     } catch (e) {
       debugPrint('Token expiry check failed: $e');
+      await AuthService.clear();
+      throw const ApiException(401, 'Session expired. Please log in again.');
     }
   }
 
@@ -236,6 +246,10 @@ class ApiService {
   }
 
   static Map<String, dynamic> _decode(http.Response res) {
+    if (res.statusCode == 401) {
+      AuthService.clear();
+      throw const ApiException(401, 'Session expired. Please log in again.');
+    }
     // Gracefully handle empty body (e.g. 204 No Content or proxy strip)
     final bodyText = res.body.trim();
     if (bodyText.isEmpty) {
@@ -278,6 +292,10 @@ class ApiService {
   }
 
   static List<dynamic> _decodeList(http.Response res) {
+    if (res.statusCode == 401) {
+      AuthService.clear();
+      throw const ApiException(401, 'Session expired. Please log in again.');
+    }
     final bodyText = res.body.trim();
     if (bodyText.isEmpty) {
       if (res.statusCode >= 400) {

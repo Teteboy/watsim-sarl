@@ -21,6 +21,7 @@ async function postJson<T>(path: string, body: any): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
     let msg = `Request failed ${res.status}`;
     try {
       const errBody = await res.json();
@@ -43,6 +44,7 @@ async function putJson<T>(path: string, body: any): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
     let msg = `Request failed ${res.status}`;
     try {
       const errBody = await res.json();
@@ -63,6 +65,7 @@ async function patchJson<T>(path: string, body: any): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
     let msg = `Request failed ${res.status}`;
     try {
       const errBody = await res.json();
@@ -78,6 +81,7 @@ async function getJson<T>(path: string): Promise<T> {
   if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
   const res = await fetch(path, { credentials: 'same-origin', headers });
   if (!res.ok) {
+    if (res.status === 401) handleUnauthorized();
     let msg = `Request failed ${res.status}`;
     try {
       const errBody = await res.json();
@@ -93,6 +97,18 @@ async function getJson<T>(path: string): Promise<T> {
 export class ApiError extends Error {
   status?: number;
   constructor(message?: string) { super(message ?? 'API error'); this.name = 'ApiError'; }
+}
+
+function handleUnauthorized() {
+  const user = tokenStore.getUser();
+  tokenStore.clear();
+  const role = user?.role;
+  let loginPath = '/';
+  if (role === 'ADMIN') loginPath = '/admin/login';
+  else if (role === 'MERCHANT') loginPath = '/merchant/login';
+  if (typeof window !== 'undefined') {
+    window.location.href = loginPath;
+  }
 }
 
 export const API_PREFIX = (import.meta.env?.VITE_API_PREFIX as string) ?? '/api/v1';
