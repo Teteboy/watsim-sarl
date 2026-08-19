@@ -1,6 +1,6 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
-// import helmet from '@fastify/helmet'; // Temporarily disabled due to version mismatch
+// import helmet from '@fastify/helmet'; // Tempor arily disabled due to version mismatch
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import websocket from '@fastify/websocket';
@@ -71,6 +71,17 @@ export async function buildApp(): Promise<FastifyInstance> {
     };
   });
 
+  // SMS balance check (dev/admin utility)
+  app.get('/sms-balance', async (_req, reply) => {
+    try {
+      const { checkSmsBalance } = await import('./services/orange-sms.service');
+      const data = await checkSmsBalance();
+      return reply.send(data);
+    } catch (e: any) {
+      return reply.code(500).send({ error: e.message });
+    }
+  });
+
   const prefix = env.API_PREFIX;
   await app.register(authRoutes, { prefix: `${prefix}/auth` });
   await app.register(userRoutes, { prefix: `${prefix}/users` });
@@ -138,9 +149,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.setErrorHandler((err, _req, reply) => {
     app.log.error(err);
     const status = err.statusCode ?? 500;
+    // Never leak internal/database errors to clients
+    const safeMessage = status >= 500
+      ? 'Something went wrong. Please try again later.'
+      : err.message;
     reply.code(status).send({
       error: err.name || 'InternalServerError',
-      message: status >= 500 ? 'Internal server error' : err.message,
+      message: safeMessage,
     });
   });
 

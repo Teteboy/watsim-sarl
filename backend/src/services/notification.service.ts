@@ -1,24 +1,15 @@
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { prisma } from '../config/db';
-
-let twilioClient: ReturnType<typeof loadTwilio> | null | undefined;
-
-function loadTwilio() {
-  if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN) return null;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const twilio = require('twilio');
-  return twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
-}
+import { sendOrangeSms } from './orange-sms.service';
 
 export async function sendSms(to: string, body: string): Promise<void> {
-  if (twilioClient === undefined) twilioClient = loadTwilio();
-  if (!twilioClient || !env.TWILIO_FROM_NUMBER) {
-    logger.info({ to, body }, 'SMS (mock, twilio not configured)');
+  if (!env.ORANGE_SMS_AUTH_HEADER) {
+    logger.info({ to, body }, 'SMS (mock, Orange SMS not configured)');
     return;
   }
   try {
-    await twilioClient.messages.create({ to, from: env.TWILIO_FROM_NUMBER, body });
+    await sendOrangeSms(to, body);
   } catch (e) {
     logger.error({ err: e }, 'SMS send failed');
   }

@@ -26,6 +26,13 @@ class WalletTransaction {
     final remainder = (amount % 1000).toString().padLeft(3, '0');
     return '$thousands,$remainder FCFA';
   }
+
+  bool get isPending => tag.toUpperCase().contains('PENDING');
+  bool get isFailed =>
+      tag.toUpperCase().contains('FAIL') ||
+      tag.toUpperCase().contains('CANCEL') ||
+      tag.toUpperCase().contains('REJECTED');
+  bool get isFinalized => !isPending && !isFailed;
 }
 
 class WalletState {
@@ -164,20 +171,18 @@ class WalletState {
     required int collectedAmount,
   }) {
     // Find the most recent PENDING cash deposit to update its tag
-    final pending = _transactions
-        .lastWhere(
-          (t) =>
-              t.tag == 'PENDING' &&
-              t.title == 'Cash Deposit via Watsim Official',
-          orElse: () => WalletTransaction(
-            type: TxType.deposit,
-            title: '',
-            amount: 0,
-            isCredit: true,
-            date: DateTime.now(),
-            tag: '',
-          ),
-        );
+    final pending = _transactions.lastWhere(
+      (t) =>
+          t.tag == 'PENDING' && t.title == 'Cash Deposit via Watsim Official',
+      orElse: () => WalletTransaction(
+        type: TxType.deposit,
+        title: '',
+        amount: 0,
+        isCredit: true,
+        date: DateTime.now(),
+        tag: '',
+      ),
+    );
 
     if (pending.tag == 'PENDING') {
       pending.tag = 'SUCCESS';
@@ -191,7 +196,9 @@ class WalletState {
       final diff = collectedAmount - requestedAmount;
       _addTx(WalletTransaction(
         type: TxType.deposit,
-        title: diff > 0 ? 'Cash Deposit Adjustment (+)' : 'Cash Deposit Adjustment',
+        title: diff > 0
+            ? 'Cash Deposit Adjustment (+)'
+            : 'Cash Deposit Adjustment',
         amount: diff.abs(),
         isCredit: diff > 0,
         date: DateTime.now(),
@@ -205,7 +212,7 @@ class WalletState {
   // ── Backend Sync ──────────────────────────────────────────────────────────
   bool _isLoading = false;
   String? _error;
-  
+
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -214,39 +221,40 @@ class WalletState {
     _isLoading = true;
     _error = null;
     _notify();
-    
+
     try {
       // Fetch wallet balance
       final walletData = await ApiService.fetchWallet();
       final backendBalance = (walletData['balance'] as num?)?.toInt() ?? 0;
-      
+
       // Update balance if different
       if (backendBalance != _balance) {
         _balance = backendBalance;
       }
-      
+
       // Fetch transactions
       final transactions = await ApiService.fetchTransactions();
       _transactions.clear();
-      
+
       for (final tx in transactions) {
         final txData = Map<String, dynamic>.from(tx as Map<dynamic, dynamic>);
         final type = _parseTxType(txData['type'] as String?);
         final amount = (txData['amount'] as num?)?.toInt() ?? 0;
         final isCredit = type == TxType.deposit || (txData['type'] == 'REFUND');
-        
+
         _transactions.add(WalletTransaction(
           type: type,
           title: _formatTxTitle(txData),
           amount: amount,
           isCredit: isCredit,
           date: txData['createdAt'] != null
-              ? DateTime.tryParse(txData['createdAt'] as String) ?? DateTime.now()
+              ? DateTime.tryParse(txData['createdAt'] as String) ??
+                  DateTime.now()
               : DateTime.now(),
           tag: txData['status'] as String? ?? 'COMPLETED',
         ));
       }
-      
+
       _isLoading = false;
       _notify();
     } catch (e) {
@@ -255,7 +263,7 @@ class WalletState {
       _notify();
     }
   }
-  
+
   TxType _parseTxType(String? type) {
     switch (type) {
       case 'DEPOSIT':
@@ -272,11 +280,11 @@ class WalletState {
         return TxType.deposit;
     }
   }
-  
+
   String _formatTxTitle(Map<String, dynamic> tx) {
     final type = tx['type'] as String?;
     final provider = tx['provider'] as String?;
-    
+
     switch (type) {
       case 'DEPOSIT':
         return 'Deposit via ${provider ?? 'Mobile Money'}';

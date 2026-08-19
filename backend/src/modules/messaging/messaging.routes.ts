@@ -77,7 +77,7 @@ export async function messagingRoutes(app: FastifyInstance): Promise<void> {
             });
           }
 
-          convId = await getOrCreateConversation(userId, others, body.title, true);
+          convId = await getOrCreateConversation(userId, others, body.title, body.isSupport ?? false);
 
         } else {
           return reply.code(400).send({ error: 'BadRequest', message: 'participantIds or participantPhones required' });

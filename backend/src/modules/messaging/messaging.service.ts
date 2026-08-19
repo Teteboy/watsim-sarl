@@ -96,6 +96,16 @@ export async function getOrCreateConversation(
     }
   }
 
+  // Verify all provided participant IDs refer to real users
+  const validUsers = await prisma.user.findMany({
+    where: { id: { in: participantIds } },
+    select: { id: true },
+  });
+  const validIds = validUsers.map((u) => u.id);
+  if (validIds.length === 0) {
+    throw new AuthError(400, 'One or more participantIds are not valid users');
+  }
+
   // Create new
   const conv = await prisma.conversation.create({
     data: {
@@ -103,7 +113,7 @@ export async function getOrCreateConversation(
       participants: {
         create: [
           { userId },
-          ...participantIds.map((pid) => ({ userId: pid })),
+          ...validIds.map((pid) => ({ userId: pid })),
         ],
       },
     },

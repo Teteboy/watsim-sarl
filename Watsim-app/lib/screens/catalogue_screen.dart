@@ -24,7 +24,7 @@ class Product {
   final String imageUrl;
   final List<Color> imageGradient;
   final List<String> imageUrls; // multiple images for detail gallery
-  
+
   // Extended fields from backend
   final String? description;
   final int? stock;
@@ -54,39 +54,44 @@ class Product {
   factory Product.fromJson(Map<String, dynamic> json) {
     final priceInt = (json['price'] as num?)?.toInt() ?? 0;
     final catMap = json['category'] as Map<String, dynamic>?;
-    final catName = catMap?['name'] as String? ?? (json['categoryName'] as String? ?? 'General');
+    final catName = catMap?['name'] as String? ??
+        (json['categoryName'] as String? ?? 'General');
     final rawImgUrl = json['imageUrl'] as String? ?? '';
     final resolvedImgUrl = ApiService.resolveImageUrl(rawImgUrl);
-    final imgUrl = resolvedImgUrl.isNotEmpty ? resolvedImgUrl : 'https://picsum.photos/400/400.webp';
+    final imgUrl = resolvedImgUrl.isNotEmpty
+        ? resolvedImgUrl
+        : 'https://picsum.photos/400/400.webp';
     // Monthly: approximate as price / 3 months
     final monthly = (priceInt / 3).round();
     final fmt = _formatPriceInt;
-    
+
     // Parse gallery images from backend
     final List<String> galleryUrls = [];
     final galleryList = json['gallery'] as List<dynamic>?;
     if (galleryList != null && galleryList.isNotEmpty) {
       for (final item in galleryList) {
         if (item is Map<String, dynamic>) {
-          final galleryUrl = ApiService.resolveImageUrl(item['imageUrl'] as String?);
+          final galleryUrl =
+              ApiService.resolveImageUrl(item['imageUrl'] as String?);
           if (galleryUrl.isNotEmpty) {
             galleryUrls.add(galleryUrl);
           }
         }
       }
     }
-    
+
     // If no gallery, use main image as fallback
     final imageUrls = galleryUrls.isNotEmpty ? galleryUrls : [imgUrl];
-    
+
     // Parse merchant name from nested object
     final merchantMap = json['merchant'] as Map<String, dynamic>?;
-    final merchantName = merchantMap?['businessName'] as String? ?? 
-                        merchantMap?['name'] as String?;
-    
+    final merchantName = merchantMap?['businessName'] as String? ??
+        merchantMap?['name'] as String?;
+
     return Product(
       id: json['id'] as String?,
-      merchantId: merchantMap?['id'] as String? ?? json['merchantId'] as String?,
+      merchantId:
+          merchantMap?['id'] as String? ?? json['merchantId'] as String?,
       name: json['name'] as String? ?? 'Product',
       price: '${fmt(priceInt)} FCFA',
       monthlyPrice: 'from ${fmt(monthly)} FCFA/month',
@@ -171,7 +176,10 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
         _loadingProducts = false;
       });
     } catch (_) {
-      if (mounted) setState(() { _loadingProducts = false; });
+      if (mounted)
+        setState(() {
+          _loadingProducts = false;
+        });
     }
   }
 
@@ -209,12 +217,18 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
 
   String _catLabel(String key, dynamic lang) {
     switch (key) {
-      case 'All': return lang.catAll;
-      case 'Electronics': return lang.catElectronics;
-      case 'Accessories': return lang.catAccessories;
-      case 'Kitchen': return lang.catKitchen;
-      case 'Sports': return lang.catSports;
-      default: return key;
+      case 'All':
+        return lang.catAll;
+      case 'Electronics':
+        return lang.catElectronics;
+      case 'Accessories':
+        return lang.catAccessories;
+      case 'Kitchen':
+        return lang.catKitchen;
+      case 'Sports':
+        return lang.catSports;
+      default:
+        return key;
     }
   }
 
@@ -229,7 +243,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.primaryDark,
         automaticallyImplyLeading: false,
-        title: null,
+        title: Text(lang.navShop),
         actions: [
           IconButton(
             icon: const Icon(Icons.account_balance_wallet_outlined,
@@ -295,7 +309,8 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 18),
+                  const Icon(Icons.swap_horiz_rounded,
+                      color: Colors.white, size: 18),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
@@ -308,7 +323,8 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                    icon: const Icon(Icons.close_rounded,
+                        color: Colors.white70, size: 18),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => Navigator.pop(context),
@@ -348,8 +364,8 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide:
-                      const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+                  borderSide: const BorderSide(
+                      color: AppColors.primaryGreen, width: 1.5),
                 ),
               ),
             ),
@@ -416,7 +432,9 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
           // ── Product grid or empty state ─────────────────────────
           Expanded(
             child: _loadingProducts
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
+                ? const Center(
+                    child: CircularProgressIndicator(
+                        color: AppColors.primaryGreen))
                 : results.isEmpty
                     ? _EmptySearchState(query: _searchQuery, lang: lang)
                     : RefreshIndicator(
@@ -427,7 +445,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            childAspectRatio: 0.68,
+                            childAspectRatio: 0.62,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                           ),
@@ -435,7 +453,8 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                           itemBuilder: (_, i) => _ProductCard(
                             product: results[i],
                             exchangeMode: widget.exchangeMode,
-                            onSelectForExchange: widget.onProductSelectedForExchange,
+                            onSelectForExchange:
+                                widget.onProductSelectedForExchange,
                           ),
                         ),
                       ),
@@ -511,7 +530,7 @@ class _ProductCardState extends State<_ProductCard>
       vsync: this,
       duration: const Duration(milliseconds: 700),
     )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 1.0, end: 1.07).animate(
+    _pulseAnim = Tween<double>(begin: 1.0, end: 1.03).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
   }
@@ -534,7 +553,8 @@ class _ProductCardState extends State<_ProductCard>
       } else {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product)),
+          MaterialPageRoute(
+              builder: (_) => ProductDetailScreen(product: product)),
         );
       }
     }
@@ -542,11 +562,13 @@ class _ProductCardState extends State<_ProductCard>
     return GestureDetector(
       onTap: handleTap,
       child: Container(
+        clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
           border: isExchange
-              ? Border.all(color: const Color(0xFF0D5E3F).withOpacity(0.35), width: 1.5)
+              ? Border.all(
+                  color: const Color(0xFF0D5E3F).withOpacity(0.35), width: 1.5)
               : null,
           boxShadow: [
             BoxShadow(
@@ -563,7 +585,7 @@ class _ProductCardState extends State<_ProductCard>
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(16)),
-              child: _ProductImage(product: product, height: 130),
+              child: _ProductImage(product: product, height: 115),
             ),
 
             // ── Info ────────────────────────────────────────────
@@ -582,6 +604,8 @@ class _ProductCardState extends State<_ProductCard>
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
                     Text(product.price,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
@@ -590,7 +614,7 @@ class _ProductCardState extends State<_ProductCard>
                     Text(product.monthlyPrice,
                         style: const TextStyle(
                             fontSize: 9.5, color: AppColors.textMuted),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     const Spacer(),
                     // ── Action button (pulsing in normal mode, solid in exchange) ──
@@ -601,7 +625,7 @@ class _ProductCardState extends State<_ProductCard>
                           onTap: handleTap,
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            padding: const EdgeInsets.symmetric(vertical: 6),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFF0D5E3F), Color(0xFF1A8A5A)],
@@ -609,7 +633,8 @@ class _ProductCardState extends State<_ProductCard>
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF0D5E3F).withOpacity(0.4),
+                                  color:
+                                      const Color(0xFF0D5E3F).withOpacity(0.4),
                                   blurRadius: 8,
                                   spreadRadius: 1,
                                 ),
@@ -635,40 +660,41 @@ class _ProductCardState extends State<_ProductCard>
                         );
                       }
                       return GestureDetector(
-                      onTap: handleTap,
-                      child: ScaleTransition(
-                        scale: _pulseAnim,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 7),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryGreen,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primaryGreen.withOpacity(0.45),
-                                blurRadius: 8,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                lang.saveNow.toUpperCase(),
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.5),
-                              ),
-                            ],
+                        onTap: handleTap,
+                        child: ScaleTransition(
+                          scale: _pulseAnim,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreen,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      AppColors.primaryGreen.withOpacity(0.45),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  lang.saveNow.toUpperCase(),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );})
-
+                      );
+                    })
                   ],
                 ),
               ),
@@ -925,13 +951,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Column(
                       children: [
                         if (product.merchantName != null)
-                          _feature(Icons.store_outlined, 'Vendeur: ${product.merchantName}'),
+                          _feature(Icons.store_outlined,
+                              'Vendeur: ${product.merchantName}'),
                         if (product.stock != null)
-                          _feature(Icons.inventory_2_outlined, 'Stock: ${product.stock} disponibles'),
+                          _feature(Icons.inventory_2_outlined,
+                              'Stock: ${product.stock} disponibles'),
                         _feature(Icons.check_circle_rounded, lang.freeDelivery),
                         _feature(Icons.shield_rounded, lang.warranty12),
                         if (product.bnplEligible == true)
-                          _feature(Icons.credit_score_outlined, 'BNPL éligible'),
+                          _feature(
+                              Icons.credit_score_outlined, 'BNPL éligible'),
                       ],
                     ),
                   ),
@@ -943,7 +972,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           color: AppColors.textPrimary)),
                   const SizedBox(height: 8),
                   Text(
-                    product.description ?? '${lang.enjoyProduct} ${product.name} ${lang.bnplPaymentDesc}',
+                    product.description ??
+                        '${lang.enjoyProduct} ${product.name} ${lang.bnplPaymentDesc}',
                     style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.textSecondary,
@@ -1021,7 +1051,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             );
             return;
           }
-          Navigator.push(context,
+          Navigator.push(
+              context,
               MaterialPageRoute(
                   builder: (_) => BnplSimulatorScreen(product: product)));
         },
@@ -1158,8 +1189,6 @@ class _ImageGallery extends StatelessWidget {
               ),
             ),
           ),
-
-
       ],
     );
   }
@@ -1259,8 +1288,7 @@ class _BnplOrdersScreenState extends State<BnplOrdersScreen>
               size: 56, color: AppColors.textMuted.withOpacity(0.5)),
           const SizedBox(height: 12),
           Text(msg,
-              style: const TextStyle(
-                  color: AppColors.textMuted, fontSize: 14)),
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
         ],
       ),
     );
@@ -1329,8 +1357,7 @@ class _OrderCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text('$current ${lang.of} $total ${lang.paymentsMade}',
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.textMuted)),
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
         ],
       ),
     );

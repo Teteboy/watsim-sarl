@@ -43,10 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Publicity/ads loaded from backend
   List<Map<String, dynamic>> _publicities = const [];
-  
+
   // Exclusive offers (products) loaded from backend
   List<Product> _exclusiveOffers = const [];
-
 
   @override
   void initState() {
@@ -64,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadHomeData() async {
     setState(() => _loading = true);
-    
+
     try {
       // Sync all local state with backend first
       await Future.wait([
@@ -72,8 +71,9 @@ class _HomeScreenState extends State<HomeScreen> {
         OrderState.instance.syncWithBackend(),
         NotificationState.instance.syncWithBackend(),
       ]);
-      
-      final [products, bestOffers, wallet, profile, publicities] = await Future.wait([
+
+      final [products, bestOffers, wallet, profile, publicities] =
+          await Future.wait([
         ApiService.fetchProducts(limit: 6),
         ApiService.fetchBestOffers(limit: 8),
         ApiService.fetchWallet(),
@@ -84,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
 
       final profileMap = profile as Map<String, dynamic>?;
-      
+
       // Sync ProfileState with fetched data
       if (profileMap != null) {
         ProfileState.instance.updateUser(profileMap);
@@ -131,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _walletBalance = balance;
         _profile = profileMap;
         _publicities = publicities as List<Map<String, dynamic>>;
-        
+
         // Populate exclusive offers from best offers using Product.fromJson for proper gallery parsing
         _exclusiveOffers = bestOfferList.map((p) {
           // Use fromJson if price is numeric, otherwise manual mapping for pre-formatted
@@ -143,26 +143,30 @@ class _HomeScreenState extends State<HomeScreen> {
           final colorStr = p['color']?.toString() ?? '#4DB049';
           final color = _parseColor(colorStr);
           final catMap = p['category'] as Map<String, dynamic>?;
-          final catName = catMap?['name']?.toString() ?? p['category']?.toString() ?? 'General';
-          
+          final catName = catMap?['name']?.toString() ??
+              p['category']?.toString() ??
+              'General';
+
           // Parse gallery images from backend
           final List<String> galleryUrls = [];
           final galleryList = p['gallery'] as List<dynamic>?;
           if (galleryList != null && galleryList.isNotEmpty) {
             for (final item in galleryList) {
               if (item is Map<String, dynamic>) {
-                final galleryUrl = ApiService.resolveImageUrl(item['imageUrl'] as String?);
+                final galleryUrl =
+                    ApiService.resolveImageUrl(item['imageUrl'] as String?);
                 if (galleryUrl.isNotEmpty) {
                   galleryUrls.add(galleryUrl);
                 }
               }
             }
           }
-          final mainImgUrl = ApiService.resolveImageUrl(p['imageUrl']?.toString());
-          final List<String> imageUrls = galleryUrls.isNotEmpty 
-              ? galleryUrls 
+          final mainImgUrl =
+              ApiService.resolveImageUrl(p['imageUrl']?.toString());
+          final List<String> imageUrls = galleryUrls.isNotEmpty
+              ? galleryUrls
               : (mainImgUrl.isNotEmpty ? <String>[mainImgUrl] : <String>[]);
-          
+
           return Product(
             id: p['id']?.toString() ?? '',
             name: p['name']?.toString() ?? '',
@@ -176,7 +180,8 @@ class _HomeScreenState extends State<HomeScreen> {
             imageGradient: [color, color.withOpacity(0.7)],
             imageUrls: imageUrls,
             description: p['description'] as String?,
-            merchantName: (p['merchant'] as Map<String, dynamic>?)?['businessName'] as String?,
+            merchantName: (p['merchant']
+                as Map<String, dynamic>?)?['businessName'] as String?,
             stock: (p['stock'] as num?)?.toInt(),
           );
         }).toList();
@@ -185,25 +190,29 @@ class _HomeScreenState extends State<HomeScreen> {
         List<Map<String, dynamic>> slideshowData = _publicities.isNotEmpty
             ? _publicities.take(4).toList()
             : safeProducts.take(4).toList();
-            
+
         final slideList = slideshowData.map((item) {
           // Check if it's publicity or product
-          final isPublicity = item.containsKey('imageUrl') && item.containsKey('merchant');
-          
+          final isPublicity =
+              item.containsKey('imageUrl') && item.containsKey('merchant');
+
           if (isPublicity) {
             // Handle merchant as object {id, businessName} or string
             final merchantData = item['merchant'];
             String merchantName = '';
             if (merchantData is Map) {
-              merchantName = merchantData['businessName']?.toString() ?? merchantData['name']?.toString() ?? '';
+              merchantName = merchantData['businessName']?.toString() ??
+                  merchantData['name']?.toString() ??
+                  '';
             } else if (merchantData is String) {
               merchantName = merchantData;
             }
-            
+
             return _SlideshowItem(
-              imageUrl: ApiService.resolveImageUrl(item['imageUrl'] as String?) .isNotEmpty
-                ? ApiService.resolveImageUrl(item['imageUrl'] as String?)
-                : 'https://picsum.photos/800/400.webp',
+              imageUrl: ApiService.resolveImageUrl(item['imageUrl'] as String?)
+                      .isNotEmpty
+                  ? ApiService.resolveImageUrl(item['imageUrl'] as String?)
+                  : 'https://picsum.photos/800/400.webp',
               name: item['name'] as String? ?? 'Publicité',
               price: '', // No price for publicity
               monthly: merchantName,
@@ -213,16 +222,17 @@ class _HomeScreenState extends State<HomeScreen> {
             final price = priceToInt(item['price']);
             final monthly = (price / 3).round();
             return _SlideshowItem(
-              imageUrl: ApiService.resolveImageUrl(item['imageUrl'] as String?).isNotEmpty
-                ? ApiService.resolveImageUrl(item['imageUrl'] as String?)
-                : 'https://picsum.photos/800/400.webp',
+              imageUrl: ApiService.resolveImageUrl(item['imageUrl'] as String?)
+                      .isNotEmpty
+                  ? ApiService.resolveImageUrl(item['imageUrl'] as String?)
+                  : 'https://picsum.photos/800/400.webp',
               name: item['name'] as String? ?? 'Product',
               price: '${fmt(price)} FCFA',
               monthly: 'from ${fmt(monthly)} FCFA/mo',
             );
           }
         }).toList();
-        
+
         // Deduplicate slideshow by name (no ID available here)
         final seenSlideNames = <String>{};
         _slideshowItems = slideList.where((s) {
@@ -237,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final Color baseColor = const Color(0xFF0A1A2A);
           // Category can be a Map or a String
           final dynamic cat = p['category'];
-          final String categoryName = cat is Map<String, dynamic> 
+          final String categoryName = cat is Map<String, dynamic>
               ? (cat['name'] as String? ?? 'General')
               : (cat as String? ?? 'General');
           return Product(
@@ -253,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
             imageGradient: [baseColor, baseColor],
           );
         }).toList();
-        
+
         // Deduplicate by product ID and name (in case same product has different IDs)
         final seenIds = <String>{};
         final seenNames = <String>{};
@@ -280,9 +290,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _runDiagnostics() async {
     final results = await ApiService.diagnoseConnection();
     if (!mounted) return;
-    
+
     final jsonText = const JsonEncoder.withIndent('  ').convert(results);
-    
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -318,15 +328,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ApiService.fetchBestOffers(limit: 8),
         ApiService.fetchProfile(),
       ]);
-      
+
       if (!mounted) return;
-      
+
       final data = {
         'profile': profile,
         'products': products,
         'bestOffers': bestOffers,
       };
-      
+
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -416,10 +426,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getInitials() {
-    final name = ProfileState.instance.fullName ?? 
-                 ProfileState.instance.email ?? 
-                 ProfileState.instance.phone ?? 
-                 '?';
+    final name = ProfileState.instance.fullName ??
+        ProfileState.instance.email ??
+        ProfileState.instance.phone ??
+        '?';
     if (name == '?') return '?';
     final parts = name.trim().split(' ');
     if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
@@ -468,28 +478,31 @@ class _HomeScreenState extends State<HomeScreen> {
             child: CircleAvatar(
               radius: 18,
               backgroundColor: AppColors.primaryGreen.withOpacity(0.2),
-              backgroundImage: (!_loading && ProfileState.instance.imageUrl != null && ProfileState.instance.imageUrl!.isNotEmpty)
-                ? NetworkImage(ProfileState.instance.imageUrl!)
-                : null,
+              backgroundImage: (!_loading &&
+                      ProfileState.instance.imageUrl != null &&
+                      ProfileState.instance.imageUrl!.isNotEmpty)
+                  ? NetworkImage(ProfileState.instance.imageUrl!)
+                  : null,
               child: _loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.primaryGreen,
-                    ),
-                  )
-                : (ProfileState.instance.imageUrl == null || ProfileState.instance.imageUrl!.isEmpty)
-                  ? Text(
-                      _getInitials(),
-                      style: const TextStyle(
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
                         color: AppColors.primaryGreen,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
                       ),
                     )
-                  : null,
+                  : (ProfileState.instance.imageUrl == null ||
+                          ProfileState.instance.imageUrl!.isEmpty)
+                      ? Text(
+                          _getInitials(),
+                          style: const TextStyle(
+                            color: AppColors.primaryGreen,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : null,
             ),
           ),
         ),
@@ -504,9 +517,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontSize: 16,
                     fontWeight: FontWeight.w600)),
             Text(
-              _loading 
-                ? 'Loading...'
-                : '${(_profile?['fullName'] ?? _profile?['name'] ?? _profile?['phone'] ?? _profile?['email'] ?? 'Guest')}',
+              _loading
+                  ? 'Loading...'
+                  : '${(_profile?['fullName'] ?? _profile?['name'] ?? _profile?['phone'] ?? _profile?['email'] ?? 'Guest')}',
               style: const TextStyle(
                 color: Colors.white54,
                 fontSize: 12,
@@ -578,7 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: CircularProgressIndicator(),
                 ),
               ),
-            
+
             // ── Balance Card ──────────────────────────────────────────
             GradientCard(
               child: Column(
@@ -595,22 +608,26 @@ class _HomeScreenState extends State<HomeScreen> {
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: (_profile?['kycStatus'] == 'VERIFIED'
-                              ? AppColors.primaryGreen
-                              : AppColors.warning).withOpacity(0.25),
+                                  ? AppColors.primaryGreen
+                                  : AppColors.warning)
+                              .withOpacity(0.25),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          _profile?['kycStatus'] == 'VERIFIED'
-                            ? lang.verified
-                            : (_profile?['kycStatus']?.toString().toLowerCase() == 'pending'
-                                ? 'Pending'
-                                : 'Unverified'),
-                          style: TextStyle(
-                            color: _profile?['kycStatus'] == 'VERIFIED'
-                              ? AppColors.primaryGreen
-                              : AppColors.warning,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700)),
+                            _profile?['kycStatus'] == 'VERIFIED'
+                                ? lang.verified
+                                : (_profile?['kycStatus']
+                                            ?.toString()
+                                            .toLowerCase() ==
+                                        'pending'
+                                    ? 'Pending'
+                                    : 'Unverified'),
+                            style: TextStyle(
+                                color: _profile?['kycStatus'] == 'VERIFIED'
+                                    ? AppColors.primaryGreen
+                                    : AppColors.warning,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700)),
                       ),
                     ],
                   ),
@@ -670,7 +687,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     return GestureDetector(
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const CreditScoreScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const CreditScoreScreen()),
                       ),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -852,29 +870,35 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.campaign_outlined,
-                        size: 48,
+                        size: 40,
                         color: AppColors.textMuted,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _publicities.isNotEmpty 
-                            ? 'Featured publicity will appear here'
-                            : 'Featured products will appear here',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
+                      const SizedBox(height: 6),
+                      Flexible(
+                        child: Text(
+                          _publicities.isNotEmpty
+                              ? 'Featured publicity will appear here'
+                              : 'Featured products will appear here',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       TextButton.icon(
                         onPressed: () => Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const MainShell(initialIndex: 1))),
+                                builder: (_) =>
+                                    const MainShell(initialIndex: 1))),
                         icon: const Icon(Icons.explore, size: 16),
                         label: const Text('Browse Catalogue'),
                       ),
@@ -906,119 +930,129 @@ class _HomeScreenState extends State<HomeScreen> {
                               fit: StackFit.expand,
                               children: [
                                 item.imageUrl.isNotEmpty
-                                  ? Image.network(
-                                      item.imageUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          Container(color: AppColors.primaryDark),
-                                    )
-                                  : Container(color: AppColors.primaryDark),
-                              // Dark gradient overlay
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.centerRight,
-                                    end: Alignment.centerLeft,
-                                    colors: [
-                                      Colors.transparent,
-                                      Colors.black.withOpacity(0.75),
+                                    ? Image.network(
+                                        item.imageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                            color: AppColors.primaryDark),
+                                      )
+                                    : Container(color: AppColors.primaryDark),
+                                // Dark gradient overlay
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.centerRight,
+                                      end: Alignment.centerLeft,
+                                      colors: [
+                                        Colors.transparent,
+                                        Colors.black.withOpacity(0.75),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                // Text overlay
+                                Positioned(
+                                  left: 18,
+                                  bottom: 18,
+                                  right: 80,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                          item.price.isEmpty
+                                              ? 'PUBLICITÉ'
+                                              : lang.buyNow,
+                                          style: TextStyle(
+                                              color: item.price.isEmpty
+                                                  ? Colors.orange
+                                                  : AppColors.primaryGreen,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 1.0)),
+                                      const SizedBox(height: 4),
+                                      Text(item.name,
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w800)),
+                                      const SizedBox(height: 2),
+                                      if (item.price.isNotEmpty) ...[
+                                        Text(item.price,
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700)),
+                                        const SizedBox(height: 2),
+                                        Text(item.monthly,
+                                            style: TextStyle(
+                                                color: Colors.white
+                                                    .withOpacity(0.7),
+                                                fontSize: 11)),
+                                      ] else if (item.monthly.isNotEmpty) ...[
+                                        Text('par ${item.monthly}',
+                                            style: TextStyle(
+                                                color: Colors.white
+                                                    .withOpacity(0.8),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500)),
+                                      ],
+                                      const SizedBox(height: 10),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                            color: AppColors.primaryGreen,
+                                            borderRadius:
+                                                BorderRadius.circular(7)),
+                                        child: Text(
+                                            item.price.isEmpty
+                                                ? 'Voir l\'offre'
+                                                : lang.explore,
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.5)),
+                                      ),
                                     ],
                                   ),
                                 ),
-                              ),
-                              // Text overlay
-                              Positioned(
-                                left: 18,
-                                bottom: 18,
-                                right: 80,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(item.price.isEmpty ? 'PUBLICITÉ' : lang.buyNow,
-                                        style: TextStyle(
-                                            color: item.price.isEmpty 
-                                                ? Colors.orange
-                                                : AppColors.primaryGreen,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 1.0)),
-                                    const SizedBox(height: 4),
-                                    Text(item.name,
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w800)),
-                                    const SizedBox(height: 2),
-                                    if (item.price.isNotEmpty) ...[
-                                      Text(item.price,
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700)),
-                                      const SizedBox(height: 2),
-                                      Text(item.monthly,
-                                          style: TextStyle(
-                                              color:
-                                                  Colors.white.withOpacity(0.7),
-                                              fontSize: 11)),
-                                    ] else if (item.monthly.isNotEmpty) ...[
-                                      Text('par ${item.monthly}',
-                                          style: TextStyle(
-                                              color: Colors.white.withOpacity(0.8),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500)),
-                                    ],
-                                    const SizedBox(height: 10),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                          color: AppColors.primaryGreen,
-                                          borderRadius:
-                                              BorderRadius.circular(7)),
-                                      child: Text(item.price.isEmpty ? 'Voir l\'offre' : lang.explore,
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 0.5)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                      // ── Dot indicators ──
-                      Positioned(
-                        bottom: 10,
-                        right: 14,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(_slideshowItems.length, (i) {
-                            final active = i == _slideshowIndex;
-                            return AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              width: active ? 18 : 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: active
-                                    ? AppColors.primaryGreen
-                                    : Colors.white38,
-                                borderRadius: BorderRadius.circular(3),
-                              ),
+                              ],
                             );
-                          }),
+                          },
                         ),
-                      ),
-                    ],
+                        // ── Dot indicators ──
+                        Positioned(
+                          bottom: 10,
+                          right: 14,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children:
+                                List.generate(_slideshowItems.length, (i) {
+                              final active = i == _slideshowIndex;
+                              return AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 3),
+                                width: active ? 18 : 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: active
+                                      ? AppColors.primaryGreen
+                                      : Colors.white38,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
             const SizedBox(height: 20),
 
@@ -1361,22 +1395,23 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Product image
             product.imageUrl.isNotEmpty
-              ? Image.network(
-                  product.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(color: product.color),
-                  loadingBuilder: (_, child, progress) {
-                    if (progress == null) return child;
-                    return Container(
-                      color: product.color,
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                            color: AppColors.primaryGreen, strokeWidth: 2),
-                      ),
-                    );
-                  },
-                )
-              : Container(color: product.color),
+                ? Image.network(
+                    product.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        Container(color: product.color),
+                    loadingBuilder: (_, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        color: product.color,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primaryGreen, strokeWidth: 2),
+                        ),
+                      );
+                    },
+                  )
+                : Container(color: product.color),
             Positioned(
               top: 8,
               right: 8,
@@ -1404,6 +1439,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   const Spacer(),
                   Text(product.name,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           color: Colors.white,
@@ -1411,6 +1447,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Text(product.monthlyPrice,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           color: AppColors.primaryGreen,
                           fontSize: 12,
@@ -1429,7 +1467,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final String imageUrl = publicity['imageUrl'] ?? '';
     final String merchant = publicity['merchant'] ?? '';
     final String position = publicity['position'] ?? '';
-    
+
     return GestureDetector(
       onTap: () {
         // Handle publicity click - could open a web view, show details, etc.
@@ -1458,10 +1496,42 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Publicity image
             imageUrl.isNotEmpty
-              ? Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.primaryGreen,
+                            AppColors.primaryDark
+                          ],
+                        ),
+                      ),
+                    ),
+                    loadingBuilder: (_, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              AppColors.primaryGreen,
+                              AppColors.primaryDark
+                            ],
+                          ),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        ),
+                      );
+                    },
+                  )
+                : Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
@@ -1470,32 +1540,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  loadingBuilder: (_, child, progress) {
-                    if (progress == null) return child;
-                    return Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [AppColors.primaryGreen, AppColors.primaryDark],
-                        ),
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2),
-                      ),
-                    );
-                  },
-                )
-              : Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.primaryGreen, AppColors.primaryDark],
-                    ),
-                  ),
-                ),
             // Gradient overlay for text readability
             Container(
               decoration: BoxDecoration(
@@ -1560,7 +1604,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
@@ -1685,12 +1730,16 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
     final note = _noteCtrl.text.trim();
 
     if (identifier.isEmpty) {
-      _showError(lang.isFrench ? 'Veuillez entrer un numéro de téléphone ou email' : 'Please enter phone number or email');
+      _showError(lang.isFrench
+          ? 'Veuillez entrer un numéro de téléphone ou email'
+          : 'Please enter phone number or email');
       return;
     }
 
     if (amount < 100) {
-      _showError(lang.isFrench ? 'Le montant minimum est de 100 FCFA' : 'Minimum amount is 100 FCFA');
+      _showError(lang.isFrench
+          ? 'Le montant minimum est de 100 FCFA'
+          : 'Minimum amount is 100 FCFA');
       return;
     }
 
@@ -1742,7 +1791,8 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle, color: AppColors.primaryGreen, size: 64),
+            const Icon(Icons.check_circle,
+                color: AppColors.primaryGreen, size: 64),
             const SizedBox(height: 16),
             Text(message, textAlign: TextAlign.center),
           ],
@@ -1815,8 +1865,12 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
                 onChanged: (_) => setState(() => _recipientName = null),
                 onEditingComplete: _verifyRecipient,
                 decoration: InputDecoration(
-                  labelText: lang.isFrench ? 'Téléphone ou Email du destinataire' : 'Recipient Phone or Email',
-                  hintText: lang.isFrench ? '+237... ou email@example.com' : '+237... or email@example.com',
+                  labelText: lang.isFrench
+                      ? 'Téléphone ou Email du destinataire'
+                      : 'Recipient Phone or Email',
+                  hintText: lang.isFrench
+                      ? '+237... ou email@example.com'
+                      : '+237... or email@example.com',
                   prefixIcon: const Icon(Icons.person_outline),
                   suffixIcon: _isVerifying
                       ? const SizedBox(
@@ -1839,18 +1893,25 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
               if (_recipientName != null) ...[
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.primaryGreen.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle, color: AppColors.primaryGreen, size: 16),
+                      const Icon(Icons.check_circle,
+                          color: AppColors.primaryGreen, size: 16),
                       const SizedBox(width: 8),
-                      Text(
-                        '${lang.isFrench ? 'Destinataire' : 'Recipient'}: $_recipientName',
-                        style: const TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.w500),
+                      Expanded(
+                        child: Text(
+                          '${lang.isFrench ? 'Destinataire' : 'Recipient'}: $_recipientName',
+                          style: const TextStyle(
+                              color: AppColors.primaryGreen,
+                              fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -1878,8 +1939,11 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
                 controller: _noteCtrl,
                 maxLength: 50,
                 decoration: InputDecoration(
-                  labelText: lang.isFrench ? 'Note (optionnel)' : 'Note (optional)',
-                  hintText: lang.isFrench ? 'Ex: Remboursement dîner' : 'Ex: Dinner reimbursement',
+                  labelText:
+                      lang.isFrench ? 'Note (optionnel)' : 'Note (optional)',
+                  hintText: lang.isFrench
+                      ? 'Ex: Remboursement dîner'
+                      : 'Ex: Dinner reimbursement',
                   prefixIcon: const Icon(Icons.edit_note),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),

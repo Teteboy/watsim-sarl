@@ -26,6 +26,10 @@ class _HistoryScreenState extends State<HistoryScreen>
   // Internal keys — display labels come from lang in build
   final _filterKeys = ['All', 'Deposits', 'Withdrawals', 'Transfers', 'BNPL'];
 
+  String _statusFilter = 'All';
+  final _statusFilterKeys = ['All', 'Pending', 'Completed'];
+  final _statusFilterLabels = ['All', 'Pending', 'Completed'];
+
   // Period filter state
   DateTime? _periodStart;
   DateTime? _periodEnd;
@@ -33,7 +37,8 @@ class _HistoryScreenState extends State<HistoryScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    _tabs =
+        TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
     WalletState.instance.addListener(_onWalletChange);
     OrderState.instance.addListener(_onWalletChange);
     // Sync wallet transactions and orders from backend on every open
@@ -59,7 +64,13 @@ class _HistoryScreenState extends State<HistoryScreen>
   @override
   Widget build(BuildContext context) {
     final lang = LanguageProvider.of(context);
-    final filterLabels = [lang.filterAll, lang.filterDeposits, lang.filterWithdrawals, lang.filterTransfers, lang.filterBNPL];
+    final filterLabels = [
+      lang.filterAll,
+      lang.filterDeposits,
+      lang.filterWithdrawals,
+      lang.filterTransfers,
+      lang.filterBNPL
+    ];
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       appBar: AppBar(
@@ -83,7 +94,11 @@ class _HistoryScreenState extends State<HistoryScreen>
           indicatorColor: AppColors.primaryGreen,
           labelColor: AppColors.primaryGreen,
           unselectedLabelColor: Colors.white60,
-          tabs: const [Tab(text: 'Transactions'), Tab(text: 'Orders'), Tab(text: 'Statistics')],
+          tabs: const [
+            Tab(text: 'Transactions'),
+            Tab(text: 'Orders'),
+            Tab(text: 'Statistics')
+          ],
         ),
       ),
       body: TabBarView(
@@ -109,6 +124,13 @@ class _HistoryScreenState extends State<HistoryScreen>
         all = all.where((t) => t.type == TxType.transfer).toList();
       case 'BNPL':
         all = all.where((t) => t.type == TxType.bnpl).toList();
+    }
+    // Apply status filter
+    switch (_statusFilter) {
+      case 'Pending':
+        all = all.where((t) => t.isPending).toList();
+      case 'Completed':
+        all = all.where((t) => t.isFinalized).toList();
     }
     // Apply period filter
     if (_periodStart != null && _periodEnd != null) {
@@ -158,21 +180,41 @@ class _HistoryScreenState extends State<HistoryScreen>
     } else if (diff == 1) {
       return 'Yesterday';
     }
-    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${months[dt.month]} ${dt.day}, ${dt.year}';
   }
 
   Widget _buildTransactions() {
     final lang = LanguageProvider.of(context);
-    final filterLabels = [lang.filterAll, lang.filterDeposits, lang.filterWithdrawals, lang.filterTransfers, lang.filterBNPL];
+    final filterLabels = [
+      lang.filterAll,
+      lang.filterDeposits,
+      lang.filterWithdrawals,
+      lang.filterTransfers,
+      lang.filterBNPL
+    ];
     final filtered = _filtered;
     final all = WalletState.instance.transactions;
     final hasAny = all.isNotEmpty;
 
-    // Compute summary from real data
+    // Compute summary from finalized transactions only (exclude pending/failed)
     int totalReceived = 0, totalSpent = 0;
     for (final t in all) {
+      if (!t.isFinalized) continue;
       if (t.isCredit) {
         totalReceived += t.amount;
       } else {
@@ -228,21 +270,65 @@ class _HistoryScreenState extends State<HistoryScreen>
           ),
         ),
         const SizedBox(height: 12),
+        // Status filter chips
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          child: SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: List.generate(_statusFilterKeys.length, (idx) {
+                final key = _statusFilterKeys[idx];
+                final label = _statusFilterLabels[idx];
+                final sel = key == _statusFilter;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _statusFilter = key),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: sel ? AppColors.warning : AppColors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: sel
+                                ? AppColors.warning
+                                : const Color(0xFFD0E8E5)),
+                      ),
+                      child: Text(label,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: sel
+                                  ? Colors.white
+                                  : AppColors.textSecondary)),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         if (hasAny) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
                 Expanded(
-                  child: _summaryChip('+${_fmt(totalReceived)}', 'Received', AppColors.primaryGreen),
+                  child: _summaryChip('+${_fmt(totalReceived)}', 'Received',
+                      AppColors.primaryGreen),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _summaryChip('-${_fmt(totalSpent)}', 'Spent', AppColors.error),
+                  child: _summaryChip(
+                      '-${_fmt(totalSpent)}', 'Spent', AppColors.error),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _summaryChip(_fmt(net.abs()), 'Net', AppColors.deepTeal),
+                  child:
+                      _summaryChip(_fmt(net.abs()), 'Net', AppColors.deepTeal),
                 ),
               ],
             ),
@@ -345,7 +431,7 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   Widget _buildEmptyState() {
     final lang = LanguageProvider.of(context);
-    final isFiltered = _filter != 'All';
+    final isFiltered = _filter != 'All' || _statusFilter != 'All';
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
@@ -360,14 +446,18 @@ class _HistoryScreenState extends State<HistoryScreen>
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                isFiltered ? Icons.filter_list_off_rounded : Icons.receipt_long_rounded,
+                isFiltered
+                    ? Icons.filter_list_off_rounded
+                    : Icons.receipt_long_rounded,
                 color: AppColors.primaryGreen,
                 size: 34,
               ),
             ),
             const SizedBox(height: 18),
             Text(
-              isFiltered ? 'No $_filter transactions yet' : 'No transactions yet',
+              isFiltered
+                  ? 'No transactions match your filters'
+                  : 'No transactions yet',
               style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -385,10 +475,11 @@ class _HistoryScreenState extends State<HistoryScreen>
             if (!isFiltered) ...[
               const SizedBox(height: 24),
               GestureDetector(
-                onTap: () => Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => const DepositScreen())),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const DepositScreen())),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
                   decoration: BoxDecoration(
                       color: AppColors.primaryGreen,
                       borderRadius: BorderRadius.circular(10)),
@@ -419,13 +510,10 @@ class _HistoryScreenState extends State<HistoryScreen>
           Text('$amount F',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: color)),
+                  fontSize: 12, fontWeight: FontWeight.w700, color: color)),
           const SizedBox(height: 2),
           Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.textMuted)),
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
         ],
       ),
     );
@@ -441,46 +529,52 @@ class _HistoryScreenState extends State<HistoryScreen>
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
         final periods = [
-          ('This Week', today.subtract(Duration(days: today.weekday - 1)), today),
+          (
+            'This Week',
+            today.subtract(Duration(days: today.weekday - 1)),
+            today
+          ),
           ('This Month', DateTime(now.year, now.month, 1), today),
           ('Last 3 Months', DateTime(now.year, now.month - 2, 1), today),
           ('This Year', DateTime(now.year, 1, 1), today),
         ];
         return Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(lang.filterByPeriod,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 16),
-            ...periods.map((p) => ListTile(
-                  title: Text(p.$1),
-                  trailing: const Icon(Icons.chevron_right_rounded,
-                      color: AppColors.textMuted),
-                  onTap: () {
-                    setState(() {
-                      _periodStart = p.$2;
-                      _periodEnd = p.$3;
-                    });
-                    Navigator.pop(context);
-                  },
-                )),
-            ListTile(
-              title: const Text('Clear Filter', style: TextStyle(color: AppColors.primaryGreen)),
-              trailing: const Icon(Icons.clear, color: AppColors.primaryGreen),
-              onTap: () {
-                setState(() {
-                  _periodStart = null;
-                  _periodEnd = null;
-                });
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(lang.filterByPeriod,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              ...periods.map((p) => ListTile(
+                    title: Text(p.$1),
+                    trailing: const Icon(Icons.chevron_right_rounded,
+                        color: AppColors.textMuted),
+                    onTap: () {
+                      setState(() {
+                        _periodStart = p.$2;
+                        _periodEnd = p.$3;
+                      });
+                      Navigator.pop(context);
+                    },
+                  )),
+              ListTile(
+                title: const Text('Clear Filter',
+                    style: TextStyle(color: AppColors.primaryGreen)),
+                trailing:
+                    const Icon(Icons.clear, color: AppColors.primaryGreen),
+                onTap: () {
+                  setState(() {
+                    _periodStart = null;
+                    _periodEnd = null;
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
         );
       }, // end filter period builder
     );
@@ -546,25 +640,38 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   List<_MonthBar> _computeBarData() {
     final txs = WalletState.instance.transactions;
     final Map<String, double> byMonth = {};
-    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     for (final t in txs) {
       if (!t.isCredit) {
         final key = months[t.date.month];
         byMonth[key] = (byMonth[key] ?? 0) + t.amount / 1000.0;
       }
     }
-    return byMonth.entries
-        .map((e) => _MonthBar(e.key, e.value))
-        .toList()
+    return byMonth.entries.map((e) => _MonthBar(e.key, e.value)).toList()
       ..sort((a, b) {
-        final order = months.indexOf(a.label).compareTo(months.indexOf(b.label));
+        final order =
+            months.indexOf(a.label).compareTo(months.indexOf(b.label));
         return order;
       });
   }
 
   List<_Cat> _computeCategories() {
-    final txs = WalletState.instance.transactions.where((t) => !t.isCredit).toList();
+    final txs =
+        WalletState.instance.transactions.where((t) => !t.isCredit).toList();
     if (txs.isEmpty) return [];
     final total = txs.fold<int>(0, (s, t) => s + t.amount);
     final Map<TxType, int> byType = {};
@@ -576,13 +683,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       TxType.withdrawal: ('Withdrawals', AppColors.secondaryGreen),
       TxType.transfer: ('Transfers', AppColors.deepTeal),
     };
-    return byType.entries
-        .where((e) => labels.containsKey(e.key))
-        .map((e) {
-          final info = labels[e.key]!;
-          return _Cat(info.$1, e.value / total, info.$2);
-        })
-        .toList()
+    return byType.entries.where((e) => labels.containsKey(e.key)).map((e) {
+      final info = labels[e.key]!;
+      return _Cat(info.$1, e.value / total, info.$2);
+    }).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
   }
 
@@ -636,10 +740,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ),
             const SizedBox(height: 24),
             GestureDetector(
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const DepositScreen())),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const DepositScreen())),
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
@@ -685,7 +787,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
     final barData = _computeBarData();
     final categories = _computeCategories();
-    final maxBar = barData.isEmpty ? 1.0 : barData.map((b) => b.value).reduce((a, b) => a > b ? a : b);
+    final maxBar = barData.isEmpty
+        ? 1.0
+        : barData.map((b) => b.value).reduce((a, b) => a > b ? a : b);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -709,7 +813,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: sel ? AppColors.primaryGreen : Colors.transparent,
+                        color:
+                            sel ? AppColors.primaryGreen : Colors.transparent,
                         borderRadius: BorderRadius.circular(9),
                       ),
                       child: Center(
@@ -747,7 +852,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       AppColors.deepTeal, Icons.receipt_long_rounded)),
               const SizedBox(width: 12),
               Expanded(
-                  child: _kpiCard('Net Balance',
+                  child: _kpiCard(
+                      'Net Balance',
                       _fmt(totalReceived - totalSpent),
                       AppColors.secondaryGreen,
                       Icons.account_balance_wallet_rounded)),
@@ -922,8 +1028,18 @@ class _OrderCardState extends State<_OrderCard> {
   ConfirmedOrder get order => widget.order;
 
   String _monthName(int m) => [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
       ][m - 1];
 
   String _fmtDate(DateTime dt) =>
@@ -951,10 +1067,12 @@ class _OrderCardState extends State<_OrderCard> {
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 5),
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
               content: Row(
                 children: [
-                  Icon(Icons.local_shipping_rounded, color: Colors.white, size: 22),
+                  Icon(Icons.local_shipping_rounded,
+                      color: Colors.white, size: 22),
                   SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -962,10 +1080,14 @@ class _OrderCardState extends State<_OrderCard> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(lang.deliveryDetailsReceived,
-                            style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 14)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                fontSize: 14)),
                         SizedBox(height: 2),
                         Text(lang.deliveryDetailsBody,
-                            style: TextStyle(color: Colors.white70, fontSize: 12)),
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -981,22 +1103,26 @@ class _OrderCardState extends State<_OrderCard> {
   // ── Transfer to WatSim Wallet ────────────────────────────────────────────
   void _showTransfer(BuildContext context) {
     final accumulated = order.totalAmountPaid;
-    final deduction   = (accumulated * 0.20).round();
-    final netAmount   = accumulated - deduction;
+    final deduction = (accumulated * 0.20).round();
+    final netAmount = accumulated - deduction;
 
     String fmt(int v) =>
         '${v ~/ 1000},${(v % 1000).toString().padLeft(3, '0')} FCFA';
 
     // Demo whitelist – numbers that have a verified WatSim account
     const verifiedNumbers = {
-      '655000001', '655000002', '677000001',
-      '699000001', '620000001', '690000001',
+      '655000001',
+      '655000002',
+      '677000001',
+      '699000001',
+      '620000001',
+      '690000001',
     };
 
     // 0 = phone entry  |  1 = PIN confirm  |  2 = success
     int step = 0;
     final phoneCtrl = TextEditingController();
-    final pinCtrl   = TextEditingController();
+    final pinCtrl = TextEditingController();
     String? phoneError;
     String? pinError;
     bool unverified = false;
@@ -1012,7 +1138,8 @@ class _OrderCardState extends State<_OrderCard> {
           // ── drag handle ────────────────────────────────────────────────
           final handle = Center(
             child: Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: const Color(0xFFD0D0D0),
                 borderRadius: BorderRadius.circular(2),
@@ -1026,33 +1153,46 @@ class _OrderCardState extends State<_OrderCard> {
             decoration: BoxDecoration(
               color: const Color(0xFF607D8B).withOpacity(0.06),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF607D8B).withOpacity(0.20)),
+              border:
+                  Border.all(color: const Color(0xFF607D8B).withOpacity(0.20)),
             ),
             child: Column(children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text(lang.accumulatedFundsLabel,
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
                         fontWeight: FontWeight.w600)),
                 Text(fmt(accumulated),
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF607D8B))),
               ]),
               const SizedBox(height: 8),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text(lang.serviceFee20,
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
                         fontWeight: FontWeight.w600)),
                 Text('− ${fmt(deduction)}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFFE53935))),
               ]),
               const Divider(height: 16),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text(lang.recipientReceives,
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
                         fontWeight: FontWeight.w600)),
                 Text(fmt(netAmount),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
                         color: AppColors.primaryGreen)),
               ]),
             ]),
@@ -1062,374 +1202,454 @@ class _OrderCardState extends State<_OrderCard> {
           // STEP 0 – phone number entry
           // ═══════════════════════════════════════════════════════════════
           Widget buildPhoneStep() => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              handle,
-              const SizedBox(height: 20),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  handle,
+                  const SizedBox(height: 20),
 
-              // Header row
-              Row(children: [
-                Container(
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF607D8B).withOpacity(0.10),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.phone_android_rounded,
-                      color: Color(0xFF607D8B), size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(lang.transferToWatsim,
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary)),
-                    SizedBox(height: 2),
-                    Text(lang.sendAccumulatedFunds,
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                  ],
-                )),
-              ]),
-              const SizedBox(height: 18),
-
-              fundsCard,
-              const SizedBox(height: 18),
-
-              // No funds yet
-              if (accumulated == 0)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E0),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFFB74D)),
-                  ),
-                  child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Icon(Icons.info_outline_rounded, color: Color(0xFFF57C00), size: 20),
-                    SizedBox(width: 10),
-                    Expanded(child: Text(
-                      'No payments made yet. Make at least one instalment before transferring.',
-                      style: TextStyle(fontSize: 13, color: Color(0xFFF57C00), height: 1.4),
+                  // Header row
+                  Row(children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF607D8B).withOpacity(0.10),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.phone_android_rounded,
+                          color: Color(0xFF607D8B), size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                        child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(lang.transferToWatsim,
+                            style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary)),
+                        SizedBox(height: 2),
+                        Text(lang.sendAccumulatedFunds,
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.textSecondary)),
+                      ],
                     )),
                   ]),
-                )
-              else ...[
-                // Phone number input
-                TextField(
-                  controller: phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 15,
-                  decoration: InputDecoration(
-                    labelText: 'Recipient phone number',
-                    hintText: 'e.g. 655000001',
-                    prefixIcon: const Icon(Icons.phone_outlined),
-                    counterText: '',
-                    errorText: phoneError,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onChanged: (_) {
-                    if (phoneError != null || unverified) {
-                      setSheet(() { phoneError = null; unverified = false; });
-                    }
-                  },
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Recipient must have an active WatSim account.',
-                  style: TextStyle(fontSize: 11, color: AppColors.textMuted,
-                      fontStyle: FontStyle.italic),
-                ),
+                  const SizedBox(height: 18),
 
-                // Unverified account warning
-                if (unverified) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFEBEE),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFEF9A9A)),
+                  fundsCard,
+                  const SizedBox(height: 18),
+
+                  // No funds yet
+                  if (accumulated == 0)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E0),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFFB74D)),
+                      ),
+                      child: const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline_rounded,
+                                color: Color(0xFFF57C00), size: 20),
+                            SizedBox(width: 10),
+                            Expanded(
+                                child: Text(
+                              'No payments made yet. Make at least one instalment before transferring.',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFFF57C00),
+                                  height: 1.4),
+                            )),
+                          ]),
+                    )
+                  else ...[
+                    // Phone number input
+                    TextField(
+                      controller: phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 15,
+                      decoration: InputDecoration(
+                        labelText: 'Recipient phone number',
+                        hintText: 'e.g. 655000001',
+                        prefixIcon: const Icon(Icons.phone_outlined),
+                        counterText: '',
+                        errorText: phoneError,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onChanged: (_) {
+                        if (phoneError != null || unverified) {
+                          setSheet(() {
+                            phoneError = null;
+                            unverified = false;
+                          });
+                        }
+                      },
                     ),
-                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Icon(Icons.warning_amber_rounded,
-                          color: Color(0xFFE53935), size: 22),
-                      SizedBox(width: 10),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(lang.noWatsimAccount,
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
-                                  color: Color(0xFFB71C1C))),
-                          SizedBox(height: 4),
-                          Text(
-                            'This number does not have a verified WatSim account. '
-                            'Check the number or ask the recipient to register on WatSim.',
-                            style: TextStyle(fontSize: 12, color: Color(0xFFE53935),
-                                height: 1.4),
-                          ),
-                        ],
-                      )),
-                    ]),
-                  ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Recipient must have an active WatSim account.',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                          fontStyle: FontStyle.italic),
+                    ),
+
+                    // Unverified account warning
+                    if (unverified) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFEF9A9A)),
+                        ),
+                        child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.warning_amber_rounded,
+                                  color: Color(0xFFE53935), size: 22),
+                              SizedBox(width: 10),
+                              Expanded(
+                                  child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(lang.noWatsimAccount,
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFFB71C1C))),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'This number does not have a verified WatSim account. '
+                                    'Check the number or ask the recipient to register on WatSim.',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFFE53935),
+                                        height: 1.4),
+                                  ),
+                                ],
+                              )),
+                            ]),
+                      ),
+                    ],
+
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                        label: Text(lang.continueLabel2),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF607D8B),
+                          minimumSize: const Size(double.infinity, 52),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: () {
+                          final phone = phoneCtrl.text
+                              .trim()
+                              .replaceAll(RegExp(r'[\s\-]'), '');
+                          if (phone.isEmpty) {
+                            setSheet(() =>
+                                phoneError = 'Please enter a phone number.');
+                            return;
+                          }
+                          if (phone.length < 8) {
+                            setSheet(() =>
+                                phoneError = 'Enter a valid phone number.');
+                            return;
+                          }
+                          if (!verifiedNumbers.contains(phone)) {
+                            setSheet(() {
+                              phoneError = null;
+                              unverified = true;
+                            });
+                            return;
+                          }
+                          setSheet(() {
+                            unverified = false;
+                            phoneError = null;
+                            step = 1;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ],
-
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                    label: Text(lang.continueLabel2),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF607D8B),
-                      minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
-                    onPressed: () {
-                      final phone = phoneCtrl.text
-                          .trim()
-                          .replaceAll(RegExp(r'[\s\-]'), '');
-                      if (phone.isEmpty) {
-                        setSheet(() => phoneError = 'Please enter a phone number.');
-                        return;
-                      }
-                      if (phone.length < 8) {
-                        setSheet(() => phoneError = 'Enter a valid phone number.');
-                        return;
-                      }
-                      if (!verifiedNumbers.contains(phone)) {
-                        setSheet(() { phoneError = null; unverified = true; });
-                        return;
-                      }
-                      setSheet(() { unverified = false; phoneError = null; step = 1; });
-                    },
-                  ),
-                ),
-              ],
-            ],
-          );
+              );
 
           // ═══════════════════════════════════════════════════════════════
           // STEP 1 – PIN confirmation
           // ═══════════════════════════════════════════════════════════════
           Widget buildPinStep() => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              handle,
-              const SizedBox(height: 20),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  handle,
+                  const SizedBox(height: 20),
 
-              Text(lang.confirmTransfer,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary)),
-              const SizedBox(height: 6),
-              Text(
-                'Enter your 4-digit PIN to send ${fmt(netAmount)} '
-                'to ${phoneCtrl.text.trim()}.',
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary,
-                    height: 1.4),
-              ),
-              const SizedBox(height: 20),
-
-              // Transfer summary card
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.offWhite,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.divider),
-                ),
-                child: Column(children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text(lang.fromLabel,
-                        style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                            fontWeight: FontWeight.w600)),
-                    Text(order.product.name,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary)),
-                  ]),
-                  const SizedBox(height: 8),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text(lang.toWatsim,
-                        style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                            fontWeight: FontWeight.w600)),
-                    Text(phoneCtrl.text.trim(),
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary)),
-                  ]),
-                  const Divider(height: 16),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text(lang.grossAmount,
-                        style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                            fontWeight: FontWeight.w600)),
-                    Text(fmt(accumulated),
-                        style: const TextStyle(fontSize: 13,
-                            fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                  ]),
+                  Text(lang.confirmTransfer,
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary)),
                   const SizedBox(height: 6),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text(lang.serviceFee20,
-                        style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                            fontWeight: FontWeight.w600)),
-                    Text('− ${fmt(deduction)}',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                            color: Color(0xFFE53935))),
-                  ]),
-                  const Divider(height: 12),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text(lang.recipientReceives,
-                        style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                            fontWeight: FontWeight.w600)),
-                    Text(fmt(netAmount),
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
-                            color: AppColors.primaryGreen)),
-                  ]),
-                ]),
-              ),
-              const SizedBox(height: 20),
-
-              // PIN field
-              TextField(
-                controller: pinCtrl,
-                keyboardType: TextInputType.number,
-                obscureText: true,
-                maxLength: 4,
-                decoration: InputDecoration(
-                  labelText: '4-digit PIN',
-                  prefixIcon: const Icon(Icons.lock_outline_rounded),
-                  counterText: '',
-                  errorText: pinError,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                onChanged: (_) {
-                  if (pinError != null) setSheet(() => pinError = null);
-                },
-              ),
-              const SizedBox(height: 20),
-
-              Row(children: [
-                Expanded(child: OutlinedButton(
-                  onPressed: () => setSheet(() {
-                    step = 0;
-                    pinCtrl.clear();
-                    pinError = null;
-                  }),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 50),
-                    side: const BorderSide(color: AppColors.divider),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                  Text(
+                    'Enter your 4-digit PIN to send ${fmt(netAmount)} '
+                    'to ${phoneCtrl.text.trim()}.',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.4),
                   ),
-                  child: Text(lang.back,
-                      style: const TextStyle(color: AppColors.textSecondary)),
-                )),
-                const SizedBox(width: 12),
-                Expanded(child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(0, 50),
-                    backgroundColor: const Color(0xFF607D8B),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                  const SizedBox(height: 20),
+
+                  // Transfer summary card
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.offWhite,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Column(children: [
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(lang.fromLabel,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w600)),
+                            Text(order.product.name,
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary)),
+                          ]),
+                      const SizedBox(height: 8),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(lang.toWatsim,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w600)),
+                            Text(phoneCtrl.text.trim(),
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary)),
+                          ]),
+                      const Divider(height: 16),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(lang.grossAmount,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w600)),
+                            Text(fmt(accumulated),
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary)),
+                          ]),
+                      const SizedBox(height: 6),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(lang.serviceFee20,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w600)),
+                            Text('− ${fmt(deduction)}',
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFE53935))),
+                          ]),
+                      const Divider(height: 12),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(lang.recipientReceives,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w600)),
+                            Text(fmt(netAmount),
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.primaryGreen)),
+                          ]),
+                    ]),
                   ),
-                  onPressed: () {
-                    if (pinCtrl.text != '1234') {
-                      setSheet(() => pinError = 'Incorrect PIN. Please try again.');
-                      return;
-                    }
-                    // Record outgoing transfer (deduct from wallet)
-                    WalletState.instance.deduct(
-                      accumulated,
-                      reason: 'Transfer to ${phoneCtrl.text.trim()}',
-                      type: TxType.transfer,
-                      tag: 'SENT',
-                    );
-                    // Remove this order (funds have moved out)
-                    OrderState.instance.removeOrder(order.orderNumber);
-                    // Fire notification
-                    NotificationState.instance.onProductTransferApplied(
-                      fromProduct: order.product.name,
-                      toProduct: phoneCtrl.text.trim(),
-                      transferred: netAmount,
-                      completed: false,
-                    );
-                    setSheet(() => step = 2);
-                  },
-                  child: Text(lang.confirmTransfer),
-                )),
-              ]),
-            ],
-          );
+                  const SizedBox(height: 20),
+
+                  // PIN field
+                  TextField(
+                    controller: pinCtrl,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: 4,
+                    decoration: InputDecoration(
+                      labelText: '4-digit PIN',
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                      counterText: '',
+                      errorText: pinError,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onChanged: (_) {
+                      if (pinError != null) setSheet(() => pinError = null);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  Row(children: [
+                    Expanded(
+                        child: OutlinedButton(
+                      onPressed: () => setSheet(() {
+                        step = 0;
+                        pinCtrl.clear();
+                        pinError = null;
+                      }),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 50),
+                        side: const BorderSide(color: AppColors.divider),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(lang.back,
+                          style:
+                              const TextStyle(color: AppColors.textSecondary)),
+                    )),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(0, 50),
+                        backgroundColor: const Color(0xFF607D8B),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: () {
+                        if (pinCtrl.text != '1234') {
+                          setSheet(() =>
+                              pinError = 'Incorrect PIN. Please try again.');
+                          return;
+                        }
+                        // Record outgoing transfer (deduct from wallet)
+                        WalletState.instance.deduct(
+                          accumulated,
+                          reason: 'Transfer to ${phoneCtrl.text.trim()}',
+                          type: TxType.transfer,
+                          tag: 'SENT',
+                        );
+                        // Remove this order (funds have moved out)
+                        OrderState.instance.removeOrder(order.orderNumber);
+                        // Fire notification
+                        NotificationState.instance.onProductTransferApplied(
+                          fromProduct: order.product.name,
+                          toProduct: phoneCtrl.text.trim(),
+                          transferred: netAmount,
+                          completed: false,
+                        );
+                        setSheet(() => step = 2);
+                      },
+                      child: Text(lang.confirmTransfer),
+                    )),
+                  ]),
+                ],
+              );
 
           // ═══════════════════════════════════════════════════════════════
           // STEP 2 – success screen
           // ═══════════════════════════════════════════════════════════════
           Widget buildSuccessStep() => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              handle,
-              const SizedBox(height: 24),
-              Container(
-                width: 80, height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.10),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle_rounded,
-                    size: 44, color: AppColors.primaryGreen),
-              ),
-              const SizedBox(height: 16),
-              Text(lang.transferSuccessful,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary)),
-              const SizedBox(height: 8),
-              Text(
-                '${fmt(netAmount)} has been sent to\n'
-                '${phoneCtrl.text.trim()}\'s WatSim wallet.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary,
-                    height: 1.5),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E0),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFB74D)),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: Color(0xFFF57C00), size: 18),
-                  const SizedBox(width: 10),
-                  Flexible(child: Text(
-                    '20% service fee of ${fmt(deduction)} was deducted '
-                    'from your accumulated funds.',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFFF57C00),
-                        height: 1.4),
-                  )),
-                ]),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                    minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  handle,
+                  const SizedBox(height: 24),
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGreen.withOpacity(0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check_circle_rounded,
+                        size: 44, color: AppColors.primaryGreen),
                   ),
-                  child: Text(lang.done),
-                ),
-              ),
-            ],
-          );
+                  const SizedBox(height: 16),
+                  Text(lang.transferSuccessful,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary)),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${fmt(netAmount)} has been sent to\n'
+                    '${phoneCtrl.text.trim()}\'s WatSim wallet.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                        height: 1.5),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3E0),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFFB74D)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.info_outline_rounded,
+                          color: Color(0xFFF57C00), size: 18),
+                      const SizedBox(width: 10),
+                      Flexible(
+                          child: Text(
+                        '20% service fee of ${fmt(deduction)} was deducted '
+                        'from your accumulated funds.',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFF57C00),
+                            height: 1.4),
+                      )),
+                    ]),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        minimumSize: const Size(double.infinity, 52),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(lang.done),
+                    ),
+                  ),
+                ],
+              );
 
           return Container(
             padding: EdgeInsets.fromLTRB(
@@ -1464,101 +1684,101 @@ class _OrderCardState extends State<_OrderCard> {
       builder: (ctx) {
         final lang = LanguageProvider.of(ctx);
         return Container(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFD0D0D0),
-                  borderRadius: BorderRadius.circular(2)),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              width: 56, height: 56,
-              decoration: BoxDecoration(
-                  color: AppColors.warning.withOpacity(0.12),
-                  shape: BoxShape.circle),
-              child: const Icon(Icons.undo_rounded,
-                  size: 28, color: AppColors.warning),
-            ),
-            const SizedBox(height: 14),
-            Text(lang.withdrawPayment,
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary)),
-            const SizedBox(height: 6),
-            const Text(
-              'A 30% chargeback fee applies to all withdrawals.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.offWhite,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFD0E8E5)),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: const Color(0xFFD0D0D0),
+                    borderRadius: BorderRadius.circular(2)),
               ),
-              child: Column(
-                children: [
-                  _sheetRow('Total Paid', _fmt(totalPaid)),
-                  const Divider(height: 16),
-                  _sheetRow('30% Chargeback',
-                      '− ${_fmt(chargeback)}',
-                      valueColor: AppColors.warning),
-                  const Divider(height: 16),
-                  _sheetRow('You will receive',
-                      _fmt(refund),
-                      valueColor: AppColors.primaryGreen),
-                ],
+              const SizedBox(height: 20),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                    color: AppColors.warning.withOpacity(0.12),
+                    shape: BoxShape.circle),
+                child: const Icon(Icons.undo_rounded,
+                    size: 28, color: AppColors.warning),
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                WalletState.instance.topUp(refund);
-                setState(() => _withdrawn = true);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(lang.refundedToWallet(_fmt(refund))),
-                    backgroundColor: AppColors.primaryGreen,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 52),
-                backgroundColor: AppColors.warning,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-              ),
-              child: Text(lang.confirmWithdrawal,
+              const SizedBox(height: 14),
+              Text(lang.withdrawPayment,
                   style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 52),
-                side: const BorderSide(color: AppColors.primaryGreen),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary)),
+              const SizedBox(height: 6),
+              const Text(
+                'A 30% chargeback fee applies to all withdrawals.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
-              child: Text(lang.cancel,
-                  style: TextStyle(color: AppColors.primaryGreen)),
-            ),
-          ],
-        ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.offWhite,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFD0E8E5)),
+                ),
+                child: Column(
+                  children: [
+                    _sheetRow('Total Paid', _fmt(totalPaid)),
+                    const Divider(height: 16),
+                    _sheetRow('30% Chargeback', '− ${_fmt(chargeback)}',
+                        valueColor: AppColors.warning),
+                    const Divider(height: 16),
+                    _sheetRow('You will receive', _fmt(refund),
+                        valueColor: AppColors.primaryGreen),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  WalletState.instance.topUp(refund);
+                  setState(() => _withdrawn = true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(lang.refundedToWallet(_fmt(refund))),
+                      backgroundColor: AppColors.primaryGreen,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 52),
+                  backgroundColor: AppColors.warning,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(lang.confirmWithdrawal,
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 52),
+                  side: const BorderSide(color: AppColors.primaryGreen),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(lang.cancel,
+                    style: TextStyle(color: AppColors.primaryGreen)),
+              ),
+            ],
+          ),
         );
       }, // end withdraw builder
     );
@@ -1577,7 +1797,8 @@ class _OrderCardState extends State<_OrderCard> {
             final newPrice = _parseHistoryProductPrice(newProduct.price);
             final accumulated = order.accumulatedFunds;
             final int remaining = (newPrice - accumulated).clamp(0, newPrice);
-            final int overpayPreview = accumulated > newPrice ? accumulated - newPrice : 0;
+            final int overpayPreview =
+                accumulated > newPrice ? accumulated - newPrice : 0;
             final bool willComplete = accumulated >= newPrice;
             showModalBottomSheet(
               context: context,
@@ -1591,7 +1812,9 @@ class _OrderCardState extends State<_OrderCard> {
                 remaining: remaining,
                 overpayPreview: overpayPreview,
                 willComplete: willComplete,
-                onExchanged: () => setState(() { _exchangeRequested = false; }),
+                onExchanged: () => setState(() {
+                  _exchangeRequested = false;
+                }),
               ),
             );
           },
@@ -1600,13 +1823,18 @@ class _OrderCardState extends State<_OrderCard> {
     );
   }
 
-
   Widget _sheetRow(String l, String v, {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(l, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-        Text(v, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: valueColor ?? AppColors.textPrimary)),
+        Text(l,
+            style:
+                const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+        Text(v,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: valueColor ?? AppColors.textPrimary)),
       ],
     );
   }
@@ -1705,8 +1933,8 @@ class _OrderCardState extends State<_OrderCard> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.14),
                     borderRadius: BorderRadius.circular(20),
@@ -1815,7 +2043,8 @@ class _OrderCardState extends State<_OrderCard> {
                           subtitle: _withdrawn ? null : '30% charge applies',
                           color: const Color(0xFFF57C00),
                           disabled: _withdrawn,
-                          onTap: _withdrawn ? null : () => _showWithdraw(context),
+                          onTap:
+                              _withdrawn ? null : () => _showWithdraw(context),
                         ),
                       ),
                     ],
@@ -1857,30 +2086,44 @@ class _OrderCardState extends State<_OrderCard> {
                       decoration: BoxDecoration(
                         color: AppColors.primaryGreen.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                        border: Border.all(
+                            color: AppColors.primaryGreen.withOpacity(0.3)),
                       ),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Icon(Icons.verified_rounded, size: 16, color: AppColors.primaryGreen),
-                        SizedBox(width: 8),
-                        Text(lang.productDelivered,
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
-                      ]),
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.verified_rounded,
+                                size: 16, color: AppColors.primaryGreen),
+                            SizedBox(width: 8),
+                            Text(lang.productDelivered,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primaryGreen)),
+                          ]),
                     )
                   else if (order.deliveryRequested)
                     Column(children: [
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 14),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE3F2FD),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFF1565C0).withOpacity(0.3)),
+                          border: Border.all(
+                              color: const Color(0xFF1565C0).withOpacity(0.3)),
                         ),
                         child: Row(children: [
-                          Icon(Icons.local_shipping_rounded, size: 16, color: Color(0xFF1565C0)),
+                          Icon(Icons.local_shipping_rounded,
+                              size: 16, color: Color(0xFF1565C0)),
                           SizedBox(width: 8),
-                          Expanded(child: Text(lang.deliveryRequested2,
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1565C0)))),
+                          Expanded(
+                              child: Text(lang.deliveryRequested2,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF1565C0)))),
                         ]),
                       ),
                       const SizedBox(height: 8),
@@ -1888,7 +2131,8 @@ class _OrderCardState extends State<_OrderCard> {
                       GestureDetector(
                         onTap: () {
                           order.markDeliveryCompleted();
-                          NotificationState.instance.onDeliveryCompleted(order.product.name);
+                          NotificationState.instance
+                              .onDeliveryCompleted(order.product.name);
                           setState(() {});
                         },
                         child: Container(
@@ -1897,14 +2141,21 @@ class _OrderCardState extends State<_OrderCard> {
                           decoration: BoxDecoration(
                             color: AppColors.primaryGreen.withOpacity(0.10),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                            border: Border.all(
+                                color: AppColors.primaryGreen.withOpacity(0.3)),
                           ),
-                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.primaryGreen),
-                            SizedBox(width: 8),
-                            Text(lang.markAsReceived,
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
-                          ]),
+                          child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check_circle_outline_rounded,
+                                    size: 16, color: AppColors.primaryGreen),
+                                SizedBox(width: 8),
+                                Text(lang.markAsReceived,
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primaryGreen)),
+                              ]),
                         ),
                       ),
                     ])
@@ -1914,8 +2165,11 @@ class _OrderCardState extends State<_OrderCard> {
                         Expanded(
                           child: _actionBtn(
                             icon: Icons.swap_horiz_rounded,
-                            label: _exchangeRequested ? 'Requested' : 'Exchange',
-                            subtitle: _exchangeRequested ? null : 'Swap for same price',
+                            label:
+                                _exchangeRequested ? 'Requested' : 'Exchange',
+                            subtitle: _exchangeRequested
+                                ? null
+                                : 'Swap for same price',
                             color: const Color(0xFF607D8B),
                             disabled: _exchangeRequested,
                             onTap: _exchangeRequested
@@ -1971,21 +2225,16 @@ class _OrderCardState extends State<_OrderCard> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
-          color: disabled
-              ? const Color(0xFFF0F0F0)
-              : color.withOpacity(0.10),
+          color: disabled ? const Color(0xFFF0F0F0) : color.withOpacity(0.10),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: disabled
-                  ? const Color(0xFFDDDDDD)
-                  : color.withOpacity(0.30)),
+              color:
+                  disabled ? const Color(0xFFDDDDDD) : color.withOpacity(0.30)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 20,
-                color: disabled ? AppColors.textMuted : color),
+            Icon(icon, size: 20, color: disabled ? AppColors.textMuted : color),
             const SizedBox(height: 4),
             Text(label,
                 textAlign: TextAlign.center,
@@ -2011,8 +2260,7 @@ class _OrderCardState extends State<_OrderCard> {
     );
   }
 
-  Widget _detailChip(
-      IconData icon, String label, String value, Color color) {
+  Widget _detailChip(IconData icon, String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
@@ -2092,7 +2340,10 @@ class _DeliveryPinSheetState extends State<_DeliveryPinSheet> {
 
   void _addDigit(String d) {
     if (_pin.length >= 4 || _loading) return;
-    setState(() { _pin += d; _error = false; });
+    setState(() {
+      _pin += d;
+      _error = false;
+    });
     if (_pin.length == 4) _verify();
   }
 
@@ -2152,7 +2403,8 @@ class _DeliveryPinSheetState extends State<_DeliveryPinSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40, height: 4,
+            width: 40,
+            height: 4,
             margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
@@ -2214,7 +2466,8 @@ class _DeliveryPinSheetState extends State<_DeliveryPinSheet> {
               4,
               (i) => Container(
                 margin: const EdgeInsets.symmetric(horizontal: 10),
-                width: 16, height: 16,
+                width: 16,
+                height: 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: i < _pin.length
@@ -2259,7 +2512,10 @@ class _DeliveryPinSheetState extends State<_DeliveryPinSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _numKey('', icon: Icons.fingerprint_rounded, color: Colors.white70, onTap: _authenticateWithBiometric),
+              _numKey('',
+                  icon: Icons.fingerprint_rounded,
+                  color: Colors.white70,
+                  onTap: _authenticateWithBiometric),
               _numKey('0'),
               _numKey('',
                   icon: Icons.backspace_outlined,
@@ -2284,8 +2540,7 @@ class _DeliveryPinSheetState extends State<_DeliveryPinSheet> {
         ),
         if (badge != null)
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: AppColors.primaryGreen.withOpacity(0.2),
               borderRadius: BorderRadius.circular(6),
@@ -2305,7 +2560,8 @@ class _DeliveryPinSheetState extends State<_DeliveryPinSheet> {
     return GestureDetector(
       onTap: onTap ?? (digit.isEmpty ? null : () => _addDigit(digit)),
       child: Container(
-        width: 72, height: 56,
+        width: 72,
+        height: 56,
         decoration: BoxDecoration(
           color: Colors.white
               .withOpacity(digit.isEmpty && icon == null ? 0 : 0.07),
@@ -2338,7 +2594,6 @@ class _MonthBar {
   const _MonthBar(this.label, this.value);
 }
 
-
 int _parseHistoryProductPrice(String priceStr) {
   final digits = priceStr.replaceAll(RegExp(r'[^0-9]'), '');
   return int.tryParse(digits) ?? 0;
@@ -2348,9 +2603,11 @@ class _HistoryExchangeConfirmSheet extends StatefulWidget {
   final ConfirmedOrder currentOrder;
   final Product newProduct;
   final int newPrice;
-  final int accumulated;   // funds already in the order
-  final int remaining;     // still needed after applying accumulated (0 if willComplete)
-  final int overpayPreview; // excess above newPrice (0 if accumulated ≤ newPrice)
+  final int accumulated; // funds already in the order
+  final int
+      remaining; // still needed after applying accumulated (0 if willComplete)
+  final int
+      overpayPreview; // excess above newPrice (0 if accumulated ≤ newPrice)
   final bool willComplete; // accumulated >= newPrice
   final VoidCallback onExchanged;
 
@@ -2366,10 +2623,12 @@ class _HistoryExchangeConfirmSheet extends StatefulWidget {
   });
 
   @override
-  State<_HistoryExchangeConfirmSheet> createState() => _HistoryExchangeConfirmSheetState();
+  State<_HistoryExchangeConfirmSheet> createState() =>
+      _HistoryExchangeConfirmSheetState();
 }
 
-class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmSheet> {
+class _HistoryExchangeConfirmSheetState
+    extends State<_HistoryExchangeConfirmSheet> {
   bool _showPin = false;
   bool _done = false;
   final _pinCtrl = TextEditingController();
@@ -2377,7 +2636,10 @@ class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmShe
   static const _validPin = "1234";
 
   @override
-  void dispose() { _pinCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _pinCtrl.dispose();
+    super.dispose();
+  }
 
   String _fmt(int v) {
     final t = v ~/ 1000;
@@ -2391,9 +2653,9 @@ class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmShe
       return;
     }
 
-    final order      = widget.currentOrder;
+    final order = widget.currentOrder;
     final newProduct = widget.newProduct;
-    final oldPrice   = order.basePrice;
+    final oldPrice = order.basePrice;
 
     // ── 1. Adjust the maximum contribution allowance ──────────────────────
     // Remove the old product's price from the cap (exchange frees up that slot)
@@ -2439,7 +2701,7 @@ class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmShe
   Widget build(BuildContext context) {
     final lang = LanguageProvider.of(context);
     final bottom = MediaQuery.of(context).viewInsets.bottom;
-    final order      = widget.currentOrder;
+    final order = widget.currentOrder;
     final newProduct = widget.newProduct;
     final isShortfall = !widget.willComplete && widget.remaining > 0;
 
@@ -2454,23 +2716,41 @@ class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmShe
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+            Center(
+                child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 20),
 
             // ── Done state ───────────────────────────────────────────────
             if (_done) ...[
-              Center(child: Column(children: [
-                Container(width: 72, height: 72,
-                    decoration: BoxDecoration(color: AppColors.primaryGreen.withOpacity(0.12), shape: BoxShape.circle),
+              Center(
+                  child: Column(children: [
+                Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                        color: AppColors.primaryGreen.withOpacity(0.12),
+                        shape: BoxShape.circle),
                     child: Icon(
-                      widget.willComplete ? Icons.verified_rounded : Icons.swap_horiz_rounded,
-                      size: 36, color: AppColors.primaryGreen,
+                      widget.willComplete
+                          ? Icons.verified_rounded
+                          : Icons.swap_horiz_rounded,
+                      size: 36,
+                      color: AppColors.primaryGreen,
                     )),
                 const SizedBox(height: 16),
                 Text(
-                  widget.willComplete ? 'Exchange Complete! 🎉' : lang.exchangeConfirmed,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  widget.willComplete
+                      ? 'Exchange Complete! 🎉'
+                      : lang.exchangeConfirmed,
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -2479,53 +2759,100 @@ class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmShe
                           ? "Exchanged for ${newProduct.name} and fully paid off.\n${_fmt(widget.overpayPreview)} refunded to your wallet."
                           : "Your accumulated funds exactly covered ${newProduct.name}. Order is complete!"
                       : "Exchanged for ${newProduct.name}.\n${_fmt(widget.accumulated)} transferred. "
-                        "Keep contributing ${_fmt(widget.remaining)} more with your ${order.paymentFrequency.toLowerCase()} payments.",
+                          "Keep contributing ${_fmt(widget.remaining)} more with your ${order.paymentFrequency.toLowerCase()} payments.",
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
+                  style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                      height: 1.5),
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(onPressed: () => Navigator.pop(context), child: Text(lang.done)),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(lang.done)),
               ])),
 
-            // ── PIN entry ────────────────────────────────────────────────
+              // ── PIN entry ────────────────────────────────────────────────
             ] else if (_showPin) ...[
               Text(lang.confirmWithPIN,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 6),
               Text("Enter your 4-digit PIN to confirm the exchange.",
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                      height: 1.4)),
               const SizedBox(height: 20),
 
               // Product swap summary
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.offWhite, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.divider)),
+                decoration: BoxDecoration(
+                    color: AppColors.offWhite,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.divider)),
                 child: Row(children: [
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(lang.current, style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text(order.product.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                  ])),
-                  const Icon(Icons.arrow_forward_rounded, color: AppColors.primaryGreen, size: 20),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(lang.newLabel, style: const TextStyle(fontSize: 11, color: AppColors.primaryGreen, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text(newProduct.name, textAlign: TextAlign.end, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                  ])),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(lang.current,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text(order.product.name,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary)),
+                      ])),
+                  const Icon(Icons.arrow_forward_rounded,
+                      color: AppColors.primaryGreen, size: 20),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                        Text(lang.newLabel,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.primaryGreen,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text(newProduct.name,
+                            textAlign: TextAlign.end,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary)),
+                      ])),
                 ]),
               ),
               const SizedBox(height: 12),
 
               // Outcome banner
               if (widget.willComplete && widget.overpayPreview > 0)
-                _infoBanner(Icons.account_balance_wallet_outlined, AppColors.primaryGreen, const Color(0xFFE8F5E9),
-                  "${_fmt(widget.overpayPreview)} will be refunded to your wallet after completing the order.")
+                _infoBanner(
+                    Icons.account_balance_wallet_outlined,
+                    AppColors.primaryGreen,
+                    const Color(0xFFE8F5E9),
+                    "${_fmt(widget.overpayPreview)} will be refunded to your wallet after completing the order.")
               else if (widget.willComplete)
-                _infoBanner(Icons.check_circle_outline_rounded, AppColors.primaryGreen, const Color(0xFFE8F5E9),
-                  "Your accumulated funds exactly cover ${newProduct.name} — order will be marked complete.")
+                _infoBanner(
+                    Icons.check_circle_outline_rounded,
+                    AppColors.primaryGreen,
+                    const Color(0xFFE8F5E9),
+                    "Your accumulated funds exactly cover ${newProduct.name} — order will be marked complete.")
               else
-                _infoBanner(Icons.info_outline_rounded, const Color(0xFFF57C00), const Color(0xFFFFF3E0),
-                  "You still need ${_fmt(widget.remaining)} more. Your ${order.paymentFrequency.toLowerCase()} contributions will continue on the new product."),
+                _infoBanner(
+                    Icons.info_outline_rounded,
+                    const Color(0xFFF57C00),
+                    const Color(0xFFFFF3E0),
+                    "You still need ${_fmt(widget.remaining)} more. Your ${order.paymentFrequency.toLowerCase()} contributions will continue on the new product."),
 
               const SizedBox(height: 20),
               TextField(
@@ -2534,64 +2861,137 @@ class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmShe
                 obscureText: true,
                 maxLength: 4,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(labelText: "4-digit PIN", prefixIcon: const Icon(Icons.lock_outline_rounded), counterText: "", errorText: _pinError),
-                onChanged: (_) { if (_pinError != null) setState(() => _pinError = null); },
+                decoration: InputDecoration(
+                    labelText: "4-digit PIN",
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    counterText: "",
+                    errorText: _pinError),
+                onChanged: (_) {
+                  if (_pinError != null) setState(() => _pinError = null);
+                },
               ),
               const SizedBox(height: 6),
-              Text(lang.demoPIN, style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontStyle: FontStyle.italic)),
+              Text(lang.demoPIN,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                      fontStyle: FontStyle.italic)),
               const SizedBox(height: 20),
               Row(children: [
-                Expanded(child: OutlinedButton(
-                  onPressed: () => setState(() { _showPin = false; _pinCtrl.clear(); _pinError = null; }),
-                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 50), side: const BorderSide(color: AppColors.divider), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                  child: Text(lang.back, style: const TextStyle(color: AppColors.textSecondary)),
+                Expanded(
+                    child: OutlinedButton(
+                  onPressed: () => setState(() {
+                    _showPin = false;
+                    _pinCtrl.clear();
+                    _pinError = null;
+                  }),
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 50),
+                      side: const BorderSide(color: AppColors.divider),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14))),
+                  child: Text(lang.back,
+                      style: const TextStyle(color: AppColors.textSecondary)),
                 )),
                 const SizedBox(width: 12),
-                Expanded(child: ElevatedButton(onPressed: _confirm, style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50)), child: Text(lang.confirm))),
+                Expanded(
+                    child: ElevatedButton(
+                        onPressed: _confirm,
+                        style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(0, 50)),
+                        child: Text(lang.confirm))),
               ]),
 
-            // ── Review state ─────────────────────────────────────────────
+              // ── Review state ─────────────────────────────────────────────
             ] else ...[
               Text(lang.exchangeProduct,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 6),
               Text(
                 "Your accumulated funds (${_fmt(widget.accumulated)}) and ${order.paymentFrequency.toLowerCase()} payment frequency will transfer to the new product.",
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 20),
 
               // Product comparison card
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.offWhite, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.divider)),
+                decoration: BoxDecoration(
+                    color: AppColors.offWhite,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.divider)),
                 child: Column(children: [
                   Row(children: [
-                    Container(width: 48, height: 48,
-                        decoration: BoxDecoration(color: order.product.color, borderRadius: BorderRadius.circular(10)),
-                        child: Icon(order.product.icon, color: Colors.white, size: 24)),
+                    Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                            color: order.product.color,
+                            borderRadius: BorderRadius.circular(10)),
+                        child: Icon(order.product.icon,
+                            color: Colors.white, size: 24)),
                     const SizedBox(width: 12),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text("Current", style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
-                      Text(order.product.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                      Text(order.product.price, style: const TextStyle(fontSize: 12, color: AppColors.primaryGreen)),
-                    ])),
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          const Text("Current",
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w600)),
+                          Text(order.product.name,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary)),
+                          Text(order.product.price,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.primaryGreen)),
+                        ])),
                   ]),
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Row(children: [
-                    Expanded(child: Divider()),
-                    Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Icon(Icons.swap_vert_rounded, color: AppColors.primaryGreen, size: 20)),
-                    Expanded(child: Divider()),
-                  ])),
+                  const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: Row(children: [
+                        Expanded(child: Divider()),
+                        Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(Icons.swap_vert_rounded,
+                                color: AppColors.primaryGreen, size: 20)),
+                        Expanded(child: Divider()),
+                      ])),
                   Row(children: [
-                    Container(width: 48, height: 48,
-                        decoration: BoxDecoration(color: newProduct.color, borderRadius: BorderRadius.circular(10)),
-                        child: Icon(newProduct.icon, color: Colors.white, size: 24)),
+                    Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                            color: newProduct.color,
+                            borderRadius: BorderRadius.circular(10)),
+                        child: Icon(newProduct.icon,
+                            color: Colors.white, size: 24)),
                     const SizedBox(width: 12),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(lang.newLabel, style: const TextStyle(fontSize: 11, color: AppColors.primaryGreen, fontWeight: FontWeight.w600)),
-                      Text(newProduct.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                      Text(newProduct.price, style: const TextStyle(fontSize: 12, color: AppColors.primaryGreen)),
-                    ])),
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Text(lang.newLabel,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.primaryGreen,
+                                  fontWeight: FontWeight.w600)),
+                          Text(newProduct.name,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary)),
+                          Text(newProduct.price,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.primaryGreen)),
+                        ])),
                   ]),
                 ]),
               ),
@@ -2603,39 +3003,63 @@ class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmShe
                 decoration: BoxDecoration(
                   color: AppColors.primaryGreen.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primaryGreen.withOpacity(0.25)),
+                  border: Border.all(
+                      color: AppColors.primaryGreen.withOpacity(0.25)),
                 ),
                 child: Column(children: [
-                  _summaryRow(Icons.savings_outlined, "Accumulated funds transferred", _fmt(widget.accumulated), AppColors.primaryGreen),
+                  _summaryRow(
+                      Icons.savings_outlined,
+                      "Accumulated funds transferred",
+                      _fmt(widget.accumulated),
+                      AppColors.primaryGreen),
                   if (widget.willComplete && widget.overpayPreview > 0) ...[
                     const SizedBox(height: 8),
-                    _summaryRow(Icons.account_balance_wallet_outlined, "Excess refunded to wallet", _fmt(widget.overpayPreview), AppColors.primaryGreen),
+                    _summaryRow(
+                        Icons.account_balance_wallet_outlined,
+                        "Excess refunded to wallet",
+                        _fmt(widget.overpayPreview),
+                        AppColors.primaryGreen),
                   ],
                   if (!widget.willComplete) ...[
                     const SizedBox(height: 8),
-                    _summaryRow(Icons.payments_outlined, "Remaining to contribute", _fmt(widget.remaining), const Color(0xFFF57C00)),
+                    _summaryRow(
+                        Icons.payments_outlined,
+                        "Remaining to contribute",
+                        _fmt(widget.remaining),
+                        const Color(0xFFF57C00)),
                   ],
                   const SizedBox(height: 8),
-                  _summaryRow(Icons.repeat_rounded, "Payment frequency kept", order.paymentFrequency, AppColors.textSecondary),
+                  _summaryRow(Icons.repeat_rounded, "Payment frequency kept",
+                      order.paymentFrequency, AppColors.textSecondary),
                 ]),
               ),
               const SizedBox(height: 12),
 
               // Outcome callout
               if (widget.willComplete && widget.overpayPreview > 0)
-                _infoBanner(Icons.verified_rounded, AppColors.primaryGreen, const Color(0xFFE8F5E9),
-                  "Order will be marked complete immediately. ${_fmt(widget.overpayPreview)} refunded to your wallet.")
+                _infoBanner(
+                    Icons.verified_rounded,
+                    AppColors.primaryGreen,
+                    const Color(0xFFE8F5E9),
+                    "Order will be marked complete immediately. ${_fmt(widget.overpayPreview)} refunded to your wallet.")
               else if (widget.willComplete)
-                _infoBanner(Icons.verified_rounded, AppColors.primaryGreen, const Color(0xFFE8F5E9),
-                  "Your funds exactly cover ${newProduct.name} — order will be marked complete.")
+                _infoBanner(
+                    Icons.verified_rounded,
+                    AppColors.primaryGreen,
+                    const Color(0xFFE8F5E9),
+                    "Your funds exactly cover ${newProduct.name} — order will be marked complete.")
               else
-                _infoBanner(Icons.info_outline_rounded, const Color(0xFFF57C00), const Color(0xFFFFF3E0),
-                  "${_fmt(widget.remaining)} left to pay. Continue your ${order.paymentFrequency.toLowerCase()} contributions — no new plan needed."),
+                _infoBanner(
+                    Icons.info_outline_rounded,
+                    const Color(0xFFF57C00),
+                    const Color(0xFFFFF3E0),
+                    "${_fmt(widget.remaining)} left to pay. Continue your ${order.paymentFrequency.toLowerCase()} contributions — no new plan needed."),
 
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () => setState(() => _showPin = true),
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 52)),
+                style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 52)),
                 child: Text(lang.continueToPIN),
               ),
             ],
@@ -2645,7 +3069,8 @@ class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmShe
     );
   }
 
-  Widget _infoBanner(IconData icon, Color iconColor, Color bgColor, String text) {
+  Widget _infoBanner(
+      IconData icon, Color iconColor, Color bgColor, String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -2656,17 +3081,25 @@ class _HistoryExchangeConfirmSheetState extends State<_HistoryExchangeConfirmShe
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(icon, size: 16, color: iconColor),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: TextStyle(fontSize: 12, color: iconColor))),
+        Expanded(
+            child:
+                Text(text, style: TextStyle(fontSize: 12, color: iconColor))),
       ]),
     );
   }
 
-  Widget _summaryRow(IconData icon, String label, String value, Color valueColor) {
+  Widget _summaryRow(
+      IconData icon, String label, String value, Color valueColor) {
     return Row(children: [
       Icon(icon, size: 15, color: AppColors.primaryGreen),
       const SizedBox(width: 8),
-      Expanded(child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
-      Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: valueColor)),
+      Expanded(
+          child: Text(label,
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary))),
+      Text(value,
+          style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w700, color: valueColor)),
     ]);
   }
 }
@@ -2703,9 +3136,12 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose(); _phoneCtrl.dispose();
-    _neighbourhoodCtrl.dispose(); _cityCtrl.dispose();
-    _pinCtrl.dispose(); _professionCtrl.dispose();
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _neighbourhoodCtrl.dispose();
+    _cityCtrl.dispose();
+    _pinCtrl.dispose();
+    _professionCtrl.dispose();
     super.dispose();
   }
 
@@ -2722,7 +3158,9 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_deliveryTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(lang.pleaseSelectDeliveryTime), backgroundColor: AppColors.warning),
+        SnackBar(
+            content: Text(lang.pleaseSelectDeliveryTime),
+            backgroundColor: AppColors.warning),
       );
       return;
     }
@@ -2743,10 +3181,12 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 4),
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
               content: Row(
                 children: const [
-                  Icon(Icons.check_circle_rounded, color: Colors.white, size: 22),
+                  Icon(Icons.check_circle_rounded,
+                      color: Colors.white, size: 22),
                   SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -2755,7 +3195,10 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
                       children: [
                         Text(
                           'Delivery request received!',
-                          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 14),
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              fontSize: 14),
                         ),
                         SizedBox(height: 2),
                         Text(
@@ -2782,7 +3225,9 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Container(
       padding: EdgeInsets.fromLTRB(24, 20, 24, bottom + 32),
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       child: SingleChildScrollView(
         child: _step == 'receipt'
             ? _HistoryReceiptView(
@@ -2804,8 +3249,14 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
                     phone: _phoneCtrl.text.trim(),
                     productName: widget.order.product.name,
                     onConfirm: _confirmPin,
-                    onBack: () => setState(() { _step = 'form'; _pinError = null; _pinCtrl.clear(); }),
-                    onChanged: (_) { if (_pinError != null) setState(() => _pinError = null); },
+                    onBack: () => setState(() {
+                      _step = 'form';
+                      _pinError = null;
+                      _pinCtrl.clear();
+                    }),
+                    onChanged: (_) {
+                      if (_pinError != null) setState(() => _pinError = null);
+                    },
                   )
                 : _HistoryDeliveryForm(
                     formKey: _formKey,
@@ -2814,8 +3265,10 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
                     professionCtrl: _professionCtrl,
                     idFrontPhoto: _idFrontPhoto,
                     idBackPhoto: _idBackPhoto,
-                    onIdFrontCapture: () => setState(() => _idFrontPhoto = 'front_captured'),
-                    onIdBackCapture: () => setState(() => _idBackPhoto = 'back_captured'),
+                    onIdFrontCapture: () =>
+                        setState(() => _idFrontPhoto = 'front_captured'),
+                    onIdBackCapture: () =>
+                        setState(() => _idBackPhoto = 'back_captured'),
                     neighbourhoodCtrl: _neighbourhoodCtrl,
                     cityCtrl: _cityCtrl,
                     deliveryTime: _deliveryTime,
@@ -2836,7 +3289,8 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
                           child: child!,
                         ),
                       );
-                      if (picked != null) setState(() => _deliveryTime = picked);
+                      if (picked != null)
+                        setState(() => _deliveryTime = picked);
                     },
                     onSubmit: _submitForm,
                   ),
@@ -2848,7 +3302,11 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
 // ── Delivery form ──────────────────────────────────────────────────────────
 class _HistoryDeliveryForm extends StatelessWidget {
   final GlobalKey<FormState> formKey;
-  final TextEditingController nameCtrl, phoneCtrl, professionCtrl, neighbourhoodCtrl, cityCtrl;
+  final TextEditingController nameCtrl,
+      phoneCtrl,
+      professionCtrl,
+      neighbourhoodCtrl,
+      cityCtrl;
   final String? idFrontPhoto;
   final String? idBackPhoto;
   final VoidCallback onIdFrontCapture;
@@ -2885,21 +3343,36 @@ class _HistoryDeliveryForm extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+          Center(
+              child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 20),
           Row(children: [
             Container(
-              width: 42, height: 42,
-              decoration: BoxDecoration(color: AppColors.primaryGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.local_shipping_outlined, color: AppColors.primaryGreen, size: 22),
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                  color: AppColors.primaryGreen.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.local_shipping_outlined,
+                  color: AppColors.primaryGreen, size: 22),
             ),
             const SizedBox(width: 12),
-            Text(lang.deliveryInformation, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+            Text(lang.deliveryInformation,
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary)),
           ]),
           const SizedBox(height: 6),
           const Padding(
             padding: EdgeInsets.only(left: 54),
-            child: Text('Confirm your identity and delivery details.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            child: Text('Confirm your identity and delivery details.',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
           ),
           const SizedBox(height: 22),
 
@@ -2910,8 +3383,12 @@ class _HistoryDeliveryForm extends StatelessWidget {
             controller: nameCtrl,
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(labelText: 'Full name', hintText: 'e.g. Jean-Paul Mbarga', prefixIcon: Icon(Icons.person_outline_rounded)),
-            validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
+            decoration: const InputDecoration(
+                labelText: 'Full name',
+                hintText: 'e.g. Jean-Paul Mbarga',
+                prefixIcon: Icon(Icons.person_outline_rounded)),
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Name is required' : null,
           ),
           const SizedBox(height: 14),
 
@@ -2927,7 +3404,9 @@ class _HistoryDeliveryForm extends StatelessWidget {
               hintText: 'e.g. +237 6XX XXX XXX',
               prefixIcon: Icon(Icons.phone_outlined),
             ),
-            validator: (v) => v == null || v.trim().isEmpty ? 'Phone number is required' : null,
+            validator: (v) => v == null || v.trim().isEmpty
+                ? 'Phone number is required'
+                : null,
           ),
           const SizedBox(height: 14),
 
@@ -2943,15 +3422,22 @@ class _HistoryDeliveryForm extends StatelessWidget {
               hintText: 'e.g. Engineer, Teacher, Trader…',
               prefixIcon: Icon(Icons.work_outline_rounded),
             ),
-            validator: (v) => v == null || v.trim().isEmpty ? 'Profession is required' : null,
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Profession is required' : null,
           ),
           const SizedBox(height: 18),
 
           // ID Card Photos (optional)
           Row(children: [
-            const Icon(Icons.badge_outlined, size: 16, color: AppColors.primaryGreen),
+            const Icon(Icons.badge_outlined,
+                size: 16, color: AppColors.primaryGreen),
             const SizedBox(width: 6),
-            const Text('ID CARD PHOTOS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+            const Text('ID CARD PHOTOS',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -2959,13 +3445,19 @@ class _HistoryDeliveryForm extends StatelessWidget {
                 color: AppColors.primaryGreen.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text('OPTIONAL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.primaryGreen, letterSpacing: 0.5)),
+              child: const Text('OPTIONAL',
+                  style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryGreen,
+                      letterSpacing: 0.5)),
             ),
           ]),
           const SizedBox(height: 8),
           const Text(
             'Attach a photo of your national ID card (front and back). This helps us verify your identity faster.',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+            style: TextStyle(
+                fontSize: 12, color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 12),
           Row(children: [
@@ -2981,7 +3473,9 @@ class _HistoryDeliveryForm extends StatelessWidget {
                         : AppColors.offWhite,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: idFrontPhoto != null ? AppColors.primaryGreen : const Color(0xFFD0E8E5),
+                      color: idFrontPhoto != null
+                          ? AppColors.primaryGreen
+                          : const Color(0xFFD0E8E5),
                       width: idFrontPhoto != null ? 2 : 1,
                     ),
                   ),
@@ -2989,18 +3483,26 @@ class _HistoryDeliveryForm extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        idFrontPhoto != null ? Icons.check_circle_rounded : Icons.camera_alt_outlined,
-                        color: idFrontPhoto != null ? AppColors.primaryGreen : AppColors.textMuted,
+                        idFrontPhoto != null
+                            ? Icons.check_circle_rounded
+                            : Icons.camera_alt_outlined,
+                        color: idFrontPhoto != null
+                            ? AppColors.primaryGreen
+                            : AppColors.textMuted,
                         size: 28,
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        idFrontPhoto != null ? 'Front captured ✓' : 'Tap to capture\nFRONT side',
+                        idFrontPhoto != null
+                            ? 'Front captured ✓'
+                            : 'Tap to capture\nFRONT side',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: idFrontPhoto != null ? AppColors.primaryGreen : AppColors.textMuted,
+                          color: idFrontPhoto != null
+                              ? AppColors.primaryGreen
+                              : AppColors.textMuted,
                           height: 1.3,
                         ),
                       ),
@@ -3022,7 +3524,9 @@ class _HistoryDeliveryForm extends StatelessWidget {
                         : AppColors.offWhite,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: idBackPhoto != null ? AppColors.primaryGreen : const Color(0xFFD0E8E5),
+                      color: idBackPhoto != null
+                          ? AppColors.primaryGreen
+                          : const Color(0xFFD0E8E5),
                       width: idBackPhoto != null ? 2 : 1,
                     ),
                   ),
@@ -3030,18 +3534,26 @@ class _HistoryDeliveryForm extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        idBackPhoto != null ? Icons.check_circle_rounded : Icons.camera_alt_outlined,
-                        color: idBackPhoto != null ? AppColors.primaryGreen : AppColors.textMuted,
+                        idBackPhoto != null
+                            ? Icons.check_circle_rounded
+                            : Icons.camera_alt_outlined,
+                        color: idBackPhoto != null
+                            ? AppColors.primaryGreen
+                            : AppColors.textMuted,
                         size: 28,
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        idBackPhoto != null ? 'Back captured ✓' : 'Tap to capture\nBACK side',
+                        idBackPhoto != null
+                            ? 'Back captured ✓'
+                            : 'Tap to capture\nBACK side',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: idBackPhoto != null ? AppColors.primaryGreen : AppColors.textMuted,
+                          color: idBackPhoto != null
+                              ? AppColors.primaryGreen
+                              : AppColors.textMuted,
                           height: 1.3,
                         ),
                       ),
@@ -3059,8 +3571,13 @@ class _HistoryDeliveryForm extends StatelessWidget {
           TextFormField(
             controller: neighbourhoodCtrl,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(labelText: 'Neighbourhood', hintText: 'e.g. Bastos, Nlongkak…', prefixIcon: Icon(Icons.location_city_outlined)),
-            validator: (v) => v == null || v.trim().isEmpty ? 'Neighbourhood is required' : null,
+            decoration: const InputDecoration(
+                labelText: 'Neighbourhood',
+                hintText: 'e.g. Bastos, Nlongkak…',
+                prefixIcon: Icon(Icons.location_city_outlined)),
+            validator: (v) => v == null || v.trim().isEmpty
+                ? 'Neighbourhood is required'
+                : null,
           ),
           const SizedBox(height: 14),
 
@@ -3070,8 +3587,12 @@ class _HistoryDeliveryForm extends StatelessWidget {
           TextFormField(
             controller: cityCtrl,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(labelText: 'City', hintText: 'e.g. Yaoundé, Douala…', prefixIcon: Icon(Icons.location_on_outlined)),
-            validator: (v) => v == null || v.trim().isEmpty ? 'City is required' : null,
+            decoration: const InputDecoration(
+                labelText: 'City',
+                hintText: 'e.g. Yaoundé, Douala…',
+                prefixIcon: Icon(Icons.location_on_outlined)),
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'City is required' : null,
           ),
           const SizedBox(height: 14),
 
@@ -3086,18 +3607,31 @@ class _HistoryDeliveryForm extends StatelessWidget {
                 color: AppColors.offWhite,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: deliveryTime != null ? AppColors.primaryGreen : const Color(0xFFD0E8E5),
+                  color: deliveryTime != null
+                      ? AppColors.primaryGreen
+                      : const Color(0xFFD0E8E5),
                   width: deliveryTime != null ? 2 : 1,
                 ),
               ),
               child: Row(children: [
-                const Icon(Icons.access_time_rounded, color: AppColors.primaryGreen, size: 20),
+                const Icon(Icons.access_time_rounded,
+                    color: AppColors.primaryGreen, size: 20),
                 const SizedBox(width: 12),
-                Expanded(child: Text(
-                  deliveryTime != null ? 'Delivery at ${deliveryTime!.format(context)}' : 'Select delivery time',
-                  style: TextStyle(fontSize: 14, color: deliveryTime != null ? AppColors.textPrimary : AppColors.textMuted),
+                Expanded(
+                    child: Text(
+                  deliveryTime != null
+                      ? 'Delivery at ${deliveryTime!.format(context)}'
+                      : 'Select delivery time',
+                  style: TextStyle(
+                      fontSize: 14,
+                      color: deliveryTime != null
+                          ? AppColors.textPrimary
+                          : AppColors.textMuted),
                 )),
-                Icon(Icons.keyboard_arrow_down_rounded, color: deliveryTime != null ? AppColors.primaryGreen : AppColors.textMuted),
+                Icon(Icons.keyboard_arrow_down_rounded,
+                    color: deliveryTime != null
+                        ? AppColors.primaryGreen
+                        : AppColors.textMuted),
               ]),
             ),
           ),
@@ -3114,7 +3648,11 @@ class _HistoryDeliveryForm extends StatelessWidget {
   }
 
   Widget _fieldLabel(String text) => Text(text,
-    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1));
+      style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textMuted,
+          letterSpacing: 1));
 }
 
 // ── Delivery PIN step ──────────────────────────────────────────────────────
@@ -3143,18 +3681,32 @@ class _HistoryDeliveryPinStep extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Center(child: Container(width: 40, height: 4,
-            decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+        Center(
+            child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2)))),
         const SizedBox(height: 20),
-        Text(lang.confirmDeliveryBtn, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+        Text(lang.confirmDeliveryBtn,
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary)),
         const SizedBox(height: 6),
-        Text(lang.confirmDeliveryPINDesc, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+        Text(lang.confirmDeliveryPINDesc,
+            style: TextStyle(
+                fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
         const SizedBox(height: 20),
 
         // Summary tile
         Container(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: AppColors.offWhite, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.divider)),
+          decoration: BoxDecoration(
+              color: AppColors.offWhite,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.divider)),
           child: Column(children: [
             _summaryRow(Icons.person_outline_rounded, 'Recipient', name),
             const SizedBox(height: 8),
@@ -3180,21 +3732,29 @@ class _HistoryDeliveryPinStep extends StatelessWidget {
           onChanged: onChanged,
         ),
         const SizedBox(height: 6),
-        Text(lang.demoPIN, style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontStyle: FontStyle.italic)),
+        Text(lang.demoPIN,
+            style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textMuted,
+                fontStyle: FontStyle.italic)),
         const SizedBox(height: 20),
 
         Row(children: [
-          Expanded(child: OutlinedButton(
+          Expanded(
+              child: OutlinedButton(
             onPressed: onBack,
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, 50),
               side: const BorderSide(color: AppColors.divider),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
             ),
-            child: Text(lang.back, style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(lang.back,
+                style: TextStyle(color: AppColors.textSecondary)),
           )),
           const SizedBox(width: 12),
-          Expanded(child: ElevatedButton(
+          Expanded(
+              child: ElevatedButton(
             onPressed: onConfirm,
             style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50)),
             child: Text(lang.confirmDeliveryBtn),
@@ -3208,9 +3768,15 @@ class _HistoryDeliveryPinStep extends StatelessWidget {
     return Row(children: [
       Icon(icon, size: 16, color: AppColors.primaryGreen),
       const SizedBox(width: 10),
-      Text('$label: ', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-      Expanded(child: Text(value, textAlign: TextAlign.end,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary))),
+      Text('$label: ',
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+      Expanded(
+          child: Text(value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary))),
     ]);
   }
 }
@@ -3223,7 +3789,16 @@ class _HistoryReceiptView extends StatelessWidget {
   final String? idBackPhoto;
   final TimeOfDay? deliveryTime;
 
-  const _HistoryReceiptView({required this.order, required this.name, required this.phone, required this.profession, required this.idFrontPhoto, required this.idBackPhoto, required this.neighbourhood, required this.city, required this.deliveryTime});
+  const _HistoryReceiptView(
+      {required this.order,
+      required this.name,
+      required this.phone,
+      required this.profession,
+      required this.idFrontPhoto,
+      required this.idBackPhoto,
+      required this.neighbourhood,
+      required this.city,
+      required this.deliveryTime});
 
   String _fmt(int v) {
     final k = v ~/ 1000;
@@ -3236,7 +3811,20 @@ class _HistoryReceiptView extends StatelessWidget {
     return 'RCP-${rand.nextInt(900000) + 100000}';
   }
 
-  String _monthName(int m) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
+  String _monthName(int m) => [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ][m - 1];
 
   String get _today {
     final d = DateTime.now();
@@ -3254,7 +3842,13 @@ class _HistoryReceiptView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+        Center(
+            child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2)))),
         const SizedBox(height: 20),
 
         // ── Delivery confirmation banner ──────────────────────────────────
@@ -3277,7 +3871,8 @@ class _HistoryReceiptView extends StatelessWidget {
                   color: AppColors.primaryGreen.withOpacity(0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.local_shipping_rounded, color: AppColors.primaryGreen, size: 20),
+                child: const Icon(Icons.local_shipping_rounded,
+                    color: AppColors.primaryGreen, size: 20),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -3286,12 +3881,18 @@ class _HistoryReceiptView extends StatelessWidget {
                   children: [
                     Text(
                       'Your details have been received!',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primaryGreen),
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryGreen),
                     ),
                     SizedBox(height: 4),
                     Text(
                       'Thank you! Your delivery request is confirmed. You will receive your product shortly.',
-                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.5),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          height: 1.5),
                     ),
                   ],
                 ),
@@ -3301,29 +3902,46 @@ class _HistoryReceiptView extends StatelessWidget {
         ),
 
         Row(children: [
-          Container(width: 44, height: 44,
-              decoration: BoxDecoration(color: AppColors.primaryGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.receipt_long_rounded, color: AppColors.primaryGreen, size: 24)),
+          Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.receipt_long_rounded,
+                  color: AppColors.primaryGreen, size: 24)),
           const SizedBox(width: 14),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(lang.deliveryReceipt, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-            Text(_receiptId, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+            Text(lang.deliveryReceipt,
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary)),
+            Text(_receiptId,
+                style:
+                    const TextStyle(fontSize: 12, color: AppColors.textMuted)),
           ]),
         ]),
         const SizedBox(height: 20),
 
         Container(
-          decoration: BoxDecoration(color: AppColors.offWhite, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.divider)),
+          decoration: BoxDecoration(
+              color: AppColors.offWhite,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.divider)),
           child: Column(children: [
             _section('CUSTOMER DETAILS', [
               _rRow('Full Name', name),
               _rRow('Phone', phone),
               _rRow('Profession', profession),
-              _rRow('ID Front', idFrontPhoto != null ? '✓ Photo captured' : 'Not provided'),
-              _rRow('ID Back', idBackPhoto != null ? '✓ Photo captured' : 'Not provided'),
+              _rRow('ID Front',
+                  idFrontPhoto != null ? '✓ Photo captured' : 'Not provided'),
+              _rRow('ID Back',
+                  idBackPhoto != null ? '✓ Photo captured' : 'Not provided'),
               _rRow('Neighbourhood', neighbourhood),
               _rRow('City', city),
-              _rRow('Delivery Time', deliveryTime != null ? deliveryTime!.format(context) : '—'),
+              _rRow('Delivery Time',
+                  deliveryTime != null ? deliveryTime!.format(context) : '—'),
             ]),
             const Divider(height: 1, color: AppColors.divider),
             _section('ORDER DETAILS', [
@@ -3338,7 +3956,8 @@ class _HistoryReceiptView extends StatelessWidget {
               _rRow('Service Fee', _fmt(order.fee)),
               _rRow('Payment Plan', order.planDurationLabel),
               _rRow('Frequency', order.paymentFrequency),
-              _rRow('Contributions Made', '${order.paidInstallments.length}/${order.totalInstallments}'),
+              _rRow('Contributions Made',
+                  '${order.paidInstallments.length}/${order.totalInstallments}'),
               _rRow('Accumulated Funds', _fmt(order.accumulatedFunds)),
               if (remaining > 0) _rRow('Remaining', _fmt(remaining)),
             ]),
@@ -3346,12 +3965,24 @@ class _HistoryReceiptView extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: AppColors.primaryGreen.withOpacity(0.08),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(16)),
               ),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text(lang.totalOrderValue, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary, letterSpacing: 0.5)),
-                Text(_fmt(grandTotal), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.primaryGreen)),
-              ]),
+              child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(lang.totalOrderValue,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSecondary,
+                            letterSpacing: 0.5)),
+                    Text(_fmt(grandTotal),
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryGreen)),
+                  ]),
             ),
           ]),
         ),
@@ -3362,11 +3993,15 @@ class _HistoryReceiptView extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               backgroundColor: AppColors.primaryGreen,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               content: Row(children: [
-                Icon(Icons.download_done_rounded, color: Colors.white, size: 20),
+                Icon(Icons.download_done_rounded,
+                    color: Colors.white, size: 20),
                 SizedBox(width: 10),
-                Text(lang.receiptDownloaded, style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+                Text(lang.receiptDownloaded,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600, color: Colors.white)),
               ]),
             ));
           },
@@ -3376,7 +4011,8 @@ class _HistoryReceiptView extends StatelessWidget {
         const SizedBox(height: 10),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(lang.close, style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+          child: Text(lang.close,
+              style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
         ),
       ],
     );
@@ -3386,7 +4022,12 @@ class _HistoryReceiptView extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textMuted,
+                letterSpacing: 1)),
         const SizedBox(height: 10),
         ...rows,
       ]),
@@ -3397,8 +4038,18 @@ class _HistoryReceiptView extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(width: 130, child: Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textMuted))),
-        Expanded(child: Text(value, textAlign: TextAlign.end, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary))),
+        SizedBox(
+            width: 130,
+            child: Text(label,
+                style:
+                    const TextStyle(fontSize: 13, color: AppColors.textMuted))),
+        Expanded(
+            child: Text(value,
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary))),
       ]),
     );
   }
@@ -3421,8 +4072,12 @@ class _WatSimTransferSheet extends StatefulWidget {
 class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
   // Demo whitelist – phone numbers with a verified WatSim account
   static const _verifiedNumbers = {
-    '655000001', '655000002', '677000001',
-    '699000001', '620000001', '690000001',
+    '655000001',
+    '655000002',
+    '677000001',
+    '699000001',
+    '620000001',
+    '690000001',
   };
   static const _validPin = '1234';
 
@@ -3430,14 +4085,14 @@ class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
   int _step = 0;
 
   final _phoneCtrl = TextEditingController();
-  final _pinCtrl   = TextEditingController();
+  final _pinCtrl = TextEditingController();
   String? _phoneError;
   String? _pinError;
   bool _unverified = false;
 
   int get _accumulated => widget.sourceOrder.totalAmountPaid;
-  int get _deduction   => (_accumulated * 0.20).round();
-  int get _netAmount   => _accumulated - _deduction;
+  int get _deduction => (_accumulated * 0.20).round();
+  int get _netAmount => _accumulated - _deduction;
 
   String _fmt(int v) =>
       '${v ~/ 1000},${(v % 1000).toString().padLeft(3, '0')} FCFA';
@@ -3480,7 +4135,8 @@ class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
     // ── drag handle ──────────────────────────────────────────────────────────
     final handle = Center(
       child: Container(
-        width: 40, height: 4,
+        width: 40,
+        height: 4,
         decoration: BoxDecoration(
           color: const Color(0xFFD0D0D0),
           borderRadius: BorderRadius.circular(2),
@@ -3490,395 +4146,475 @@ class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
 
     // ── funds breakdown card ─────────────────────────────────────────────────
     Widget fundsCard() => Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF607D8B).withOpacity(0.06),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF607D8B).withOpacity(0.20)),
-      ),
-      child: Column(children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(lang.accumulatedFundsLabel,
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                  fontWeight: FontWeight.w600)),
-          Text(_fmt(_accumulated),
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                  color: Color(0xFF607D8B))),
-        ]),
-        const SizedBox(height: 8),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(lang.serviceFee20,
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                  fontWeight: FontWeight.w600)),
-          Text('− ${_fmt(_deduction)}',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                  color: Color(0xFFE53935))),
-        ]),
-        const Divider(height: 16),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(lang.recipientReceives,
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                  fontWeight: FontWeight.w600)),
-          Text(_fmt(_netAmount),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
-                  color: AppColors.primaryGreen)),
-        ]),
-      ]),
-    );
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF607D8B).withOpacity(0.06),
+            borderRadius: BorderRadius.circular(14),
+            border:
+                Border.all(color: const Color(0xFF607D8B).withOpacity(0.20)),
+          ),
+          child: Column(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(lang.accumulatedFundsLabel,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600)),
+              Text(_fmt(_accumulated),
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF607D8B))),
+            ]),
+            const SizedBox(height: 8),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(lang.serviceFee20,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600)),
+              Text('− ${_fmt(_deduction)}',
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFE53935))),
+            ]),
+            const Divider(height: 16),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(lang.recipientReceives,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600)),
+              Text(_fmt(_netAmount),
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryGreen)),
+            ]),
+          ]),
+        );
 
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 0 – phone number entry
     // ═══════════════════════════════════════════════════════════════════════
     Widget buildPhoneStep() => Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        handle,
-        const SizedBox(height: 20),
-
-        Row(children: [
-          Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF607D8B).withOpacity(0.10),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.phone_android_rounded,
-                color: Color(0xFF607D8B), size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(lang.transferToWatsim,
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary)),
-              SizedBox(height: 2),
-              Text(lang.sendAccumulatedFunds,
-                  style: TextStyle(fontSize: 12,
-                      color: AppColors.textSecondary)),
-            ],
-          )),
-        ]),
-        const SizedBox(height: 18),
-
-        fundsCard(),
-        const SizedBox(height: 18),
-
-        if (_accumulated == 0)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF3E0),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFFB74D)),
-            ),
-            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.info_outline_rounded, color: Color(0xFFF57C00), size: 20),
-              SizedBox(width: 10),
-              Expanded(child: Text(
-                'No payments made yet. Make at least one instalment before transferring.',
-                style: TextStyle(fontSize: 13, color: Color(0xFFF57C00), height: 1.4),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            handle,
+            const SizedBox(height: 20),
+            Row(children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF607D8B).withOpacity(0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.phone_android_rounded,
+                    color: Color(0xFF607D8B), size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                  child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(lang.transferToWatsim,
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary)),
+                  SizedBox(height: 2),
+                  Text(lang.sendAccumulatedFunds,
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary)),
+                ],
               )),
             ]),
-          )
-        else ...[
-          TextField(
-            controller: _phoneCtrl,
-            keyboardType: TextInputType.phone,
-            maxLength: 15,
-            decoration: InputDecoration(
-              labelText: 'Recipient phone number',
-              hintText: 'e.g. 655000001',
-              prefixIcon: const Icon(Icons.phone_outlined),
-              counterText: '',
-              errorText: _phoneError,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            onChanged: (_) {
-              if (_phoneError != null || _unverified) {
-                setState(() { _phoneError = null; _unverified = false; });
-              }
-            },
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Demo verified numbers: 655000001 · 677000001 · 699000001',
-            style: TextStyle(fontSize: 11, color: AppColors.textMuted,
-                fontStyle: FontStyle.italic),
-          ),
-
-          if (_unverified) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFEBEE),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFEF9A9A)),
+            const SizedBox(height: 18),
+            fundsCard(),
+            const SizedBox(height: 18),
+            if (_accumulated == 0)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFFB74D)),
+                ),
+                child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline_rounded,
+                          color: Color(0xFFF57C00), size: 20),
+                      SizedBox(width: 10),
+                      Expanded(
+                          child: Text(
+                        'No payments made yet. Make at least one instalment before transferring.',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFFF57C00),
+                            height: 1.4),
+                      )),
+                    ]),
+              )
+            else ...[
+              TextField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                maxLength: 15,
+                decoration: InputDecoration(
+                  labelText: 'Recipient phone number',
+                  hintText: 'e.g. 655000001',
+                  prefixIcon: const Icon(Icons.phone_outlined),
+                  counterText: '',
+                  errorText: _phoneError,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                onChanged: (_) {
+                  if (_phoneError != null || _unverified) {
+                    setState(() {
+                      _phoneError = null;
+                      _unverified = false;
+                    });
+                  }
+                },
               ),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFE53935), size: 22),
-                SizedBox(width: 10),
-                Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(lang.noWatsimAccount,
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
-                            color: Color(0xFFB71C1C))),
-                    SizedBox(height: 4),
-                    Text(
-                      'This number does not have a verified WatSim account. '
-                      'Check the number or ask the recipient to register on WatSim.',
-                      style: TextStyle(fontSize: 12, color: Color(0xFFE53935),
-                          height: 1.4),
-                    ),
-                  ],
-                )),
-              ]),
-            ),
+              const SizedBox(height: 6),
+              const Text(
+                'Demo verified numbers: 655000001 · 677000001 · 699000001',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                    fontStyle: FontStyle.italic),
+              ),
+              if (_unverified) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEBEE),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFEF9A9A)),
+                  ),
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.warning_amber_rounded,
+                            color: Color(0xFFE53935), size: 22),
+                        SizedBox(width: 10),
+                        Expanded(
+                            child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(lang.noWatsimAccount,
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFB71C1C))),
+                            SizedBox(height: 4),
+                            Text(
+                              'This number does not have a verified WatSim account. '
+                              'Check the number or ask the recipient to register on WatSim.',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFFE53935),
+                                  height: 1.4),
+                            ),
+                          ],
+                        )),
+                      ]),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: Text(lang.continueLabel2),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF607D8B),
+                    minimumSize: const Size(double.infinity, 52),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () {
+                    final phone = _phoneCtrl.text
+                        .trim()
+                        .replaceAll(RegExp(r'[\s\-]'), '');
+                    if (phone.isEmpty) {
+                      setState(
+                          () => _phoneError = 'Please enter a phone number.');
+                      return;
+                    }
+                    if (phone.length < 8) {
+                      setState(
+                          () => _phoneError = 'Enter a valid phone number.');
+                      return;
+                    }
+                    if (!_verifiedNumbers.contains(phone)) {
+                      setState(() {
+                        _phoneError = null;
+                        _unverified = true;
+                      });
+                      return;
+                    }
+                    setState(() {
+                      _unverified = false;
+                      _phoneError = null;
+                      _step = 1;
+                    });
+                  },
+                ),
+              ),
+            ],
           ],
-
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-              label: Text(lang.continueLabel2),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF607D8B),
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-              ),
-              onPressed: () {
-                final phone = _phoneCtrl.text
-                    .trim()
-                    .replaceAll(RegExp(r'[\s\-]'), '');
-                if (phone.isEmpty) {
-                  setState(() => _phoneError = 'Please enter a phone number.');
-                  return;
-                }
-                if (phone.length < 8) {
-                  setState(() => _phoneError = 'Enter a valid phone number.');
-                  return;
-                }
-                if (!_verifiedNumbers.contains(phone)) {
-                  setState(() { _phoneError = null; _unverified = true; });
-                  return;
-                }
-                setState(() { _unverified = false; _phoneError = null; _step = 1; });
-              },
-            ),
-          ),
-        ],
-      ],
-    );
+        );
 
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 1 – PIN confirmation
     // ═══════════════════════════════════════════════════════════════════════
     Widget buildPinStep() => Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        handle,
-        const SizedBox(height: 20),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            handle,
+            const SizedBox(height: 20),
 
-        Text(lang.confirmTransfer,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary)),
-        const SizedBox(height: 6),
-        Text(
-          'Enter your 4-digit PIN to send ${_fmt(_netAmount)} '
-          'to ${_phoneCtrl.text.trim()}.',
-          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary,
-              height: 1.4),
-        ),
-        const SizedBox(height: 20),
-
-        // Summary card
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.offWhite,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.divider),
-          ),
-          child: Column(children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(lang.fromLabel,
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                      fontWeight: FontWeight.w600)),
-              Text(widget.sourceOrder.product.name,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary)),
-            ]),
-            const SizedBox(height: 8),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(lang.toWatsim,
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                      fontWeight: FontWeight.w600)),
-              Text(_phoneCtrl.text.trim(),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary)),
-            ]),
-            const Divider(height: 16),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(lang.grossAmount,
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                      fontWeight: FontWeight.w600)),
-              Text(_fmt(_accumulated),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary)),
-            ]),
+            Text(lang.confirmTransfer,
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary)),
             const SizedBox(height: 6),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(lang.serviceFee20,
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                      fontWeight: FontWeight.w600)),
-              Text('− ${_fmt(_deduction)}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                      color: Color(0xFFE53935))),
-            ]),
-            const Divider(height: 12),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(lang.recipientReceives,
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted,
-                      fontWeight: FontWeight.w600)),
-              Text(_fmt(_netAmount),
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
-                      color: AppColors.primaryGreen)),
-            ]),
-          ]),
-        ),
-        const SizedBox(height: 20),
-
-        TextField(
-          controller: _pinCtrl,
-          keyboardType: TextInputType.number,
-          obscureText: true,
-          maxLength: 4,
-          decoration: InputDecoration(
-            labelText: '4-digit PIN',
-            prefixIcon: const Icon(Icons.lock_outline_rounded),
-            counterText: '',
-            errorText: _pinError,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12)),
-          ),
-          onChanged: (_) {
-            if (_pinError != null) setState(() => _pinError = null);
-          },
-        ),
-        const SizedBox(height: 6),
-        Text(lang.demoPIN,
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted,
-                fontStyle: FontStyle.italic)),
-        const SizedBox(height: 20),
-
-        Row(children: [
-          Expanded(child: OutlinedButton(
-            onPressed: () => setState(() {
-              _step = 0;
-              _pinCtrl.clear();
-              _pinError = null;
-            }),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 50),
-              side: const BorderSide(color: AppColors.divider),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+            Text(
+              'Enter your 4-digit PIN to send ${_fmt(_netAmount)} '
+              'to ${_phoneCtrl.text.trim()}.',
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary, height: 1.4),
             ),
-            child: Text(lang.back,
-                style: const TextStyle(color: AppColors.textSecondary)),
-          )),
-          const SizedBox(width: 12),
-          Expanded(child: ElevatedButton(
-            onPressed: _confirmTransfer,
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(0, 50),
-              backgroundColor: const Color(0xFF607D8B),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+            const SizedBox(height: 20),
+
+            // Summary card
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.offWhite,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: Column(children: [
+                Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(lang.fromLabel,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600)),
+                      Text(widget.sourceOrder.product.name,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary)),
+                    ]),
+                const SizedBox(height: 8),
+                Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(lang.toWatsim,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600)),
+                      Text(_phoneCtrl.text.trim(),
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary)),
+                    ]),
+                const Divider(height: 16),
+                Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(lang.grossAmount,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600)),
+                      Text(_fmt(_accumulated),
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary)),
+                    ]),
+                const SizedBox(height: 6),
+                Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(lang.serviceFee20,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600)),
+                      Text('− ${_fmt(_deduction)}',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFE53935))),
+                    ]),
+                const Divider(height: 12),
+                Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(lang.recipientReceives,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600)),
+                      Text(_fmt(_netAmount),
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primaryGreen)),
+                    ]),
+              ]),
             ),
-            child: Text(lang.confirmTransfer),
-          )),
-        ]),
-      ],
-    );
+            const SizedBox(height: 20),
+
+            TextField(
+              controller: _pinCtrl,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              decoration: InputDecoration(
+                labelText: '4-digit PIN',
+                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                counterText: '',
+                errorText: _pinError,
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onChanged: (_) {
+                if (_pinError != null) setState(() => _pinError = null);
+              },
+            ),
+            const SizedBox(height: 6),
+            Text(lang.demoPIN,
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                    fontStyle: FontStyle.italic)),
+            const SizedBox(height: 20),
+
+            Row(children: [
+              Expanded(
+                  child: OutlinedButton(
+                onPressed: () => setState(() {
+                  _step = 0;
+                  _pinCtrl.clear();
+                  _pinError = null;
+                }),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 50),
+                  side: const BorderSide(color: AppColors.divider),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(lang.back,
+                    style: const TextStyle(color: AppColors.textSecondary)),
+              )),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: ElevatedButton(
+                onPressed: _confirmTransfer,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 50),
+                  backgroundColor: const Color(0xFF607D8B),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(lang.confirmTransfer),
+              )),
+            ]),
+          ],
+        );
 
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 2 – success
     // ═══════════════════════════════════════════════════════════════════════
     Widget buildSuccessStep() => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        handle,
-        const SizedBox(height: 24),
-        Container(
-          width: 80, height: 80,
-          decoration: BoxDecoration(
-            color: AppColors.primaryGreen.withOpacity(0.10),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.check_circle_rounded,
-              size: 44, color: AppColors.primaryGreen),
-        ),
-        const SizedBox(height: 16),
-        Text(lang.transferSuccessful,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary)),
-        const SizedBox(height: 8),
-        Text(
-          '${_fmt(_netAmount)} has been sent to\n'
-          '${_phoneCtrl.text.trim()}\'s WatSim wallet.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary,
-              height: 1.5),
-        ),
-        const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF3E0),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFFFB74D)),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.info_outline_rounded,
-                color: Color(0xFFF57C00), size: 18),
-            const SizedBox(width: 10),
-            Flexible(child: Text(
-              '20% service fee of ${_fmt(_deduction)} was deducted '
-              'from your accumulated funds.',
-              style: const TextStyle(fontSize: 12, color: Color(0xFFF57C00),
-                  height: 1.4),
-            )),
-          ]),
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);   // close sheet
-              widget.onTransferred();  // pop detail screen
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryGreen,
-              minimumSize: const Size(double.infinity, 52),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            handle,
+            const SizedBox(height: 24),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withOpacity(0.10),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle_rounded,
+                  size: 44, color: AppColors.primaryGreen),
             ),
-            child: Text(lang.done),
-          ),
-        ),
-      ],
-    );
+            const SizedBox(height: 16),
+            Text(lang.transferSuccessful,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            Text(
+              '${_fmt(_netAmount)} has been sent to\n'
+              '${_phoneCtrl.text.trim()}\'s WatSim wallet.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 14, color: AppColors.textSecondary, height: 1.5),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFB74D)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.info_outline_rounded,
+                    color: Color(0xFFF57C00), size: 18),
+                const SizedBox(width: 10),
+                Flexible(
+                    child: Text(
+                  '20% service fee of ${_fmt(_deduction)} was deducted '
+                  'from your accumulated funds.',
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFFF57C00), height: 1.4),
+                )),
+              ]),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // close sheet
+                  widget.onTransferred(); // pop detail screen
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGreen,
+                  minimumSize: const Size(double.infinity, 52),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(lang.done),
+              ),
+            ),
+          ],
+        );
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -3973,7 +4709,6 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                         color: Colors.grey.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 20),
-
             if (_done) ...[
               Center(
                 child: Column(children: [
@@ -3983,10 +4718,8 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                       decoration: BoxDecoration(
                           color: const Color(0xFFF57C00).withOpacity(0.1),
                           shape: BoxShape.circle),
-                      child: const Icon(
-                          Icons.account_balance_wallet_outlined,
-                          size: 36,
-                          color: const Color(0xFFF57C00))),
+                      child: const Icon(Icons.account_balance_wallet_outlined,
+                          size: 36, color: const Color(0xFFF57C00))),
                   const SizedBox(height: 16),
                   Text(lang.withdrawalSuccessful,
                       style: TextStyle(
@@ -4003,7 +4736,8 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                         height: 1.5),
                   ),
                   const SizedBox(height: 8),
-                  Text('${lang.newBalanceLabel}: ${WalletState.instance.balanceFormatted}',
+                  Text(
+                      '${lang.newBalanceLabel}: ${WalletState.instance.balanceFormatted}',
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -4024,14 +4758,12 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary)),
               const SizedBox(height: 6),
-              const Text(
-                  'Enter your 4-digit PIN to confirm the withdrawal.',
+              const Text('Enter your 4-digit PIN to confirm the withdrawal.',
                   style: TextStyle(
                       fontSize: 13,
                       color: AppColors.textSecondary,
                       height: 1.4)),
               const SizedBox(height: 20),
-
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -4050,7 +4782,6 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                 ]),
               ),
               const SizedBox(height: 20),
-
               TextField(
                 controller: _pinCtrl,
                 keyboardType: TextInputType.number,
@@ -4073,7 +4804,6 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                       color: AppColors.textMuted,
                       fontStyle: FontStyle.italic)),
               const SizedBox(height: 20),
-
               Row(children: [
                 Expanded(
                     child: OutlinedButton(
@@ -4122,23 +4852,22 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                 decoration: BoxDecoration(
                     color: const Color(0xFFFFF3E0),
                     borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: const Color(0xFFFFB74D))),
+                    border: Border.all(color: const Color(0xFFFFB74D))),
                 child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: Color(0xFFF57C00), size: 20),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                      child: Text(
-                    '30% of accumulated funds will be deducted as a processing charge.',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFFF57C00),
-                        height: 1.4),
-                  )),
-                ]),
+                      const Icon(Icons.warning_amber_rounded,
+                          color: Color(0xFFF57C00), size: 20),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                          child: Text(
+                        '30% of accumulated funds will be deducted as a processing charge.',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFFF57C00),
+                            height: 1.4),
+                      )),
+                    ]),
               ),
               const SizedBox(height: 20),
 
@@ -4150,8 +4879,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppColors.divider)),
                 child: Column(children: [
-                  _summaryRow(
-                      'Instalments Paid',
+                  _summaryRow('Instalments Paid',
                       '${widget.order.paidInstallments.length}/${widget.order.totalInstallments}',
                       color: AppColors.textSecondary),
                   const SizedBox(height: 10),
@@ -4168,7 +4896,9 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
               const SizedBox(height: 24),
 
               ElevatedButton.icon(
-                onPressed: _accumulated > 0 ? () => setState(() => _showPin = true) : null,
+                onPressed: _accumulated > 0
+                    ? () => setState(() => _showPin = true)
+                    : null,
                 icon: const Icon(Icons.lock_outline_rounded, size: 18),
                 label: Text(lang.continueToPIN),
                 style: ElevatedButton.styleFrom(
@@ -4177,7 +4907,8 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
               if (_accumulated == 0) ...[
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                       color: const Color(0xFFFFF3E0),
                       borderRadius: BorderRadius.circular(12),
@@ -4185,12 +4916,16 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
-                      Icon(Icons.info_outline_rounded, color: Color(0xFFF57C00), size: 20),
+                      Icon(Icons.info_outline_rounded,
+                          color: Color(0xFFF57C00), size: 20),
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'No payments have been made yet. Make at least one instalment to enable withdrawal.',
-                          style: TextStyle(fontSize: 13, color: Color(0xFFF57C00), height: 1.4),
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFFF57C00),
+                              height: 1.4),
                         ),
                       ),
                     ],
@@ -4208,8 +4943,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
       {Color? color, bool bold = false, bool large = false}) {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       Text(label,
-          style: const TextStyle(
-              fontSize: 13, color: AppColors.textSecondary)),
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
       Text(value,
           style: TextStyle(
               fontSize: large ? 16 : 13,
@@ -4232,12 +4966,20 @@ class _FullyPaidBanner extends StatelessWidget {
         border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
       ),
       child: Row(children: [
-        Icon(Icons.check_circle_rounded, color: AppColors.primaryGreen, size: 28),
+        Icon(Icons.check_circle_rounded,
+            color: AppColors.primaryGreen, size: 28),
         SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(lang.allInstalmentsPaid, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(lang.allInstalmentsPaid,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryGreen)),
           SizedBox(height: 2),
-          Text(lang.orderFullySettled, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          Text(lang.orderFullySettled,
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
         ])),
       ]),
     );

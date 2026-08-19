@@ -222,7 +222,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       },
     });
     if (outcome === 'VERIFIED' || outcome === 'REJECTED') {
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         await tx.kycDocument.update({
           where: { id: doc.id },
           data: { status: outcome, reviewedAt: new Date(), reviewNote: `Smile ID ${payload.ResultCode}` },
@@ -317,7 +317,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return { success: true, message: 'PIN changed successfully' };
   });
 
-  // === Real SMS OTP (Twilio) for phone verification ===
+  // === Real SMS OTP (Orange SMS) for phone verification ===
   app.post('/send-otp', { schema: sendOtpSchema, config: { rateLimit: { max: 5, timeWindow: '5 minutes' } } }, async (req, reply) => {
     const { phone } = req.body as { phone: string };
     try {

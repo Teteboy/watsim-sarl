@@ -1,12 +1,13 @@
 import { buildApp } from './app';
 import { env } from './config/env';
 import { startWorkers, stopWorkers } from './jobs/queue';
-import { closeRedis } from './config/redis';
+import { closeRedis, initRedis } from './config/redis';
 import { prisma } from './config/db';
 import { ensureChartSeeded } from './modules/accounting/accounting.service';
 import { networkInterfaces } from 'os';
 
 async function main(): Promise<void> {
+  await initRedis();
   const app = await buildApp();
   await ensureChartSeeded().catch((e) => app.log.warn({ err: e }, 'OHADA chart seed skipped'));
   await startWorkers();

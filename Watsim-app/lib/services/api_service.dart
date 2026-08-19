@@ -155,7 +155,7 @@ class ApiService {
     final res = await http.Response.fromStream(streamedRes);
 
     if (res.statusCode >= 400) {
-      throw ApiException(res.statusCode, 'Upload failed: ${res.body}');
+      throw ApiException(res.statusCode, 'Upload failed. Please try again.');
     }
 
     return _decode(res);
@@ -220,13 +220,34 @@ class ApiService {
     return h;
   }
 
+  static String _fallbackMessage(int statusCode) {
+    switch (statusCode) {
+      case 400:
+        return 'Invalid request. Please check your input.';
+      case 401:
+        return 'Session expired. Please log in again.';
+      case 403:
+        return 'You don\'t have permission to perform this action.';
+      case 404:
+        return 'The requested resource was not found.';
+      case 409:
+        return 'This action conflicts with existing data.';
+      case 429:
+        return 'Too many requests. Please wait a moment and try again.';
+      default:
+        if (statusCode >= 500) {
+          return 'Something went wrong. Please try again later.';
+        }
+        return 'Request failed. Please try again.';
+    }
+  }
+
   static Map<String, dynamic> _decode(http.Response res) {
     // Gracefully handle empty body (e.g. 204 No Content or proxy strip)
     final bodyText = res.body.trim();
     if (bodyText.isEmpty) {
       if (res.statusCode >= 400) {
-        throw ApiException(
-            res.statusCode, 'Server returned empty error response');
+        throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
       }
       return {};
     }
@@ -238,27 +259,26 @@ class ApiService {
       debugPrint('🔍 JSON parse error: $e');
       debugPrint('🔍 Raw response: $bodyText');
       if (res.statusCode >= 400) {
-        throw ApiException(res.statusCode, 'Server error: $bodyText');
+        throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
       }
-      throw ApiException(500, 'Invalid JSON response from server');
+      throw ApiException(500, _fallbackMessage(500));
     }
 
     if (decoded is! Map<dynamic, dynamic>) {
       if (res.statusCode >= 400) {
-        throw ApiException(res.statusCode, 'Request failed: $bodyText');
+        throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
       }
-      throw ApiException(500, 'Unexpected response format');
+      throw ApiException(500, _fallbackMessage(500));
     }
 
     final body = Map<String, dynamic>.from(decoded);
 
     if (res.statusCode >= 400) {
       final dynamic msgRaw =
-          body['message'] ?? body['error'] ?? 'Request failed';
+          body['message'] ?? body['error'] ?? _fallbackMessage(res.statusCode);
       final String msg = msgRaw is String ? msgRaw : msgRaw.toString();
-      final raw = bodyText;
-      // Include raw body so the UI can distinguish connectivity vs auth errors.
-      throw ApiException(res.statusCode, '$msg (raw: $raw)');
+      debugPrint('🔍 API error ${res.statusCode}: $msg');
+      throw ApiException(res.statusCode, msg);
     }
 
     return body;
@@ -268,8 +288,7 @@ class ApiService {
     final bodyText = res.body.trim();
     if (bodyText.isEmpty) {
       if (res.statusCode >= 400) {
-        throw ApiException(
-            res.statusCode, 'Server returned empty error response');
+        throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
       }
       return [];
     }
@@ -280,7 +299,7 @@ class ApiService {
     } catch (e) {
       debugPrint('🔍 JSON parse error (list): $e');
       if (res.statusCode >= 400) {
-        throw ApiException(res.statusCode, 'Server error: $bodyText');
+        throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
       }
       return [];
     }
@@ -288,11 +307,14 @@ class ApiService {
     if (res.statusCode >= 400) {
       // Error responses may be {message/error} or even a plain string.
       if (decoded is Map<dynamic, dynamic>) {
-        final msg = decoded['message'] ?? decoded['error'] ?? 'Request failed';
-        final raw = bodyText;
-        throw ApiException(res.statusCode, '$msg (raw: $raw)');
+        final msg = decoded['message'] ??
+            decoded['error'] ??
+            _fallbackMessage(res.statusCode);
+        debugPrint('🔍 API error ${res.statusCode}: $msg');
+        throw ApiException(
+            res.statusCode, msg is String ? msg : msg.toString());
       }
-      throw ApiException(res.statusCode, 'Request failed: $bodyText');
+      throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
     }
 
     if (decoded is List) return decoded;
@@ -440,14 +462,8 @@ class ApiService {
         if (data['user'] != null) await AuthService.saveUser(data['user']);
       }
       return data;
-    } on ApiException catch (e) {
-      // Ensure raw backend response body is included for UI visibility.
-      final raw = res.body.trim();
-      final msg = e.message;
-      throw ApiException(
-        e.statusCode,
-        raw.isNotEmpty ? '$msg (backend raw: $raw)' : msg,
-      );
+    } on ApiException {
+      rethrow;
     }
   }
 
@@ -642,6 +658,20 @@ class ApiService {
     if (res.statusCode >= 400) return 0;
     final data = jsonDecode(res.body);
     return (data['count'] ?? 0) as int;
+  }
+
+  static Future<void> markNotificationRead(String id) async {
+    await http.put(
+      Uri.parse('$kApiBase/users/me/notifications/$id/read'),
+      headers: await _headers(),
+    );
+  }
+
+  static Future<void> markAllNotificationsRead() async {
+    await http.put(
+      Uri.parse('$kApiBase/users/me/notifications/mark-all-read'),
+      headers: await _headers(),
+    );
   }
 
   // ── Payments ──────────────────────────────────────────────────────────
@@ -950,6 +980,7 @@ class ApiService {
       await http.post(
         Uri.parse('$kApiBase/messages/conversations/$convId/read'),
         headers: await _headers(),
+        body: jsonEncode({}),
       );
     } catch (_) {}
   }
@@ -960,6 +991,19 @@ class ApiService {
       Uri.parse('$kApiBase/messages/conversations'),
       headers: await _headers(),
       body: jsonEncode({'participantIds': participantIds}),
+    );
+    final body = _decode(res);
+    return body['conversationId'] as String;
+  }
+
+  /// Create a 1:1 conversation by the other user's phone number.
+  static Future<String> createOrGetConversationByPhone(String phone) async {
+    final res = await http.post(
+      Uri.parse('$kApiBase/messages/conversations'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'participantPhones': [phone]
+      }),
     );
     final body = _decode(res);
     return body['conversationId'] as String;
@@ -1061,7 +1105,7 @@ class ApiService {
     final res = await http.Response.fromStream(streamedRes);
 
     if (res.statusCode >= 400) {
-      throw ApiException(res.statusCode, 'Upload failed: ${res.body}');
+      throw ApiException(res.statusCode, 'Upload failed. Please try again.');
     }
 
     return _decode(res);

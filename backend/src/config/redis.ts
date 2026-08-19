@@ -2,6 +2,8 @@ import IORedis, { Redis } from 'ioredis';
 import { env } from './env';
 
 let connection: Redis | null = null;
+let mockInstance: MockRedis | null = null;
+let initialized = false;
 
 interface MockRedis {
   get(key: string): Promise<string | null>;
@@ -29,34 +31,57 @@ function createMockRedis(): MockRedis {
   };
 }
 
-export function getRedis(): Redis | MockRedis {
-  if (connection) return connection;
+/**
+ * Initialize Redis connection. Call once at startup.
+ * If Redis is unavailable, falls back to in-memory mock.
+ */
+export async function initRedis(): Promise<void> {
+  if (initialized) return;
+  initialized = true;
 
   const redisUrl = env.REDIS_URL;
-
-  // Use real Redis if a proper remote URL is configured
-  if (redisUrl && !redisUrl.includes('localhost') && !redisUrl.includes('127.0.0.1')) {
-    const isTls = redisUrl.startsWith('rediss://');
-    connection = new IORedis(redisUrl, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      retryStrategy: (times: number) => (times > 5 ? null : Math.min(times * 500, 3000)),
-      ...(isTls ? { tls: { rejectUnauthorized: false } } : {}),
-    });
-
-    connection.on('error', (err) => {
-      console.error('Redis connection error:', err.message);
-    });
-
-    connection.on('connect', () => {
-      console.log('✅ Connected to Redis');
-    });
-
-    return connection;
+  if (!redisUrl) {
+    console.warn('⚠️  No REDIS_URL configured, using in-memory mock');
+    mockInstance = createMockRedis();
+    return;
   }
 
-  // Fallback to in-memory mock (good for local dev without Redis)
-  return createMockRedis();
+  const isTls = redisUrl.startsWith('rediss://');
+  const redis = new IORedis(redisUrl, {
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: true,
+    lazyConnect: true,
+    connectTimeout: 3000,
+    retryStrategy: () => null, // No retries during init — we handle fallback ourselves
+    ...(isTls ? { tls: { rejectUnauthorized: false } } : {}),
+  });
+
+  // Must attach error listener BEFORE connect to avoid unhandled error events
+  redis.on('error', () => {});
+
+  try {
+    await redis.connect();
+    await redis.ping();
+    connection = redis;
+    // Replace the no-op handler with a real one now that we're connected
+    redis.removeAllListeners('error');
+    redis.on('error', (err) => {
+      console.error('Redis error:', err.message);
+    });
+    console.log('✅ Connected to Redis');
+  } catch {
+    redis.disconnect(false);
+    console.warn('⚠️  Redis unavailable, using in-memory mock (OTP/tokens work but won\'t persist across restarts)');
+    mockInstance = createMockRedis();
+  }
+}
+
+export function getRedis(): Redis | MockRedis {
+  if (connection) return connection;
+  if (mockInstance) return mockInstance;
+  // Fallback if getRedis() is called before initRedis() completes
+  mockInstance = createMockRedis();
+  return mockInstance;
 }
 
 export async function closeRedis(): Promise<void> {

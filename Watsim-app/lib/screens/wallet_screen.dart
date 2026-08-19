@@ -18,12 +18,15 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   String _filter = 'All';
+  String _statusFilter = 'All';
   bool _showAll = false;
   bool _balanceVisible = true;
   Map<String, dynamic>? _profile;
   bool _loadingProfile = true;
 
   static const _filters = ['All', 'Deposits', 'Withdrawals', 'BNPL'];
+  static const _statusFilters = ['All', 'Pending', 'Completed'];
+  static const _statusFilterLabels = ['All', 'Pending', 'Completed'];
   static const _previewCount = 4;
 
   @override
@@ -66,11 +69,11 @@ class _WalletScreenState extends State<WalletScreen> {
 
   String _getInitials() {
     if (_profile == null) return '?';
-    final name = _profile!['fullName'] as String? ?? 
-                 _profile!['name'] as String? ?? 
-                 _profile!['email'] as String? ?? 
-                 _profile!['phone'] as String? ?? 
-                 '?';
+    final name = _profile!['fullName'] as String? ??
+        _profile!['name'] as String? ??
+        _profile!['email'] as String? ??
+        _profile!['phone'] as String? ??
+        '?';
     final parts = name.trim().split(' ');
     if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
@@ -82,17 +85,22 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   List<WalletTransaction> get _filtered {
-    final all = WalletState.instance.transactions;
+    var all = WalletState.instance.transactions.toList();
     switch (_filter) {
       case 'Deposits':
-        return all.where((t) => t.type == TxType.deposit).toList();
+        all = all.where((t) => t.type == TxType.deposit).toList();
       case 'Withdrawals':
-        return all.where((t) => t.type == TxType.withdrawal).toList();
+        all = all.where((t) => t.type == TxType.withdrawal).toList();
       case 'BNPL':
-        return all.where((t) => t.type == TxType.bnpl).toList();
-      default:
-        return all;
+        all = all.where((t) => t.type == TxType.bnpl).toList();
     }
+    switch (_statusFilter) {
+      case 'Pending':
+        all = all.where((t) => t.isPending).toList();
+      case 'Completed':
+        all = all.where((t) => t.isFinalized).toList();
+    }
+    return all;
   }
 
   IconData _iconFor(WalletTransaction tx) {
@@ -133,8 +141,21 @@ class _WalletScreenState extends State<WalletScreen> {
     } else if (diff == 1) {
       return 'Yesterday';
     }
-    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${months[dt.month]} ${dt.day}, ${dt.year}';
   }
 
@@ -144,7 +165,12 @@ class _WalletScreenState extends State<WalletScreen> {
     final filtered = _filtered;
     final hasMore = !_showAll && filtered.length > _previewCount;
     final visible = _showAll ? filtered : filtered.take(_previewCount).toList();
-    final filterLabels = [lang.filterAll, lang.filterDeposits, lang.filterWithdrawals, lang.filterBNPL];
+    final filterLabels = [
+      lang.filterAll,
+      lang.filterDeposits,
+      lang.filterWithdrawals,
+      lang.filterBNPL
+    ];
     final filterKeys = ['All', 'Deposits', 'Withdrawals', 'BNPL'];
 
     return Scaffold(
@@ -156,28 +182,32 @@ class _WalletScreenState extends State<WalletScreen> {
           child: CircleAvatar(
             radius: 18,
             backgroundColor: AppColors.primaryGreen.withOpacity(0.2),
-            backgroundImage: (!_loadingProfile && _profile?['imageUrl'] != null && _profile!['imageUrl'].toString().isNotEmpty)
-              ? NetworkImage(ApiService.resolveImageUrl(_profile!['imageUrl'].toString()))
-              : null,
+            backgroundImage: (!_loadingProfile &&
+                    _profile?['imageUrl'] != null &&
+                    _profile!['imageUrl'].toString().isNotEmpty)
+                ? NetworkImage(ApiService.resolveImageUrl(
+                    _profile!['imageUrl'].toString()))
+                : null,
             child: _loadingProfile
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.primaryGreen,
-                  ),
-                )
-              : (_profile?['imageUrl'] == null || _profile!['imageUrl'].toString().isEmpty)
-                ? Text(
-                    _getInitials(),
-                    style: const TextStyle(
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
                       color: AppColors.primaryGreen,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
                     ),
                   )
-                : null,
+                : (_profile?['imageUrl'] == null ||
+                        _profile!['imageUrl'].toString().isEmpty)
+                    ? Text(
+                        _getInitials(),
+                        style: const TextStyle(
+                          color: AppColors.primaryGreen,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : null,
           ),
         ),
         leadingWidth: 54,
@@ -186,28 +216,29 @@ class _WalletScreenState extends State<WalletScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              _loadingProfile
-                ? 'Hello'
-                : '${(_profile?['fullName'] ?? _profile?['name'] ?? 'Guest')}',
-              style: const TextStyle(
-                  color: AppColors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600)),
+                _loadingProfile
+                    ? 'Hello'
+                    : '${(_profile?['fullName'] ?? _profile?['name'] ?? 'Guest')}',
+                style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600)),
             Text(
-              _loadingProfile
-                ? 'Loading...'
-                : '${(_profile?['phone'] ?? _profile?['email'] ?? '@guest')}',
-              style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400)),
+                _loadingProfile
+                    ? 'Loading...'
+                    : '${(_profile?['phone'] ?? _profile?['email'] ?? '@guest')}',
+                style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400)),
           ],
         ),
         actions: [
           // ── Language switcher ────────────────────────────────
           _buildLanguageSwitcher(),
           IconButton(
-            icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 24),
+            icon: const Icon(Icons.chat_bubble_outline_rounded,
+                color: Colors.white, size: 24),
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const MessagingScreen())),
           ),
@@ -256,7 +287,8 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                       const SizedBox(width: 10),
                       GestureDetector(
-                        onTap: () => setState(() => _balanceVisible = !_balanceVisible),
+                        onTap: () =>
+                            setState(() => _balanceVisible = !_balanceVisible),
                         child: Icon(
                           _balanceVisible
                               ? Icons.remove_red_eye_outlined
@@ -271,7 +303,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.trending_up_rounded, color: AppColors.primaryGreen, size: 16),
+                      const Icon(Icons.trending_up_rounded,
+                          color: AppColors.primaryGreen, size: 16),
                       const SizedBox(width: 4),
                       Text(lang.growthThisMonth,
                           style: const TextStyle(
@@ -313,14 +346,15 @@ class _WalletScreenState extends State<WalletScreen> {
                         const SizedBox(height: 3),
                         Text(lang.topUpWalletInstantly,
                             style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary)),
+                                fontSize: 12, color: AppColors.textSecondary)),
                       ],
                     ),
                   ),
                   GestureDetector(
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const DepositScreen())),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const DepositScreen())),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 18, vertical: 10),
@@ -349,8 +383,8 @@ class _WalletScreenState extends State<WalletScreen> {
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary)),
                 TextButton(
-                  onPressed: () => Navigator.push(
-                      context, MaterialPageRoute(builder: (_) => const HistoryScreen())),
+                  onPressed: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const HistoryScreen())),
                   child: Text(lang.viewAll,
                       style: const TextStyle(
                           fontSize: 12,
@@ -378,18 +412,65 @@ class _WalletScreenState extends State<WalletScreen> {
                         _showAll = false;
                       }),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
                           color: sel ? AppColors.primaryGreen : AppColors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: sel ? AppColors.primaryGreen : const Color(0xFFD0E8E5)),
+                              color: sel
+                                  ? AppColors.primaryGreen
+                                  : const Color(0xFFD0E8E5)),
                         ),
                         child: Text(label,
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: sel ? Colors.white : AppColors.textSecondary)),
+                                color: sel
+                                    ? Colors.white
+                                    : AppColors.textSecondary)),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Status filter chips ─────────────────────────────────────────
+            SizedBox(
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: List.generate(_statusFilters.length, (idx) {
+                  final key = _statusFilters[idx];
+                  final label = _statusFilterLabels[idx];
+                  final sel = key == _statusFilter;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _statusFilter = key;
+                        _showAll = false;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: sel ? AppColors.warning : AppColors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: sel
+                                  ? AppColors.warning
+                                  : const Color(0xFFD0E8E5)),
+                        ),
+                        child: Text(label,
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: sel
+                                    ? Colors.white
+                                    : AppColors.textSecondary)),
                       ),
                     ),
                   );
@@ -429,8 +510,8 @@ class _WalletScreenState extends State<WalletScreen> {
                           const Divider(height: 1),
                           InkWell(
                             onTap: () => setState(() => _showAll = true),
-                            borderRadius:
-                                const BorderRadius.vertical(bottom: Radius.circular(12)),
+                            borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(12)),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               child: Row(
@@ -457,8 +538,8 @@ class _WalletScreenState extends State<WalletScreen> {
                           const Divider(height: 1),
                           InkWell(
                             onTap: () => setState(() => _showAll = false),
-                            borderRadius:
-                                const BorderRadius.vertical(bottom: Radius.circular(12)),
+                            borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(12)),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               child: Row(
@@ -489,7 +570,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Widget _buildEmptyState(LanguageService lang) {
-    final isFiltered = _filter != 'All';
+    final isFiltered = _filter != 'All' || _statusFilter != 'All';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
@@ -508,14 +589,18 @@ class _WalletScreenState extends State<WalletScreen> {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isFiltered ? Icons.filter_list_off_rounded : Icons.receipt_long_rounded,
+              isFiltered
+                  ? Icons.filter_list_off_rounded
+                  : Icons.receipt_long_rounded,
               color: AppColors.primaryGreen,
               size: 30,
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            lang.noTransactionsYet,
+            isFiltered
+                ? 'No transactions match your filters'
+                : lang.noTransactionsYet,
             style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -533,15 +618,19 @@ class _WalletScreenState extends State<WalletScreen> {
           if (!isFiltered) ...[
             const SizedBox(height: 20),
             GestureDetector(
-              onTap: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const DepositScreen())),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const DepositScreen())),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
                 decoration: BoxDecoration(
-                    color: AppColors.primaryGreen, borderRadius: BorderRadius.circular(10)),
+                    color: AppColors.primaryGreen,
+                    borderRadius: BorderRadius.circular(10)),
                 child: Text(lang.makeDeposit,
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700)),
               ),
             ),
           ],

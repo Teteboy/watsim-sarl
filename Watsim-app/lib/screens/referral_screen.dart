@@ -19,14 +19,14 @@ class _ReferralScreenState extends State<ReferralScreen> {
   String _code = '';
   bool _isLoading = true;
   bool _hasError = false;
-  
+
   // Stats
   int _totalReferrals = 0;
   int _firstRewardsPaid = 0;
   int _secondRewardsPaid = 0;
   int _totalFirstRewards = 0;
   int _totalSecondRewards = 0;
-  
+
   List<ReferralItem> _referrals = [];
 
   @override
@@ -37,10 +37,13 @@ class _ReferralScreenState extends State<ReferralScreen> {
 
   Future<void> _loadReferralData() async {
     try {
-      setState(() { _isLoading = true; _hasError = false; });
-      
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+
       final data = await ApiService.fetchReferralStats();
-      
+
       setState(() {
         _code = data['code'] ?? '';
         _totalReferrals = data['totalReferrals'] ?? 0;
@@ -48,23 +51,28 @@ class _ReferralScreenState extends State<ReferralScreen> {
         _secondRewardsPaid = data['secondRewardsPaid'] ?? 0;
         _totalFirstRewards = data['totalFirstRewards'] ?? 0;
         _totalSecondRewards = data['totalSecondRewards'] ?? 0;
-        
+
         if (data['referrals'] != null) {
-          _referrals = (data['referrals'] as List).map((r) => ReferralItem(
-            name: r['referredName'] ?? 'Unknown',
-            status: r['status'] ?? 'PENDING',
-            firstReward: r['firstRewardAmount'] ?? 500,
-            firstRewardPaid: r['firstRewardPaid'] ?? false,
-            secondReward: r['secondRewardAmount'] ?? 0,
-            secondRewardPaid: r['secondRewardPaid'] ?? false,
-            date: _formatDate(r['createdAt']),
-          )).toList();
+          _referrals = (data['referrals'] as List)
+              .map((r) => ReferralItem(
+                    name: r['referredName'] ?? 'Unknown',
+                    status: r['status'] ?? 'PENDING',
+                    firstReward: r['firstRewardAmount'] ?? 500,
+                    firstRewardPaid: r['firstRewardPaid'] ?? false,
+                    secondReward: r['secondRewardAmount'] ?? 0,
+                    secondRewardPaid: r['secondRewardPaid'] ?? false,
+                    date: _formatDate(r['createdAt']),
+                  ))
+              .toList();
         }
-        
+
         _isLoading = false;
       });
     } catch (e) {
-      setState(() { _isLoading = false; _hasError = true; });
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
     }
   }
 
@@ -123,7 +131,8 @@ class _ReferralScreenState extends State<ReferralScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => _ShareSheet(code: _code, shareText: shareText, lang: lang),
+      builder: (_) =>
+          _ShareSheet(code: _code, shareText: shareText, lang: lang),
     );
   }
 
@@ -134,19 +143,13 @@ class _ReferralScreenState extends State<ReferralScreen> {
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       appBar: widget.isNavTab
-          ? AppBar(
-              backgroundColor: AppColors.primaryDark,
-              title: const SizedBox(
-                width: 40,
-                height: 40,
-                child: Image(
-                  image: AssetImage('assets/images/logo_green.png'),
-                  fit: BoxFit.contain,
-                ),
-              ),
+          ? WatsimAppBar(
+              title: lang.referrals,
+              greeting: false,
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                  icon: const Icon(Icons.notifications_outlined,
+                      color: Colors.white),
                   onPressed: () {},
                 ),
               ],
@@ -205,13 +208,15 @@ class _ReferralScreenState extends State<ReferralScreen> {
                 const SizedBox(height: 6),
                 Text(
                   'Earn 500 FCFA when your friend makes their first deposit, and 0.6% when they complete a BNPL purchase!',
-                  style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 14),
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.75), fontSize: 14),
                 ),
                 const SizedBox(height: 20),
 
                 // ── Code box ────────────────
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.25),
                     borderRadius: BorderRadius.circular(12),
@@ -264,9 +269,13 @@ class _ReferralScreenState extends State<ReferralScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.copy_rounded, color: Colors.white, size: 16),
+                              const Icon(Icons.copy_rounded,
+                                  color: Colors.white, size: 16),
                               const SizedBox(width: 6),
-                              Text(lang.copy, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                              Text(lang.copy,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700)),
                             ],
                           ),
                         ),
@@ -281,14 +290,19 @@ class _ReferralScreenState extends State<ReferralScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withOpacity(0.3)),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.3)),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.share_rounded, color: Colors.white, size: 16),
+                              const Icon(Icons.share_rounded,
+                                  color: Colors.white, size: 16),
                               const SizedBox(width: 6),
-                              Text(lang.share, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                              Text(lang.share,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700)),
                             ],
                           ),
                         ),
@@ -331,7 +345,9 @@ class _ReferralScreenState extends State<ReferralScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  lang.isFrench ? 'Récompenses & Cashback' : 'Rewards & Cashback',
+                  lang.isFrench
+                      ? 'Récompenses & Cashback'
+                      : 'Rewards & Cashback',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -346,8 +362,11 @@ class _ReferralScreenState extends State<ReferralScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            lang.isFrench ? 'Parrainage (1er dépôt)' : 'Referral (1st deposit)',
-                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            lang.isFrench
+                                ? 'Parrainage (1er dépôt)'
+                                : 'Referral (1st deposit)',
+                            style: const TextStyle(
+                                fontSize: 12, color: AppColors.textSecondary),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -360,12 +379,14 @@ class _ReferralScreenState extends State<ReferralScreen> {
                           ),
                           Text(
                             '$_firstRewardsPaid ${lang.isFrench ? "payé(s)" : "paid"}',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            style: const TextStyle(
+                                fontSize: 11, color: AppColors.textMuted),
                           ),
                         ],
                       ),
                     ),
-                    Container(width: 1, height: 50, color: const Color(0xFFE8F2F1)),
+                    Container(
+                        width: 1, height: 50, color: const Color(0xFFE8F2F1)),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.only(left: 16),
@@ -373,8 +394,11 @@ class _ReferralScreenState extends State<ReferralScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              lang.isFrench ? 'Cashback BNPL (0.6%)' : 'BNPL Cashback (0.6%)',
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              lang.isFrench
+                                  ? 'Cashback BNPL (0.6%)'
+                                  : 'BNPL Cashback (0.6%)',
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.textSecondary),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -387,7 +411,8 @@ class _ReferralScreenState extends State<ReferralScreen> {
                             ),
                             Text(
                               '$_secondRewardsPaid ${lang.isFrench ? "payé(s)" : "paid"}',
-                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppColors.textMuted),
                             ),
                           ],
                         ),
@@ -418,79 +443,81 @@ class _ReferralScreenState extends State<ReferralScreen> {
             const SizedBox(height: 12),
 
             ..._referrals.take(5).map((r) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: AppCard(
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: AppColors.primaryGreen.withOpacity(0.15),
-                      child: Text(
-                        r.name.substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.secondaryGreen,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            r.name,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          _buildStatusChip(r.status),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: AppCard(
+                    child: Row(
                       children: [
-                        if (r.firstRewardPaid)
-                          Text(
-                            '+${r.firstReward} FCFA',
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor:
+                              AppColors.primaryGreen.withOpacity(0.15),
+                          child: Text(
+                            r.name.substring(0, 1).toUpperCase(),
                             style: const TextStyle(
-                              fontSize: 12,
+                              color: AppColors.secondaryGreen,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.primaryGreen,
+                              fontSize: 16,
                             ),
                           ),
-                        if (r.secondRewardPaid)
-                          Text(
-                            '+${r.secondReward} FCFA',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primaryGreen,
-                            ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                r.name,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              _buildStatusChip(r.status),
+                            ],
                           ),
-                        if (!r.firstRewardPaid && !r.secondRewardPaid)
-                          const Text(
-                            'Pending',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.warning,
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (r.firstRewardPaid)
+                              Text(
+                                '+${r.firstReward} FCFA',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primaryGreen,
+                                ),
+                              ),
+                            if (r.secondRewardPaid)
+                              Text(
+                                '+${r.secondReward} FCFA',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primaryGreen,
+                                ),
+                              ),
+                            if (!r.firstRewardPaid && !r.secondRewardPaid)
+                              const Text(
+                                'Pending',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.warning,
+                                ),
+                              ),
+                            Text(
+                              r.date,
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppColors.textMuted),
                             ),
-                          ),
-                        Text(
-                          r.date,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            )),
+                  ),
+                )),
           ] else ...[
             // ── Empty state ─────────────────────────────────────────
             _buildEmptyState(lang),
@@ -538,7 +565,9 @@ class _ReferralScreenState extends State<ReferralScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          lang.isFrench ? 'Récompenses & Cashback' : 'Rewards & Cashback',
+                          lang.isFrench
+                              ? 'Récompenses & Cashback'
+                              : 'Rewards & Cashback',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15,
@@ -600,7 +629,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
   Widget _buildStatusChip(String status) {
     Color color;
     String label;
-    
+
     switch (status) {
       case 'COMPLETED':
         color = AppColors.primaryGreen;
@@ -615,7 +644,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
         color = AppColors.warning;
         label = 'Pending';
     }
-    
+
     return StatusChip(
       label: label,
       color: color.withOpacity(0.12),
@@ -728,7 +757,8 @@ class _ReferralScreenState extends State<ReferralScreen> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ),
         ],
@@ -764,7 +794,8 @@ class _ShareSheet extends StatelessWidget {
   final String shareText;
   final LanguageService lang;
 
-  const _ShareSheet({required this.code, required this.shareText, required this.lang});
+  const _ShareSheet(
+      {required this.code, required this.shareText, required this.lang});
 
   @override
   Widget build(BuildContext context) {
@@ -799,7 +830,8 @@ class _ShareSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),

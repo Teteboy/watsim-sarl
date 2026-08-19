@@ -5,7 +5,6 @@ import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/catalogue_screen.dart';
 import 'screens/history_screen.dart';
-import 'screens/profile_screen.dart';
 import 'screens/referral_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/messaging_screen.dart';
@@ -51,7 +50,8 @@ class WatsimApp extends StatelessWidget {
 class MainShell extends StatefulWidget {
   final int initialIndex;
   final int initialHistoryTab;
-  const MainShell({super.key, this.initialIndex = 0, this.initialHistoryTab = 0});
+  const MainShell(
+      {super.key, this.initialIndex = 0, this.initialHistoryTab = 0});
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -149,38 +149,47 @@ class _AppBottomNavState extends State<AppBottomNav> {
         child: SizedBox(
           height: 64,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _NavItem(
-                icon: Icons.home_rounded,
-                label: lang.navHome,
-                selected: widget.currentIndex == 0,
-                onTap: () => widget.onTap(0),
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.home_rounded,
+                  label: lang.navHome,
+                  selected: widget.currentIndex == 0,
+                  onTap: () => widget.onTap(0),
+                ),
               ),
-              _NavItem(
-                icon: Icons.grid_view_rounded,
-                label: lang.navShop,
-                selected: widget.currentIndex == 1,
-                onTap: () => widget.onTap(1),
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.grid_view_rounded,
+                  label: lang.navShop,
+                  selected: widget.currentIndex == 1,
+                  onTap: () => widget.onTap(1),
+                ),
               ),
-              _NavItem(
-                icon: Icons.chat_bubble_outline_rounded,
-                label: lang.navMessages,
-                selected: widget.currentIndex == 2,
-                badge: _msgBadge,
-                onTap: () => widget.onTap(2),
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: lang.navMessages,
+                  selected: widget.currentIndex == 2,
+                  badge: _msgBadge,
+                  onTap: () => widget.onTap(2),
+                ),
               ),
-              _NavItem(
-                icon: Icons.history_rounded,
-                label: lang.navHistory,
-                selected: widget.currentIndex == 3,
-                onTap: () => widget.onTap(3),
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.history_rounded,
+                  label: lang.navHistory,
+                  selected: widget.currentIndex == 3,
+                  onTap: () => widget.onTap(3),
+                ),
               ),
-              _NavItem(
-                icon: Icons.card_giftcard_rounded,
-                label: lang.navReferrals,
-                selected: widget.currentIndex == 4,
-                onTap: () => widget.onTap(4),
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.card_giftcard_rounded,
+                  label: lang.navReferrals,
+                  selected: widget.currentIndex == 4,
+                  onTap: () => widget.onTap(4),
+                ),
               ),
             ],
           ),
@@ -212,7 +221,7 @@ class _NavItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: selected
             ? BoxDecoration(
                 color: AppColors.deepTeal.withOpacity(0.08),
@@ -254,13 +263,14 @@ class _NavItem extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
                 style: TextStyle(
                     fontSize: 11,
-                    fontWeight:
-                        selected ? FontWeight.w700 : FontWeight.w400,
-                    color: selected
-                        ? AppColors.deepTeal
-                        : AppColors.textMuted)),
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    color:
+                        selected ? AppColors.deepTeal : AppColors.textMuted)),
           ],
         ),
       ),

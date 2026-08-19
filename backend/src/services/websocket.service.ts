@@ -31,14 +31,18 @@ class WebSocketService {
     });
   }
 
-  private async handleConnection(connection: { socket: WebSocket }, request: FastifyRequest) {
+  private async handleConnection(connection: any, request: FastifyRequest) {
+    let socket: any;
     try {
+      // Some fastify-websocket versions pass the raw socket; others wrap it in { socket }.
+      socket = (connection as any).socket || (connection as any);
+
       // Authenticate WebSocket connection - accept token from header or query param
       const headerToken = request.headers.authorization?.replace('Bearer ', '');
       const queryToken = (request.query as Record<string, string>)?.token;
       const token = headerToken || queryToken;
       if (!token) {
-        connection.socket.close(1008, 'No token provided');
+        socket.close(1008, 'No token provided');
         return;
       }
 
@@ -46,18 +50,18 @@ class WebSocketService {
       const payload = this.server.jwt.verify(token) as { sub: string };
       const userId = payload?.sub;
       if (!userId) {
-        connection.socket?.close?.(1008, 'Invalid token payload');
+        socket?.close?.(1008, 'Invalid token payload');
         return;
       }
       const user = await prisma.user.findUnique({ where: { id: userId } });
       
       if (!user) {
-        connection.socket.close(1008, 'Invalid token');
+        socket.close(1008, 'Invalid token');
         return;
       }
 
       const client: ConnectedClient = {
-        socket: connection.socket,
+        socket: socket,
         userId: user.id,
         conversationSubscriptions: new Set(),
       };
@@ -65,7 +69,7 @@ class WebSocketService {
       this.clients.set(user.id, client);
 
       // Handle incoming messages
-      connection.socket.on('message', async (data: Buffer) => {
+      socket.on('message', async (data: Buffer) => {
         try {
           const message: WSMessage = JSON.parse(data.toString());
           await this.handleMessage(client, message);
@@ -75,7 +79,7 @@ class WebSocketService {
       });
 
       // Handle disconnection
-      connection.socket.on('close', () => {
+      socket.on('close', () => {
         this.clients.delete(user.id);
         this.broadcastUserStatus(user.id, false);
       });
@@ -86,9 +90,12 @@ class WebSocketService {
       // Send initial conversation list
       await this.sendConversationList(client);
 
+      // Keep the connection alive until the client closes it
+      await new Promise<void>((resolve) => socket.once('close', resolve));
+
     } catch (error) {
       console.error('WebSocket connection error:', error);
-      connection.socket?.close?.(1008, 'Authentication failed');
+      socket?.close?.(1008, 'Authentication failed');
     }
   }
 

@@ -19,10 +19,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     NotificationState.instance.addListener(_onChanged);
-    // Mark all read after a short delay so badge clears
-    Future.delayed(const Duration(milliseconds: 500), () {
-      NotificationState.instance.markAllRead();
-    });
+    NotificationState.instance.syncWithBackend();
   }
 
   @override
@@ -55,7 +52,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     final lang = LanguageProvider.of(context);
     final unreadCount = NotificationState.instance.unreadCount;
-    final tabLabels = [lang.tabAll, lang.tabTransactions, lang.filterBNPL, lang.tabPromos];
+    final tabLabels = [
+      lang.tabAll,
+      lang.tabTransactions,
+      lang.filterBNPL,
+      lang.tabPromos
+    ];
 
     return Scaffold(
       backgroundColor: AppColors.offWhite,
@@ -92,7 +94,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.primaryGreen,
                       borderRadius: BorderRadius.circular(20),
@@ -123,19 +126,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     child: GestureDetector(
                       onTap: () => setState(() => _tab = key),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 6),
                         decoration: BoxDecoration(
                           color: sel ? AppColors.primaryGreen : AppColors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: sel ? AppColors.primaryGreen : const Color(0xFFD0E8E5),
+                            color: sel
+                                ? AppColors.primaryGreen
+                                : const Color(0xFFD0E8E5),
                           ),
                         ),
                         child: Text(label,
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: sel ? Colors.white : AppColors.textSecondary)),
+                                color: sel
+                                    ? Colors.white
+                                    : AppColors.textSecondary)),
                       ),
                     ),
                   );
@@ -147,96 +155,127 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
           // List
           Expanded(
-            child: _filtered.isEmpty
-                ? _emptyState(lang)
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) {
-                      final n = _filtered[i];
-                      return GestureDetector(
-                        onTap: () => NotificationState.instance.markRead(n.id),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: !n.isRead
-                                ? AppColors.primaryGreen.withOpacity(0.04)
-                                : AppColors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: !n.isRead
-                                  ? AppColors.primaryGreen.withOpacity(0.2)
-                                  : const Color(0xFFE8F2F1),
-                              width: !n.isRead ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 42,
-                                height: 42,
+            child: RefreshIndicator(
+              color: AppColors.primaryGreen,
+              onRefresh: () => NotificationState.instance.syncWithBackend(),
+              child: NotificationState.instance.isLoading && _filtered.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      children: const [
+                        SizedBox(
+                          height: 200,
+                          child: Center(
+                              child: CircularProgressIndicator(
+                                  color: AppColors.primaryGreen)),
+                        ),
+                      ],
+                    )
+                  : _filtered.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(16),
+                          children: [_emptyState(lang)],
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _filtered.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (_, i) {
+                            final n = _filtered[i];
+                            return GestureDetector(
+                              onTap: () =>
+                                  NotificationState.instance.markRead(n.id),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: _iconColor(n.iconColor).withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: !n.isRead
+                                      ? AppColors.primaryGreen.withOpacity(0.04)
+                                      : AppColors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: !n.isRead
+                                        ? AppColors.primaryGreen
+                                            .withOpacity(0.2)
+                                        : const Color(0xFFE8F2F1),
+                                    width: !n.isRead ? 1.5 : 1,
+                                  ),
                                 ),
-                                child: Icon(
-                                  IconData(n.iconCodePoint, fontFamily: 'MaterialIcons'),
-                                  color: _iconColor(n.iconColor),
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
+                                child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(n.title,
-                                              style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: !n.isRead
-                                                      ? FontWeight.w700
-                                                      : FontWeight.w600,
-                                                  color: AppColors.textPrimary)),
-                                        ),
-                                        if (!n.isRead)
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: const BoxDecoration(
-                                              color: AppColors.primaryGreen,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                      ],
+                                    Container(
+                                      width: 42,
+                                      height: 42,
+                                      decoration: BoxDecoration(
+                                        color: _iconColor(n.iconColor)
+                                            .withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        IconData(n.iconCodePoint,
+                                            fontFamily: 'MaterialIcons'),
+                                        color: _iconColor(n.iconColor),
+                                        size: 20,
+                                      ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(n.body,
-                                        style: const TextStyle(
-                                            fontSize: 13,
-                                            color: AppColors.textSecondary,
-                                            height: 1.4),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis),
-                                    const SizedBox(height: 6),
-                                    Text(_relativeTime(n.timestamp, lang),
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textMuted)),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(n.title,
+                                                    style: TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight: !n.isRead
+                                                            ? FontWeight.w700
+                                                            : FontWeight.w600,
+                                                        color: AppColors
+                                                            .textPrimary)),
+                                              ),
+                                              if (!n.isRead)
+                                                Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                    color:
+                                                        AppColors.primaryGreen,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(n.body,
+                                              style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                  height: 1.4),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis),
+                                          const SizedBox(height: 6),
+                                          Text(_relativeTime(n.timestamp, lang),
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors.textMuted)),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
+            ),
           ),
         ],
       ),

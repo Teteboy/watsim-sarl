@@ -8,12 +8,14 @@ import '../services/language_service.dart';
 class WatsimAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool showBack;
+  final bool greeting;
   final List<Widget>? actions;
 
   const WatsimAppBar({
     super.key,
     required this.title,
     this.showBack = false,
+    this.greeting = true,
     this.actions,
   });
 
@@ -41,7 +43,7 @@ class WatsimAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
       leadingWidth: showBack ? 52 : 54,
-      title: showBack
+      title: showBack || !greeting
           ? Text(title,
               style: const TextStyle(
                   color: AppColors.white,
@@ -96,7 +98,8 @@ class _NotifBellState extends State<_NotifBell> {
   }
 
   void _onChanged() {
-    if (mounted) setState(() => _count = NotificationState.instance.unreadCount);
+    if (mounted)
+      setState(() => _count = NotificationState.instance.unreadCount);
   }
 
   @override
@@ -513,8 +516,7 @@ class TransactionRow extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(12)),
+                color: iconBg, borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 12),
@@ -548,9 +550,8 @@ class TransactionRow extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: isCredit
-                          ? AppColors.primaryGreen
-                          : AppColors.error),
+                      color:
+                          isCredit ? AppColors.primaryGreen : AppColors.error),
                 ),
                 if (tag != null)
                   Padding(
@@ -560,9 +561,7 @@ class TransactionRow extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: isCredit
-                                ? AppColors.primaryGreen
-                                : AppColors.textMuted)),
+                            color: _tagColor(tag!))),
                   ),
               ],
             ),
@@ -570,6 +569,16 @@ class TransactionRow extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Color _tagColor(String tag) {
+    final t = tag.toUpperCase();
+    if (t.contains('PEND')) return AppColors.warning;
+    if (t.contains('FAIL') || t.contains('CANCEL') || t.contains('REJECTED')) {
+      return AppColors.error;
+    }
+    if (isCredit) return AppColors.primaryGreen;
+    return AppColors.textMuted;
   }
 }
 
@@ -603,8 +612,7 @@ class AmountChip extends StatelessWidget {
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color:
-                    selected ? Colors.white : AppColors.textSecondary)),
+                color: selected ? Colors.white : AppColors.textSecondary)),
       ),
     );
   }
@@ -632,7 +640,8 @@ class OperatorCard extends StatelessWidget {
   String? _resolvedLogo() {
     if (logoAsset != null) return logoAsset;
     final n = name.toLowerCase();
-    if (n.contains('mtn') || n.contains('momo')) return 'assets/images/momo.png';
+    if (n.contains('mtn') || n.contains('momo'))
+      return 'assets/images/momo.png';
     if (n.contains('orange')) return 'assets/images/orange-money.png';
     if (n.contains('cash')) return null;
     return null;
@@ -728,7 +737,8 @@ class PinDots extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
-        final dotSize = ((availableWidth - (total - 1) * 10) / total).clamp(36.0, 52.0);
+        final dotSize =
+            ((availableWidth - (total - 1) * 10) / total).clamp(36.0, 52.0);
         final dotHeight = (dotSize * 1.08).clamp(38.0, 56.0);
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -774,7 +784,7 @@ class NumPad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+    final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
     return GridView.count(
       crossAxisCount: 3,
       shrinkWrap: true,
@@ -861,23 +871,18 @@ class FilterRow extends StatelessWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               margin: const EdgeInsets.only(right: 8),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: active ? AppColors.primaryGreen : AppColors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                    color: active
-                        ? AppColors.primaryGreen
-                        : AppColors.divider),
+                    color: active ? AppColors.primaryGreen : AppColors.divider),
               ),
               child: Text(f,
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: active
-                          ? Colors.white
-                          : AppColors.textSecondary)),
+                      color: active ? Colors.white : AppColors.textSecondary)),
             ),
           );
         }).toList(),
@@ -910,9 +915,7 @@ class InfoBanner extends StatelessWidget {
           Expanded(
             child: Text(text,
                 style: TextStyle(
-                    fontSize: 13,
-                    color: c.withOpacity(0.85),
-                    height: 1.4)),
+                    fontSize: 13, color: c.withOpacity(0.85), height: 1.4)),
           ),
         ],
       ),
@@ -933,8 +936,7 @@ class DividerWithText extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(text,
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.textMuted)),
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
         ),
         const Expanded(child: Divider()),
       ],
@@ -952,13 +954,19 @@ class WatsimLogo extends StatelessWidget {
   final String logoVariant; // 'white', 'green', or 'mixed'
 
   const WatsimLogo(
-      {super.key, this.size = 48, this.textColor = Colors.white, this.logoVariant = 'white'});
+      {super.key,
+      this.size = 48,
+      this.textColor = Colors.white,
+      this.logoVariant = 'white'});
 
   String get _logoAsset {
     switch (logoVariant) {
-      case 'green': return 'assets/images/logo_green.png';
-      case 'mixed': return 'assets/images/logo_mixed.png';
-      default:      return 'assets/images/logo_white.png';
+      case 'green':
+        return 'assets/images/logo_green.png';
+      case 'mixed':
+        return 'assets/images/logo_mixed.png';
+      default:
+        return 'assets/images/logo_white.png';
     }
   }
 

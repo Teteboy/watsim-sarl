@@ -96,9 +96,10 @@ class WebSocketService {
     }
   }
 
-  void _handleMessage(dynamic message) {
+  Future<void> _handleMessage(dynamic message) async {
     try {
-      final json = Map<String, dynamic>.from(jsonDecode(message as String) as Map<dynamic, dynamic>);
+      final json = Map<String, dynamic>.from(
+          jsonDecode(message as String) as Map<dynamic, dynamic>);
       final wsMessage = WebSocketMessage.fromJson(json);
 
       print('WebSocket: Received ${wsMessage.type} message');
@@ -106,7 +107,7 @@ class WebSocketService {
       // Handle different message types
       switch (wsMessage.type) {
         case 'message':
-          _handleNewMessage(wsMessage);
+          await _handleNewMessage(wsMessage);
           break;
         case 'conversation_list':
           _handleConversationList(wsMessage);
@@ -135,19 +136,25 @@ class WebSocketService {
     }
   }
 
-  void _handleNewMessage(WebSocketMessage message) {
-    final messageData = Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
+  Future<void> _handleNewMessage(WebSocketMessage message) async {
+    final messageData =
+        Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
     final senderId = messageData['sender']?['id'] as String? ?? '';
-    final isFromMe = senderId.isEmpty || senderId == 'me' || senderId == 'current_user';
-    
+    final currentUser = await AuthService.currentUser;
+    final currentUserId = currentUser?['id'] as String?;
+    final isFromMe = senderId.isNotEmpty && senderId == currentUserId;
+
     // Update notification state - create AppMessage from data
     final msg = AppMessage(
       id: messageData['id']?.toString() ?? '',
       conversationId: messageData['conversationId']?.toString() ?? '',
-      text: messageData['content']?.toString() ?? '',
+      text: messageData['text']?.toString() ??
+          messageData['content']?.toString() ??
+          '',
       isMe: isFromMe,
       timestamp: messageData['createdAt'] != null
-          ? DateTime.tryParse(messageData['createdAt'].toString()) ?? DateTime.now()
+          ? DateTime.tryParse(messageData['createdAt'].toString()) ??
+              DateTime.now()
           : DateTime.now(),
     );
     NotificationState.instance.addMessage(
@@ -160,7 +167,9 @@ class WebSocketService {
       NotificationState.instance.onNewMessage(
         messageData['conversationId']?.toString() ?? '',
         messageData['sender']?['fullName']?.toString() ?? 'Unknown',
-        messageData['content']?.toString() ?? '',
+        messageData['text']?.toString() ??
+            messageData['content']?.toString() ??
+            '',
       );
     }
   }
@@ -174,21 +183,26 @@ class WebSocketService {
   }
 
   void _handleTypingIndicator(WebSocketMessage message) {
-    final data = Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
+    final data =
+        Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
     // Update typing indicator in UI
     print('User ${data['userId']} is typing: ${data['isTyping']}');
   }
 
   void _handleReadReceipt(WebSocketMessage message) {
-    final data = Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
+    final data =
+        Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
     // Mark messages as read in UI
-    NotificationState.instance.markConversationRead(data['conversationId'] as String);
+    NotificationState.instance
+        .markConversationRead(data['conversationId'] as String);
   }
 
   void _handleOnlineStatus(WebSocketMessage message) {
-    final data = Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
+    final data =
+        Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
     // Update online status in UI
-    print('User ${data['userId']} is ${data['isOnline'] ? 'online' : 'offline'}');
+    print(
+        'User ${data['userId']} is ${data['isOnline'] ? 'online' : 'offline'}');
   }
 
   void sendMessage(WebSocketMessage message) {
@@ -257,7 +271,8 @@ class WebSocketService {
     ));
   }
 
-  void addListener(String messageType, void Function(WebSocketMessage) listener) {
+  void addListener(
+      String messageType, void Function(WebSocketMessage) listener) {
     _listeners[messageType] = listener;
   }
 

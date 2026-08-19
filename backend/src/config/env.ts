@@ -36,9 +36,10 @@ const schema = z.object({
   WAVE_API_KEY: z.string().optional(),
   WAVE_API_URL: z.string().default('https://api.wave.com'),
 
-  TWILIO_ACCOUNT_SID: z.string().optional(),
-  TWILIO_AUTH_TOKEN: z.string().optional(),
-  TWILIO_FROM_NUMBER: z.string().optional(),
+  ORANGE_SMS_CLIENT_ID: z.string().optional(),
+  ORANGE_SMS_CLIENT_SECRET: z.string().optional(),
+  ORANGE_SMS_AUTH_HEADER: z.string().optional(),
+  ORANGE_SMS_SENDER_ADDRESS: z.string().default('2370000'),
 
   USE_SMILE_ID: z.coerce.boolean().default(false),
   SMILE_ID_BASE_URL: z.string().default('https://testapi.smileidentity.com'),

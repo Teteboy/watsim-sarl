@@ -15,32 +15,44 @@ export const QUEUE_NAMES = {
 let queues: Record<string, Queue> = {};
 let workers: Worker[] = [];
 let events: QueueEvents[] = [];
+let redisAvailable = false;
+
+function isRedisAvailable(): boolean {
+  const redis = getRedis();
+  return !!redis && 'defineCommand' in redis;
+}
 
 function getBullConnection() {
   return { url: env.REDIS_URL };
 }
 
-function makeQueue(name: string): Queue {
+function makeQueue(name: string): Queue | null {
+  if (!redisAvailable) return null;
   if (!queues[name]) queues[name] = new Queue(name, { connection: getBullConnection() });
   return queues[name];
 }
 
 export async function enqueueScoreUpdate(userId: string, opts?: JobsOptions): Promise<void> {
-  await makeQueue(QUEUE_NAMES.SCORE_UPDATE).add('score-update', { userId }, { removeOnComplete: 100, removeOnFail: 100, ...opts });
+  const q = makeQueue(QUEUE_NAMES.SCORE_UPDATE);
+  if (!q) return;
+  await q.add('score-update', { userId }, { removeOnComplete: 100, removeOnFail: 100, ...opts });
 }
 
 export async function enqueueKycVerification(docId: string, opts?: JobsOptions): Promise<void> {
-  await makeQueue(QUEUE_NAMES.KYC_VERIFY).add('kyc-verify', { docId }, { removeOnComplete: 100, removeOnFail: 100, ...opts });
+  const q = makeQueue(QUEUE_NAMES.KYC_VERIFY);
+  if (!q) return;
+  await q.add('kyc-verify', { docId }, { removeOnComplete: 100, removeOnFail: 100, ...opts });
 }
 
 export async function enqueueRepaymentScan(opts?: JobsOptions): Promise<void> {
-  await makeQueue(QUEUE_NAMES.REPAYMENT).add('repayment-scan', {}, { removeOnComplete: 50, removeOnFail: 50, ...opts });
+  const q = makeQueue(QUEUE_NAMES.REPAYMENT);
+  if (!q) return;
+  await q.add('repayment-scan', {}, { removeOnComplete: 50, removeOnFail: 50, ...opts });
 }
 
 export async function startWorkers(): Promise<void> {
-  const redis = getRedis();
-  const isMock = !redis || !('defineCommand' in redis);
-  if (isMock) {
+  redisAvailable = isRedisAvailable();
+  if (!redisAvailable) {
     logger.info('BullMQ workers skipped (no Redis)');
     return;
   }
@@ -56,7 +68,7 @@ export async function startWorkers(): Promise<void> {
   });
 
   // Daily repayment scan: cron 0 6 * * * Africa/Douala (UTC+1 -> 0 5 UTC)
-  const repaymentQueue = makeQueue(QUEUE_NAMES.REPAYMENT);
+  const repaymentQueue = makeQueue(QUEUE_NAMES.REPAYMENT)!;
   await repaymentQueue.add(
     'daily-scan',
     {},

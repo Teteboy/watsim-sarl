@@ -141,6 +141,14 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     return { success: true };
   });
 
+  app.put('/me/notifications/mark-all-read', async (req) => {
+    await prisma.userNotification.updateMany({
+      where: { userId: req.authUser!.id, isRead: false },
+      data: { isRead: true },
+    });
+    return { success: true };
+  });
+
   // ── Profile Picture Upload ───────────────────────────────────────────────
   app.post('/me/profile-picture', async (req, reply) => {
     const parts = req.parts();

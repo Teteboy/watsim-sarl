@@ -73,7 +73,9 @@ class _OtpScreenState extends State<OtpScreen> {
       final verificationToken = result['verificationToken'] as String?;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => PinSetupScreen(verificationToken: verificationToken)),
+        MaterialPageRoute(
+            builder: (_) =>
+                PinSetupScreen(verificationToken: verificationToken)),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -362,49 +364,54 @@ class _OtpBoxRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenW = MediaQuery.of(context).size.width;
-    // 20px padding each side = 40px total. 6 boxes, 5 gaps of 8px = 40px gaps.
-    final boxW = ((screenW - 40.0 - 40.0) / 6).clamp(0.0, 56.0);
-    final boxH = (boxW * 1.18).clamp(0.0, 64.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableW = constraints.maxWidth;
+        // 6 boxes with 4px margin on each side = 48px total margin
+        final totalMargin = 6 * 8.0;
+        final boxW = ((availableW - totalMargin) / 6).clamp(0.0, 56.0);
+        final boxH = (boxW * 1.18).clamp(0.0, 64.0);
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(6, (i) {
-        final isFilled = i < code.length;
-        final isFocused = i == code.length && code.length < 5;
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: boxW,
-          height: boxH,
-          decoration: BoxDecoration(
-            color: isFilled
-                ? AppColors.secondaryGreen.withOpacity(0.2)
-                : AppColors.deepTeal.withOpacity(0.7),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isFocused
-                  ? AppColors.primaryGreen
-                  : isFilled
-                      ? AppColors.secondaryGreen
-                      : Colors.white.withOpacity(0.15),
-              width: isFocused ? 2.0 : 1.5,
-            ),
-          ),
-          child: Center(
-            child: isFilled
-                ? Text(
-                    code[i],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'DM Sans',
-                    ),
-                  )
-                : null,
-          ),
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(6, (i) {
+            final isFilled = i < code.length;
+            final isFocused = i == code.length && code.length < 6;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: boxW,
+              height: boxH,
+              decoration: BoxDecoration(
+                color: isFilled
+                    ? AppColors.secondaryGreen.withOpacity(0.2)
+                    : AppColors.deepTeal.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isFocused
+                      ? AppColors.primaryGreen
+                      : isFilled
+                          ? AppColors.secondaryGreen
+                          : Colors.white.withOpacity(0.15),
+                  width: isFocused ? 2.0 : 1.5,
+                ),
+              ),
+              child: Center(
+                child: isFilled
+                    ? Text(
+                        code[i],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'DM Sans',
+                        ),
+                      )
+                    : null,
+              ),
+            );
+          }),
         );
-      }),
+      },
     );
   }
 }

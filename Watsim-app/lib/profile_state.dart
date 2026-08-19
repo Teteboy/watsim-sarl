@@ -32,17 +32,15 @@ class ProfileState extends ChangeNotifier {
   /// Sync profile data with backend
   Future<void> syncWithBackend() async {
     if (_isLoading) return;
-    
+
     _isLoading = true;
     notifyListeners();
 
     try {
       final profile = await ApiService.fetchProfile();
-      if (profile != null) {
-        _user = profile;
-        await AuthService.saveUser(profile);
-        notifyListeners();
-      }
+      _user = profile;
+      await AuthService.saveUser(profile);
+      notifyListeners();
     } catch (e) {
       debugPrint('ProfileState sync error: $e');
     } finally {

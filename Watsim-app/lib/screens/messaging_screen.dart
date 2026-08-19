@@ -29,10 +29,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
     super.initState();
     _searchCtrl.addListener(
         () => setState(() => _query = _searchCtrl.text.toLowerCase()));
-    // Start with support conversation from NotificationState
-    _conversations = NotificationState.instance.conversations
-        .where((c) => c.id == 'watsim_support')
-        .toList();
+    _conversations = [];
     _loadConversations();
     // Initialize WebSocket for real-time messaging
     WebSocketService.instance.connect();
@@ -54,36 +51,52 @@ class _MessagingScreenState extends State<MessagingScreen> {
             final id = (e['id'] ?? e['conversationId'] ?? '').toString();
             final title = (e['title'] ?? e['name'] ?? id).toString();
             final unread = (e['unreadCount'] ?? e['unread'] ?? 0);
+            final last = e['lastMessage'] as Map<String, dynamic>?;
+            final List<AppMessage> messages = [];
+            if (last != null) {
+              final tsRaw = last['createdAt'] ?? last['created_at'];
+              DateTime ts;
+              if (tsRaw is String) {
+                ts = DateTime.tryParse(tsRaw) ?? DateTime.now();
+              } else if (tsRaw is int) {
+                ts = DateTime.fromMillisecondsSinceEpoch(tsRaw);
+              } else {
+                ts = DateTime.now();
+              }
+              messages.add(AppMessage(
+                id: last['id']?.toString() ?? '${id}_last',
+                conversationId: id,
+                text: (last['text'] ?? last['body'] ?? '').toString(),
+                isMe: false,
+                timestamp: ts,
+              ));
+            }
+            final isSupport = title.toLowerCase().contains('watsim support');
             return Conversation(
               id: id,
               name: title,
               iconCodePoint: (e['iconCodePoint'] ?? 0xe7fd) as int,
               iconColor: (e['iconColor'] ?? 0xFF1A5F7A) as int,
-              isSystem: (e['isSystem'] ?? false) as bool,
-              messages: const [],
+              isSystem: isSupport || (e['isSystem'] ?? false) as bool,
+              messages: messages,
               unreadCount: unread is num ? unread.toInt() : 0,
             );
           })
           .where((c) => c.id.isNotEmpty)
           .toList();
 
+      // Add backend conversations to global state so ChatScreen can resolve them.
+      NotificationState.instance.syncConversations(mapped);
+
       if (!mounted) return;
       setState(() {
-        // Keep support conversation and add backend conversations (avoid duplicates)
-        final existingIds = mapped.map((c) => c.id).toSet();
-        final supportConv = NotificationState.instance.conversations
-            .where((c) => c.id == 'watsim_support');
-        final nonSupportBackend = mapped.where((c) => c.id != 'watsim_support');
-        _conversations = [...supportConv, ...nonSupportBackend];
+        _conversations = mapped;
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        // Keep support conversation even on error
-        _conversations = NotificationState.instance.conversations
-            .where((c) => c.id == 'watsim_support')
-            .toList();
+        _conversations = [];
         _loading = false;
       });
     }
@@ -115,12 +128,8 @@ class _MessagingScreenState extends State<MessagingScreen> {
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: AppColors.primaryDark,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.white, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(lang.messagesTitle),
         actions: [
           // ── Language switcher ────────────────────────────────
@@ -451,16 +460,12 @@ class _NewChatSheet extends StatefulWidget {
 class _NewChatSheetState extends State<_NewChatSheet> {
   Future<void> _start() async {
     final phone = widget.phoneCtrl.text.trim();
-    final name = widget.nameCtrl.text.trim();
     if (phone.isEmpty) return;
 
     // Backend-driven conversation creation (1:1)
     try {
-      // Backend currently expects participant user IDs. The UI collects phone,
-      // so we temporarily fall back to local simulation when backend fails.
-      final convId = await ApiService.createOrGetConversation([
-        phone,
-      ]);
+      // Backend resolves phone -> user and creates/finds a 1:1 conversation.
+      final convId = await ApiService.createOrGetConversationByPhone(phone);
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -468,15 +473,11 @@ class _NewChatSheetState extends State<_NewChatSheet> {
         context,
         MaterialPageRoute(builder: (_) => ChatScreen(convId: convId)),
       );
-    } catch (_) {
-      // UI fallback (old local simulation)
-      final convId = NotificationState.instance
-          .startUserConversation(phone, name.isEmpty ? phone : name);
+    } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => ChatScreen(convId: convId)),
+      final message = e is ApiException ? e.message : 'Could not start chat';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
       );
     }
   }
@@ -563,12 +564,80 @@ class _ChatScreenState extends State<ChatScreen> {
   final _scroll = ScrollController();
   bool _isTyping = false;
   bool _showAttachMenu = false;
-  String? _backendConvId; // Real conversation ID from backend
+  bool _showEmojiPicker = false;
 
-  Conversation? get _conv =>
-      NotificationState.instance.getConversation(widget.convId);
-
-  bool _loadingMessages = false;
+  static const _emojis = [
+    '😀',
+    '😂',
+    '🥰',
+    '😍',
+    '😎',
+    '😭',
+    '😡',
+    '👍',
+    '👎',
+    '👏',
+    '🙏',
+    '🤝',
+    '🔥',
+    '❤️',
+    '😅',
+    '🤣',
+    '😊',
+    '😉',
+    '😒',
+    '🙄',
+    '🤔',
+    '🥳',
+    '🎉',
+    '🎊',
+    '🎁',
+    '🎈',
+    '🌹',
+    '🌟',
+    '✨',
+    '💯',
+    '👌',
+    '✌️',
+    '🤞',
+    '🤟',
+    '🤘',
+    '🙌',
+    '💪',
+    '🧠',
+    '🥂',
+    '🍾',
+    '🚗',
+    '🏠',
+    '📱',
+    '💻',
+    '💰',
+    '💵',
+    '🪙',
+    '📞',
+    '✅',
+    '❌',
+    '⚠️',
+    '❓',
+    '❗',
+    '🎵',
+    '🎶',
+    '🕐',
+    '📅',
+    '📍',
+    '🌍',
+    '🏆',
+  ];
+  Conversation get _conv =>
+      NotificationState.instance.getConversation(widget.convId) ??
+      Conversation(
+        id: widget.convId,
+        name: 'Chat',
+        iconCodePoint: 0xe7fd,
+        iconColor: 0xFF1A5F7A,
+        isSystem: false,
+        messages: const [],
+      );
 
   // Backend messages (fallbacks to NotificationState when needed)
   List<AppMessage> _backendMessages = const [];
@@ -579,34 +648,17 @@ class _ChatScreenState extends State<ChatScreen> {
     NotificationState.instance.addListener(_onChanged);
     _ctrl.addListener(
         () => setState(() => _isTyping = _ctrl.text.trim().isNotEmpty));
-    
+
     // Sync support conversation with backend and load messages
     _initConversation();
-    
+
     // Subscribe to conversation updates via WebSocket
     WidgetsBinding.instance.addPostFrameCallback((_) {
       WebSocketService.instance.subscribeToConversation(widget.convId);
     });
   }
-  
+
   Future<void> _initConversation() async {
-    // For support chat, get or create the real backend conversation
-    if (widget.convId == 'watsim_support') {
-      try {
-        final realConvId = await ApiService.getOrCreateSupportConversation();
-        if (mounted) {
-          setState(() => _backendConvId = realConvId);
-          await ApiService.markConversationRead(realConvId);
-          await _loadBackendMessages(realConvId);
-        }
-        return;
-      } catch (e) {
-        debugPrint('Failed to sync support conversation: $e');
-        // Fall back to local conversation
-      }
-    }
-    
-    // Regular conversation handling
     await ApiService.markConversationRead(widget.convId);
     NotificationState.instance.markConversationRead(widget.convId);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -625,19 +677,37 @@ class _ChatScreenState extends State<ChatScreen> {
   void _onChanged() {
     if (!mounted) return;
 
-    // If we successfully loaded backend messages, keep them.
-    // Otherwise, NotificationState remains the source of truth.
-    if (_backendMessages.isNotEmpty) return;
+    final conv = NotificationState.instance.getConversation(widget.convId);
+    if (conv == null) return;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // If backend messages haven't been loaded yet, let NotificationState drive UI.
+    if (_backendMessages.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {});
+          _scrollToBottom();
+        }
+      });
+      return;
+    }
+
+    // Merge any newly-arrived WebSocket messages into the backend list.
+    final existingIds = _backendMessages.map((m) => m.id).toSet();
+    final newMessages =
+        conv.messages.where((m) => !existingIds.contains(m.id)).toList();
+    if (newMessages.isNotEmpty) {
       if (mounted) {
-        setState(() {});
-        _scrollToBottom();
+        setState(() {
+          _backendMessages.addAll(newMessages);
+          _backendMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        });
       }
-    });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
   }
 
   void _scrollToBottom() {
+    if (!mounted) return;
     if (_scroll.hasClients) {
       _scroll.animateTo(
         _scroll.position.maxScrollExtent,
@@ -648,19 +718,19 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadBackendMessages([String? convId]) async {
-    final targetConvId = convId ?? _backendConvId ?? widget.convId;
-    setState(() => _loadingMessages = true);
+    final targetConvId = convId ?? widget.convId;
+    final currentUser = await AuthService.currentUser;
+    final currentUserId = currentUser?['id'] as String?;
     try {
       final raw = await ApiService.fetchMessages(targetConvId, limit: 200);
 
       // Map backend payload to AppMessage (keep compatible with existing UI)
       final mapped = raw.map((e) {
         final text = (e['text'] ?? e['body'] ?? '').toString();
-        // We don't have a local “current user id” in this Flutter prototype.
-        // So we approximate “isMe” based on known fields; if absent, treat as not-me.
-        final senderId = (e['senderId'] ?? e['fromId'] ?? '').toString();
-        final isMe =
-            senderId.isNotEmpty && (e['me'] == true || e['isMe'] == true);
+        final senderMap = e['sender'] as Map<String, dynamic>?;
+        final senderId =
+            (senderMap?['id'] ?? e['senderId'] ?? e['fromId'] ?? '').toString();
+        final isMe = senderId.isNotEmpty && senderId == currentUserId;
 
         final tsRaw = e['timestamp'] ?? e['createdAt'] ?? e['created_at'];
         DateTime ts;
@@ -685,16 +755,12 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }).toList();
 
-      setState(() {
-        _backendMessages = mapped;
-        _loadingMessages = false;
-      });
+      if (mounted) {
+        setState(() => _backendMessages = mapped);
+      }
 
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-    } catch (_) {
-      // Backend failed => keep NotificationState simulation.
-      if (mounted) setState(() => _loadingMessages = false);
-    }
+    } catch (_) {}
   }
 
   MessageAttachment? _mapBackendAttachment(
@@ -734,55 +800,27 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty) return;
 
     _ctrl.clear();
-    
-    // Use backend conversation ID if available (for support chat)
-    final targetConvId = _backendConvId ?? widget.convId;
 
-    // Try to send via WebSocket first for real-time messaging
+    final targetConvId = widget.convId;
+
+    // Send via WebSocket if connected; otherwise fall back to the REST API.
     if (WebSocketService.instance.isConnected) {
       WebSocketService.instance.sendChatMessage(
         conversationId: targetConvId,
         content: text,
       );
-      // Still try to send via API for persistence
-      try {
-        await ApiService.sendChatMessage(targetConvId, text);
-      } catch (_) {
-        // Message already sent via WebSocket, API failure is not critical
-      }
-    } else {
-      // Fallback to API only if WebSocket is not connected
-      if (_backendMessages.isNotEmpty || _backendConvId != null) {
-        try {
-          await ApiService.sendChatMessage(targetConvId, text);
-          await _loadBackendMessages();
-          return;
-        } catch (_) {
-          // fall through to local fallback
-        }
-      }
+      return;
     }
-    NotificationState.instance.addUserMessage(widget.convId, text);
+    try {
+      await ApiService.sendChatMessage(targetConvId, text);
+      await _loadBackendMessages();
+    } catch (_) {}
   }
 
   Future<void> _pickImage(ImageSource source) async {
     setState(() => _showAttachMenu = false);
     try {
-      final picker = ImagePicker();
-      final xFile = await picker.pickImage(source: source, imageQuality: 80);
-      if (xFile == null) return;
-      final file = File(xFile.path);
-      final size = await file.length();
-      final att = MessageAttachment(
-        id: 'att_${DateTime.now().millisecondsSinceEpoch}',
-        type: AttachmentType.image,
-        fileName: xFile.name,
-        filePath: xFile.path,
-        fileSize: size,
-        mimeType: 'image/jpeg',
-      );
-      NotificationState.instance
-          .addUserMessage(widget.convId, '', attachment: att);
+      // Attachments require backend upload support.
     } catch (_) {}
   }
 
@@ -794,18 +832,7 @@ class _ChatScreenState extends State<ChatScreen> {
         allowMultiple: false,
       );
       if (result == null || result.files.isEmpty) return;
-      final picked = result.files.first;
-      final att = MessageAttachment(
-        id: 'att_${DateTime.now().millisecondsSinceEpoch}',
-        type: AttachmentType.file,
-        fileName: picked.name,
-        filePath: picked.path ?? '',
-        fileSize: picked.size,
-        mimeType:
-            picked.extension != null ? 'application/${picked.extension}' : null,
-      );
-      NotificationState.instance
-          .addUserMessage(widget.convId, '', attachment: att);
+      // Attachments require backend upload support.
     } catch (_) {}
   }
 
@@ -817,16 +844,7 @@ class _ChatScreenState extends State<ChatScreen> {
         allowMultiple: false,
       );
       if (result == null || result.files.isEmpty) return;
-      final picked = result.files.first;
-      final att = MessageAttachment(
-        id: 'att_${DateTime.now().millisecondsSinceEpoch}',
-        type: AttachmentType.audio,
-        fileName: picked.name,
-        filePath: picked.path ?? '',
-        fileSize: picked.size,
-      );
-      NotificationState.instance
-          .addUserMessage(widget.convId, '', attachment: att);
+      // Attachments require backend upload support.
     } catch (_) {}
   }
 
@@ -834,37 +852,6 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final lang = LanguageProvider.of(context);
     final conv = _conv;
-    if (conv == null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFECE5DD),
-        appBar: AppBar(
-          backgroundColor: AppColors.primaryDark,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text('Chat', style: TextStyle(color: Colors.white)),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              Text(
-                'Conversation not found',
-                style: TextStyle(color: Colors.grey[600], fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Go Back'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFECE5DD), // WhatsApp-style background
@@ -917,6 +904,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
               // ── Input bar ─────────────────────────────────────────
               _buildInputBar(context, lang),
+
+              // ── Emoji picker ──────────────────────────────────────
+              if (_showEmojiPicker)
+                SafeArea(
+                  top: false,
+                  left: false,
+                  right: false,
+                  child: _buildEmojiPicker(),
+                ),
             ],
           ),
         ],
@@ -958,23 +954,29 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
             ),
             const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(conv.name,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600)),
-                Text(
-                  conv.isSystem ? lang.online : 'Watsim user',
-                  style: TextStyle(
-                      color: conv.isSystem
-                          ? AppColors.primaryGreen
-                          : Colors.white60,
-                      fontSize: 11),
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(conv.name,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600)),
+                  Text(
+                    conv.isSystem ? lang.online : 'Watsim user',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
+                        color: conv.isSystem
+                            ? AppColors.primaryGreen
+                            : Colors.white60,
+                        fontSize: 11),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1168,9 +1170,21 @@ class _ChatScreenState extends State<ChatScreen> {
                     Padding(
                       padding: const EdgeInsets.only(left: 4, bottom: 6),
                       child: IconButton(
-                        icon: const Icon(Icons.emoji_emotions_outlined,
-                            color: AppColors.textMuted, size: 22),
-                        onPressed: () {},
+                        icon: Icon(
+                            _showEmojiPicker
+                                ? Icons.keyboard_outlined
+                                : Icons.emoji_emotions_outlined,
+                            color: _showEmojiPicker
+                                ? AppColors.primaryGreen
+                                : AppColors.textMuted,
+                            size: 22),
+                        onPressed: () {
+                          FocusScope.of(context).unfocus();
+                          setState(() {
+                            _showEmojiPicker = !_showEmojiPicker;
+                            _showAttachMenu = false;
+                          });
+                        },
                       ),
                     ),
                     // Text field
@@ -1252,6 +1266,43 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmojiPicker() {
+    return Container(
+      height: 200,
+      color: Colors.white,
+      child: GridView.builder(
+        padding: const EdgeInsets.all(8),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 8,
+          childAspectRatio: 1,
+        ),
+        itemCount: _emojis.length,
+        itemBuilder: (_, i) {
+          final emoji = _emojis[i];
+          return InkWell(
+            onTap: () {
+              final text = _ctrl.text;
+              final start = _ctrl.selection.start < 0
+                  ? text.length
+                  : _ctrl.selection.start;
+              final end =
+                  _ctrl.selection.end < 0 ? text.length : _ctrl.selection.end;
+              final newText = text.replaceRange(start, end, emoji);
+              _ctrl.value = TextEditingValue(
+                text: newText,
+                selection:
+                    TextSelection.collapsed(offset: start + emoji.length),
+              );
+            },
+            child: Center(
+              child: Text(emoji, style: const TextStyle(fontSize: 24)),
+            ),
+          );
+        },
       ),
     );
   }

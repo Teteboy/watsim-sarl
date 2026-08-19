@@ -31,10 +31,9 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
   final FocusNode _monthsFocusNode = FocusNode();
   bool _isCalculating = false;
   bool _isCollectionFeeEnabled = true; // Default to enabled
-  
+
   // Backend simulation result
   Map<String, dynamic>? _simulationResult;
-  String? _simulationError;
 
   // Down payment amount (user can pay upfront to reduce installments)
   int get _downPayment {
@@ -53,12 +52,11 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
   // Call backend simulation API
   Future<void> _simulateBnpl() async {
     if (_product.id == null || _selectedMonths == null) return;
-    
+
     setState(() {
       _isCalculating = true;
-      _simulationError = null;
     });
-    
+
     try {
       final result = await ApiService.simulateBnpl(
         productId: _product.id!,
@@ -66,40 +64,34 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
         frequency: _paymentFrequency?.toLowerCase() ?? 'monthly',
         downPayment: _downPayment > 0 ? _downPayment : null,
       );
-      
+
       setState(() {
         _simulationResult = result;
         _isCalculating = false;
       });
     } catch (e) {
+      debugPrint('BNPL simulation error: $e');
       setState(() {
-        _simulationError = e.toString();
         _isCalculating = false;
       });
     }
   }
 
-  List<String> get _availableFrequencies {
-    if (_selectedMonths == 1) return ['Daily', 'Weekly'];
-    return ['Daily', 'Weekly', 'Monthly'];
-  }
-
-  Product get _product =>
-      widget.cartProducts?.isNotEmpty == true
-          ? widget.cartProducts!.first
-          : widget.product ??
-              const Product(
-                name: 'Nike Air Max Supernova',
-                price: '125,000 FCFA',
-                monthlyPrice: '',
-                icon: Icons.sports_outlined,
-                category: 'Sport',
-                cashback: 0,
-                color: Color(0xFF2A0A0A),
-                imageUrl:
-                    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80',
-                imageGradient: [Color(0xFF2A0A0A), Color(0xFF4A1515)],
-              );
+  Product get _product => widget.cartProducts?.isNotEmpty == true
+      ? widget.cartProducts!.first
+      : widget.product ??
+          const Product(
+            name: 'Nike Air Max Supernova',
+            price: '125,000 FCFA',
+            monthlyPrice: '',
+            icon: Icons.sports_outlined,
+            category: 'Sport',
+            cashback: 0,
+            color: Color(0xFF2A0A0A),
+            imageUrl:
+                'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80',
+            imageGradient: [Color(0xFF2A0A0A), Color(0xFF4A1515)],
+          );
 
   int get _basePrice {
     // Parse the price string from the actual product (e.g. "249,000 FCFA" → 249000)
@@ -115,106 +107,27 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
   int get _stockingFee => _fees['stockingFee'] ?? 0;
   int get _accountCreationFee => _fees['accountCreationFee'] ?? 0;
   int get _deliveryFee => _fees['deliveryFee'] ?? 0;
-  int get _collectionFee => _isCollectionFeeEnabled ? (_fees['collectionFee'] ?? 0) : 0;
+  int get _collectionFee =>
+      _isCollectionFeeEnabled ? (_fees['collectionFee'] ?? 0) : 0;
   // Recalculate total fees dynamically when collection fee toggle changes
   int get _totalFees {
     final baseTotal = _fees['totalFees'] ?? 0;
     final originalCollectionFee = _fees['collectionFee'] ?? 0;
     // Subtract collection fee from total if disabled
-    return _isCollectionFeeEnabled ? baseTotal : baseTotal - originalCollectionFee;
+    return _isCollectionFeeEnabled
+        ? baseTotal
+        : baseTotal - originalCollectionFee;
   }
+
   bool get _isFirstPurchase => _simulationResult?['isFirstPurchase'] ?? false;
 
-  int get _total => _simulationResult?['total'] ?? (_financedAmount + _totalFees + _downPayment);
-  int get _amountToPay => _total; // Total including down payment
+  int get _total =>
+      _simulationResult?['total'] ??
+      (_financedAmount + _totalFees + _downPayment);
   int get _months => _selectedMonths ?? 1;
   // Monthly installment = (financed amount + fees) / months (down payment is upfront)
   // Always recalculate locally to respect collection fee toggle state
   int get _monthly => ((_financedAmount + _totalFees) / _months).ceil();
-
-  int get _installmentCount {
-    if (_paymentFrequency == 'Daily') return _months * 30;
-    if (_paymentFrequency == 'Weekly') return _months * 4;
-    return _months; // Monthly
-  }
-
-  int get _installmentAmount {
-    if (_paymentFrequency == null) return _monthly;
-    if (_paymentFrequency == 'Daily') return _monthly ~/ 30;
-    if (_paymentFrequency == 'Weekly') return _monthly ~/ 4;
-    return _monthly;
-  }
-
-  String _frequencyLabelLoc(LanguageService lang) {
-    if (_paymentFrequency == 'Daily') return lang.perDay;
-    if (_paymentFrequency == 'Weekly') return lang.perWeek;
-    return lang.perMonthLabel;
-  }
-
-  String get _frequencyLabel {
-    if (_paymentFrequency == 'Daily') return '/day';
-    if (_paymentFrequency == 'Weekly') return '/week';
-    return '/mo';
-  }
-
-  List<Map<String, String>> _installmentsLoc(LanguageService lang) {
-    final now = DateTime.now();
-    final count = _paymentFrequency == null ? _months : _installmentCount.clamp(1, 12);
-    return List.generate(count, (i) {
-      DateTime date;
-      String instLabel;
-      String dueLabel;
-      if (_paymentFrequency == 'Daily') {
-        date = now.add(Duration(days: i));
-        instLabel = '${lang.dayLabel} ${i + 1}';
-        dueLabel = i == 0 ? lang.immediate : '${lang.dueOn} ${date.day} ${_monthNameLoc(lang, date.month)}';
-      } else if (_paymentFrequency == 'Weekly') {
-        date = now.add(Duration(days: i * 7));
-        instLabel = '${lang.weekLabel} ${i + 1}';
-        dueLabel = i == 0 ? lang.immediate : '${lang.dueOn} ${date.day} ${_monthNameLoc(lang, date.month)}';
-      } else {
-        date = DateTime(now.year, now.month + i, 15);
-        instLabel = '${lang.instalmentLabel} ${i + 1}';
-        dueLabel = i == 0 ? lang.immediate : '${lang.dueOn} ${date.day} ${_monthNameLoc(lang, date.month)} ${date.year}';
-      }
-      return {'label': instLabel, 'due': dueLabel};
-    });
-  }
-
-  List<Map<String, String>> get _installments {
-    final now = DateTime.now();
-    final count = _paymentFrequency == null ? _months : _installmentCount.clamp(1, 12);
-    return List.generate(count, (i) {
-      DateTime date;
-      String instLabel;
-      String dueLabel;
-      if (_paymentFrequency == 'Daily') {
-        date = now.add(Duration(days: i));
-        instLabel = 'Day ${i + 1}';
-        dueLabel = i == 0 ? 'Immediate' : 'Due on ${date.day} ${_monthName(date.month)}';
-      } else if (_paymentFrequency == 'Weekly') {
-        date = now.add(Duration(days: i * 7));
-        instLabel = 'Week ${i + 1}';
-        dueLabel = i == 0 ? 'Immediate' : 'Due on ${date.day} ${_monthName(date.month)}';
-      } else {
-        date = DateTime(now.year, now.month + i, 15);
-        instLabel = 'Instalment ${i + 1}';
-        dueLabel = i == 0 ? 'Immediate' : 'Due on ${date.day} ${_monthName(date.month)} ${date.year}';
-      }
-      return {'label': instLabel, 'due': dueLabel};
-    });
-  }
-
-  String _monthNameLoc(LanguageService lang, int m) {
-    final fr = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-    final en = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return (lang.isFrench ? fr : en)[m - 1];
-  }
-
-  String _monthName(int m) => [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-      ][m - 1];
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +185,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     color: AppColors.textPrimary)),
             const SizedBox(height: 4),
             Text(lang.choosePlanBudget,
-                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                style: const TextStyle(
+                    fontSize: 14, color: AppColors.textSecondary)),
             const SizedBox(height: 20),
 
             // Product card
@@ -325,7 +239,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
             const SizedBox(height: 6),
             Text(
               'How long will it take you to finish contributing for this product?',
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -339,24 +254,25 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryGreen),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                      color: AppColors.primaryGreen, width: 2),
+                  borderSide:
+                      const BorderSide(color: AppColors.primaryGreen, width: 2),
                 ),
                 filled: true,
                 fillColor: AppColors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
               onChanged: (val) {
                 final parsed = int.tryParse(val.trim()) ?? 0;
                 if (parsed > 60) {
                   // Show popup for >60 months
                   _monthsController.text = '60';
-                  _monthsController.selection = TextSelection.fromPosition(TextPosition(offset: _monthsController.text.length));
+                  _monthsController.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _monthsController.text.length));
                   setState(() {
                     _selectedMonths = 60;
                   });
@@ -365,7 +281,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     context: context,
                     builder: (_) => AlertDialog(
                       title: const Text('Maximum Duration'),
-                      content: const Text('BNPL simulation is available for up to 60 months (5 years) maximum. The duration has been set to 60 months.'),
+                      content: const Text(
+                          'BNPL simulation is available for up to 60 months (5 years) maximum. The duration has been set to 60 months.'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
@@ -405,7 +322,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
             const SizedBox(height: 6),
             Text(
               'Pay upfront to reduce your installment amounts',
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -418,17 +336,17 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryGreen),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                      color: AppColors.primaryGreen, width: 2),
+                  borderSide:
+                      const BorderSide(color: AppColors.primaryGreen, width: 2),
                 ),
                 filled: true,
                 fillColor: AppColors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
               onChanged: (val) {
                 // Recalculate when down payment changes
@@ -442,7 +360,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
             // Payment amounts per frequency — only shown once months are entered
             if (_isCalculating) ...[
               AppCard(
-                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
                 child: Column(
                   children: [
                     const SizedBox(
@@ -480,7 +399,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'Based on $_selectedMonths ${_selectedMonths == 1 ? 'month' : 'months'} contribution period',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 14),
                     // Daily option (always shown)
@@ -529,197 +449,211 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                       color: AppColors.textMuted,
                       letterSpacing: 1)),
               const SizedBox(height: 8),
-            // Total cost breakdown
-            AppCard(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Total Cost Breakdown',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: 12),
-                  _row(lang.productPrice, _product.price),
-                  if (_downPayment > 0) ...[
-                    const SizedBox(height: 6),
-                    _row(
-                      'Down Payment (Paid Upfront)',
-                      '- ${_downPayment ~/ 1000},${(_downPayment % 1000).toString().padLeft(3, '0')} FCFA',
-                      highlight: true,
+              // Total cost breakdown
+              AppCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Total Cost Breakdown',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary),
                     ),
-                    const SizedBox(height: 6),
-                    _row(
-                      'Amount to Finance',
-                      '${_financedAmount ~/ 1000},${(_financedAmount % 1000).toString().padLeft(3, '0')} FCFA',
-                    ),
-                  ],
-                  // New fee breakdown from backend
-                  if (_simulationResult != null) ...[
-                    const SizedBox(height: 4),
-                    _row(
-                      'Stocking Fee',
-                      '+ ${_stockingFee ~/ 1000},${(_stockingFee % 1000).toString().padLeft(3, '0')} FCFA',
-                    ),
-                    if (_accountCreationFee > 0) ...[
-                      const SizedBox(height: 4),
+                    const SizedBox(height: 12),
+                    _row(lang.productPrice, _product.price),
+                    if (_downPayment > 0) ...[
+                      const SizedBox(height: 6),
                       _row(
-                        "Account Creation Fee${_isFirstPurchase ? ' (First Purchase)' : ' (Waived)'}",
-                        '+ ${_accountCreationFee ~/ 1000},${(_accountCreationFee % 1000).toString().padLeft(3, '0')} FCFA',
-                        highlight: _isFirstPurchase,
+                        'Down Payment (Paid Upfront)',
+                        '- ${_downPayment ~/ 1000},${(_downPayment % 1000).toString().padLeft(3, '0')} FCFA',
+                        highlight: true,
+                      ),
+                      const SizedBox(height: 6),
+                      _row(
+                        'Amount to Finance',
+                        '${_financedAmount ~/ 1000},${(_financedAmount % 1000).toString().padLeft(3, '0')} FCFA',
                       ),
                     ],
-                    const SizedBox(height: 4),
-                    _row(
-                      'Delivery Fee',
-                      '+ ${_deliveryFee ~/ 1000},${(_deliveryFee % 1000).toString().padLeft(3, '0')} FCFA',
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Text('Collection Fee', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                              const SizedBox(width: 8),
-                              Transform.scale(
-                                scale: 0.7,
-                                child: Switch(
-                                  value: _isCollectionFeeEnabled,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _isCollectionFeeEnabled = value;
-                                    });
-                                  },
-                                  activeColor: AppColors.primaryGreen,
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    // New fee breakdown from backend
+                    if (_simulationResult != null) ...[
+                      const SizedBox(height: 4),
+                      _row(
+                        'Stocking Fee',
+                        '+ ${_stockingFee ~/ 1000},${(_stockingFee % 1000).toString().padLeft(3, '0')} FCFA',
+                      ),
+                      if (_accountCreationFee > 0) ...[
+                        const SizedBox(height: 4),
+                        _row(
+                          "Account Creation Fee${_isFirstPurchase ? ' (First Purchase)' : ' (Waived)'}",
+                          '+ ${_accountCreationFee ~/ 1000},${(_accountCreationFee % 1000).toString().padLeft(3, '0')} FCFA',
+                          highlight: _isFirstPurchase,
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      _row(
+                        'Delivery Fee',
+                        '+ ${_deliveryFee ~/ 1000},${(_deliveryFee % 1000).toString().padLeft(3, '0')} FCFA',
+                      ),
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Text('Collection Fee',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.textSecondary)),
+                                const SizedBox(width: 8),
+                                Transform.scale(
+                                  scale: 0.7,
+                                  child: Switch(
+                                    value: _isCollectionFeeEnabled,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _isCollectionFeeEnabled = value;
+                                      });
+                                    },
+                                    activeColor: AppColors.primaryGreen,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '${_isCollectionFeeEnabled ? '+' : ''} ${_collectionFee ~/ 1000},${(_collectionFee % 1000).toString().padLeft(3, '0')} FCFA',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _isCollectionFeeEnabled ? AppColors.textPrimary : AppColors.textMuted,
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    _row(
-                      'Total Fees',
-                      '+ ${_totalFees ~/ 1000},${(_totalFees % 1000).toString().padLeft(3, '0')} FCFA',
-                      highlight: true,
-                    ),
-                  ] else ...[
-                    // Fallback to local calculation if no backend result
-                    const SizedBox(height: 4),
-                    _row(
-                      lang.accountCreationFee,
-                      '+ ${_accountCreationFee ~/ 1000},${(_accountCreationFee % 1000).toString().padLeft(3, '0')} FCFA',
-                      highlight: true,
-                    ),
-                    const SizedBox(height: 4),
-                    _row(
-                      lang.deliveryFeeLabel,
-                      '+ ${_deliveryFee ~/ 1000},${(_deliveryFee % 1000).toString().padLeft(3, '0')} FCFA',
-                      highlight: true,
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Text('Collection Fee', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                              const SizedBox(width: 8),
-                              Transform.scale(
-                                scale: 0.7,
-                                child: Switch(
-                                  value: _isCollectionFeeEnabled,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _isCollectionFeeEnabled = value;
-                                    });
-                                  },
-                                  activeColor: AppColors.primaryGreen,
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '${_isCollectionFeeEnabled ? '+' : ''} ${_collectionFee ~/ 1000},${(_collectionFee % 1000).toString().padLeft(3, '0')} FCFA',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _isCollectionFeeEnabled ? AppColors.textPrimary : AppColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _row(
-                      lang.stockingFee,
-                      '+ ${_stockingFee ~/ 1000},${(_stockingFee % 1000).toString().padLeft(3, '0')} FCFA',
-                      highlight: true,
-                    ),
-                  ],
-                  const Divider(height: 20),
-                  _row(
-                    lang.totalAmount,
-                    '${_total ~/ 1000},${(_total % 1000).toString().padLeft(3, '0')} FCFA',
-                  ),
-                  
-                  // First purchase indicator
-                  if (_simulationResult != null && _isFirstPurchase) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline, size: 16, color: AppColors.primaryGreen),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'This is your first BNPL purchase - account creation fee applies.',
+                            Text(
+                              '${_isCollectionFeeEnabled ? '+' : ''} ${_collectionFee ~/ 1000},${(_collectionFee % 1000).toString().padLeft(3, '0')} FCFA',
                               style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.primaryGreen,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: _isCollectionFeeEnabled
+                                    ? AppColors.textPrimary
+                                    : AppColors.textMuted,
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                      const SizedBox(height: 4),
+                      _row(
+                        'Total Fees',
+                        '+ ${_totalFees ~/ 1000},${(_totalFees % 1000).toString().padLeft(3, '0')} FCFA',
+                        highlight: true,
+                      ),
+                    ] else ...[
+                      // Fallback to local calculation if no backend result
+                      const SizedBox(height: 4),
+                      _row(
+                        lang.accountCreationFee,
+                        '+ ${_accountCreationFee ~/ 1000},${(_accountCreationFee % 1000).toString().padLeft(3, '0')} FCFA',
+                        highlight: true,
+                      ),
+                      const SizedBox(height: 4),
+                      _row(
+                        lang.deliveryFeeLabel,
+                        '+ ${_deliveryFee ~/ 1000},${(_deliveryFee % 1000).toString().padLeft(3, '0')} FCFA',
+                        highlight: true,
+                      ),
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Text('Collection Fee',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.textSecondary)),
+                                const SizedBox(width: 8),
+                                Transform.scale(
+                                  scale: 0.7,
+                                  child: Switch(
+                                    value: _isCollectionFeeEnabled,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _isCollectionFeeEnabled = value;
+                                      });
+                                    },
+                                    activeColor: AppColors.primaryGreen,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '${_isCollectionFeeEnabled ? '+' : ''} ${_collectionFee ~/ 1000},${(_collectionFee % 1000).toString().padLeft(3, '0')} FCFA',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: _isCollectionFeeEnabled
+                                    ? AppColors.textPrimary
+                                    : AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _row(
+                        lang.stockingFee,
+                        '+ ${_stockingFee ~/ 1000},${(_stockingFee % 1000).toString().padLeft(3, '0')} FCFA',
+                        highlight: true,
+                      ),
+                    ],
+                    const Divider(height: 20),
+                    _row(
+                      lang.totalAmount,
+                      '${_total ~/ 1000},${(_total % 1000).toString().padLeft(3, '0')} FCFA',
                     ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
 
-            ElevatedButton(
-              onPressed: () => _goToConfirmPlan(context),
-              child: Text(lang.confirmThisPlan),
-            ),
-            const SizedBox(height: 24),
+                    // First purchase indicator
+                    if (_simulationResult != null && _isFirstPurchase) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: AppColors.primaryGreen.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                size: 16, color: AppColors.primaryGreen),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'This is your first BNPL purchase - account creation fee applies.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.primaryGreen,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              ElevatedButton(
+                onPressed: () => _goToConfirmPlan(context),
+                child: Text(lang.confirmThisPlan),
+              ),
+              const SizedBox(height: 24),
             ], // end if (_selectedMonths != null && !_isCalculating)
           ],
         ),
@@ -735,7 +669,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
     required String suffix,
     required String frequency,
   }) {
-    final fmtAmount = '${amount ~/ 1000},${(amount % 1000).toString().padLeft(3, '0')} FCFA';
+    final fmtAmount =
+        '${amount ~/ 1000},${(amount % 1000).toString().padLeft(3, '0')} FCFA';
     final isSelected = _paymentFrequency == frequency;
     return GestureDetector(
       onTap: () {
@@ -747,59 +682,60 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryGreen.withOpacity(0.1) : AppColors.offWhite,
+          color: isSelected
+              ? AppColors.primaryGreen.withOpacity(0.1)
+              : AppColors.offWhite,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.primaryGreen : const Color(0xFFD0E8E5),
+            color:
+                isSelected ? AppColors.primaryGreen : const Color(0xFFD0E8E5),
             width: isSelected ? 2 : 1,
           ),
         ),
         child: Row(
           children: [
             Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 20, color: AppColors.primaryGreen),
             ),
-            child: Icon(icon, size: 20, color: AppColors.primaryGreen),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary)),
+                  Text(sublabel,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.textMuted)),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(label,
+                Text(fmtAmount,
                     style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary)),
-                Text(sublabel,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primaryGreen)),
+                Text(suffix,
                     style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textMuted)),
+                        fontSize: 11, color: AppColors.textMuted)),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(fmtAmount,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primaryGreen)),
-              Text(suffix,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textMuted)),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _row(String l, String v, {bool highlight = false}) {
@@ -902,7 +838,8 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
   int get deliveryFee => widget.deliveryFee;
   int get pickUpFee => widget.pickUpFee;
   int get stockingFee => widget.stockingFee;
-  int get collectionFee => widget.isCollectionFeeEnabled ? widget.collectionFee : 0;
+  int get collectionFee =>
+      widget.isCollectionFeeEnabled ? widget.collectionFee : 0;
   int get basePrice => widget.basePrice;
   int get totalFees => widget.totalFees; // Use backend calculation
   int get totalAmount => widget.totalAmount; // Use backend calculation
@@ -921,7 +858,8 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
           // Cap amount at total to prevent backend over-deduction
           final actualAmount = amount > totalAmount ? totalAmount : amount;
           final wallet = WalletState.instance;
-          final canProceed = actualAmount == 0 || wallet.hasSufficientFunds(actualAmount);
+          final canProceed =
+              actualAmount == 0 || wallet.hasSufficientFunds(actualAmount);
           if (!canProceed) {
             showModalBottomSheet(
               context: context,
@@ -936,7 +874,6 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
           }
 
           // Create BNPL purchase on backend with user's chosen amount as downPayment
-          bool backendSuccess = false;
           String? backendPurchaseId;
           try {
             final result = await ApiService.requestBnpl(
@@ -949,7 +886,6 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
             );
             backendPurchaseId = result['purchase']?['id'] as String?;
             debugPrint('BNPL purchase created on backend: $backendPurchaseId');
-            backendSuccess = true;
             // Sync wallet and orders from backend so local state reflects reality
             await WalletState.instance.syncWithBackend();
             await OrderState.instance.syncWithBackend();
@@ -1083,8 +1019,8 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
                     color: AppColors.textPrimary)),
             const SizedBox(height: 4),
             Text(lang.reviewBeforeConfirm,
-                style:
-                    const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                style: const TextStyle(
+                    fontSize: 14, color: AppColors.textSecondary)),
             const SizedBox(height: 24),
 
             // Product summary
@@ -1131,20 +1067,26 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
               child: Column(
                 children: [
                   _planRow(lang.durationLabel, () {
-                    if (paymentFrequency == 'Daily') return '${months * 30} ${lang.daysLabel}';
-                    if (paymentFrequency == 'Weekly') return '${months * 4} ${lang.weeksLabel}';
+                    if (paymentFrequency == 'Daily')
+                      return '${months * 30} ${lang.daysLabel}';
+                    if (paymentFrequency == 'Weekly')
+                      return '${months * 4} ${lang.weeksLabel}';
                     return '$months ${lang.monthsLabel}';
                   }()),
                   const Divider(height: 20),
-                  _planRow(lang.paymentFrequencyLabel, paymentFrequency == 'Daily' ? lang.freqDaily : paymentFrequency == 'Weekly' ? lang.freqWeekly : lang.freqMonthly),
-                  const Divider(height: 20),
                   _planRow(
-                      lang.productPrice,
+                      lang.paymentFrequencyLabel,
+                      paymentFrequency == 'Daily'
+                          ? lang.freqDaily
+                          : paymentFrequency == 'Weekly'
+                              ? lang.freqWeekly
+                              : lang.freqMonthly),
+                  const Divider(height: 20),
+                  _planRow(lang.productPrice,
                       '${basePrice ~/ 1000},${(basePrice % 1000).toString().padLeft(3, '0')} FCFA'),
                   const Divider(height: 20),
                   // New fee structure
-                  _planRow(
-                      'Stocking Fee',
+                  _planRow('Stocking Fee',
                       '+ ${stockingFee ~/ 1000},${(stockingFee % 1000).toString().padLeft(3, '0')} FCFA'),
                   const Divider(height: 20),
                   if (accountCreationFee > 0) ...[
@@ -1154,8 +1096,7 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
                         highlight: isFirstPurchase),
                     const Divider(height: 20),
                   ],
-                  _planRow(
-                      'Delivery Fee',
+                  _planRow('Delivery Fee',
                       '+ ${deliveryFee ~/ 1000},${(deliveryFee % 1000).toString().padLeft(3, '0')} FCFA'),
                   const Divider(height: 20),
                   Padding(
@@ -1165,7 +1106,10 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
                       children: [
                         Row(
                           children: [
-                            Text('Collection Fee', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                            Text('Collection Fee',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary)),
                             const SizedBox(width: 8),
                             Transform.scale(
                               scale: 0.7,
@@ -1175,7 +1119,8 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
                                   // Note: This would need callback to parent screen
                                 },
                                 activeColor: AppColors.primaryGreen,
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
                               ),
                             ),
                           ],
@@ -1185,20 +1130,20 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: widget.isCollectionFeeEnabled ? AppColors.textPrimary : AppColors.textMuted,
+                            color: widget.isCollectionFeeEnabled
+                                ? AppColors.textPrimary
+                                : AppColors.textMuted,
                           ),
                         ),
                       ],
                     ),
                   ),
                   const Divider(height: 20),
-                  _planRow(
-                      'Total Fees',
+                  _planRow('Total Fees',
                       '+ ${totalFees ~/ 1000},${(totalFees % 1000).toString().padLeft(3, '0')} FCFA',
                       highlight: true),
                   const Divider(height: 20),
-                  _planRow(
-                      lang.totalAmount,
+                  _planRow(lang.totalAmount,
                       '${totalAmount ~/ 1000},${(totalAmount % 1000).toString().padLeft(3, '0')} FCFA'),
                 ],
               ),
@@ -1331,9 +1276,7 @@ class OrderSuccessScreen extends StatelessWidget {
                 lang.orderConfirmedDesc,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    fontSize: 15,
-                    color: AppColors.textSecondary,
-                    height: 1.5),
+                    fontSize: 15, color: AppColors.textSecondary, height: 1.5),
               ),
               const SizedBox(height: 40),
               AppCard(
@@ -1341,22 +1284,24 @@ class OrderSuccessScreen extends StatelessWidget {
                   children: [
                     _detail(lang.orderNumberLabel, order.orderNumber),
                     const Divider(height: 16),
-                    _detail('${order.paymentFrequency} ${lang.amountLabel}', order.monthlyFormatted),
+                    _detail('${order.paymentFrequency} ${lang.amountLabel}',
+                        order.monthlyFormatted),
                     const Divider(height: 16),
                     _detail(lang.frequencyLabel, order.paymentFrequency),
                     const Divider(height: 16),
                     _detail(lang.durationLabel, order.planDurationLabel),
                     const Divider(height: 16),
-                    _detail(
-                        lang.nextInstalment,
+                    _detail(lang.nextInstalment,
                         '${order.nextDue.day} ${_monthName(order.nextDue.month)} ${order.nextDue.year}'),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
               ElevatedButton(
-                onPressed: () =>
-                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const MainShell()), (route) => false),
+                onPressed: () => Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MainShell()),
+                    (route) => false),
                 child: Text(lang.backToHome),
               ),
               const SizedBox(height: 12),
@@ -1365,7 +1310,8 @@ class OrderSuccessScreen extends StatelessWidget {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const MainShell(initialIndex: 3, initialHistoryTab: 1)),
+                        builder: (_) => const MainShell(
+                            initialIndex: 3, initialHistoryTab: 1)),
                     (route) => false,
                   );
                 },
@@ -1383,8 +1329,8 @@ class OrderSuccessScreen extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(l,
-            style: const TextStyle(
-                fontSize: 13, color: AppColors.textSecondary)),
+            style:
+                const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
         Text(v,
             style: const TextStyle(
                 fontSize: 13,
@@ -1395,8 +1341,18 @@ class OrderSuccessScreen extends StatelessWidget {
   }
 
   String _monthName(int m) => [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
       ][m - 1];
 }
 
@@ -1462,7 +1418,9 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
     final instalmentId = instalment['id'] as String? ?? '';
     if (instalmentId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot pay: missing instalment ID'), backgroundColor: Colors.redAccent),
+        const SnackBar(
+            content: Text('Cannot pay: missing instalment ID'),
+            backgroundColor: Colors.redAccent),
       );
       return;
     }
@@ -1473,12 +1431,14 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
       builder: (ctx) => _RepayProviderSheet(
         amount: amount,
         productName: order.product.name,
-        onPay: (provider, phone) => _payInstalment(order.orderNumber, instalmentId, provider, phone, amount),
+        onPay: (provider, phone) => _payInstalment(
+            order.orderNumber, instalmentId, provider, phone, amount),
       ),
     );
   }
 
-  Future<void> _payInstalment(String purchaseId, String instalmentId, String provider, String phone, int amount) async {
+  Future<void> _payInstalment(String purchaseId, String instalmentId,
+      String provider, String phone, int amount) async {
     if (_paying) return;
     setState(() => _paying = true);
     try {
@@ -1490,7 +1450,9 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
       );
       final txId = result['transaction']?['id'] as String?;
       if (mounted) {
-        _showSuccess(context, 'Payment initiated! Please approve on your phone.', ussdCode: result['payment']?['ussdCode'] as String?);
+        _showSuccess(
+            context, 'Payment initiated! Please approve on your phone.',
+            ussdCode: result['payment']?['ussdCode'] as String?);
         if (txId != null) _pollPaymentStatus(context, txId, 'Repayment');
       }
       // Refresh orders after payment
@@ -1499,13 +1461,17 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment failed: ${e.message}'), backgroundColor: Colors.redAccent),
+          SnackBar(
+              content: Text('Payment failed: ${e.message}'),
+              backgroundColor: Colors.redAccent),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment error: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+              content: Text('Payment error: $e'),
+              backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -1527,11 +1493,18 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle_rounded, size: 64, color: AppColors.primaryGreen),
+              const Icon(Icons.check_circle_rounded,
+                  size: 64, color: AppColors.primaryGreen),
               const SizedBox(height: 16),
-              Text('All caught up!', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              Text('All caught up!',
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 8),
-              const Text('You have no pending instalments.', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+              const Text('You have no pending instalments.',
+                  style:
+                      TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             ],
           ),
         ),
@@ -1564,7 +1537,8 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(lang.amountDueThisMonth,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 8),
                   Text(_fmt(totalDue),
                       style: const TextStyle(
@@ -1579,11 +1553,11 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
                             color: AppColors.primaryGreen, size: 14),
                         const SizedBox(width: 6),
                         Text(
-                          'Due on ${nextDue.day} ${_monthName(nextDue.month)} ${nextDue.year}',
-                          style: const TextStyle(
-                              color: AppColors.primaryGreen,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500)),
+                            'Due on ${nextDue.day} ${_monthName(nextDue.month)} ${nextDue.year}',
+                            style: const TextStyle(
+                                color: AppColors.primaryGreen,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500)),
                       ],
                     ),
                 ],
@@ -1623,9 +1597,13 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
             }).toList(),
             if (_paying) ...[
               const SizedBox(height: 16),
-              const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen)),
+              const Center(
+                  child:
+                      CircularProgressIndicator(color: AppColors.primaryGreen)),
               const SizedBox(height: 8),
-              const Center(child: Text('Processing payment...', style: TextStyle(color: AppColors.textSecondary))),
+              const Center(
+                  child: Text('Processing payment...',
+                      style: TextStyle(color: AppColors.textSecondary))),
             ],
           ],
         ),
@@ -1633,7 +1611,9 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
     );
   }
 
-  Widget _repayItem(String name, String sub, String amount, Color color, LanguageService lang, {VoidCallback? onTap}) {
+  Widget _repayItem(
+      String name, String sub, String amount, Color color, LanguageService lang,
+      {VoidCallback? onTap}) {
     return AppCard(
       child: InkWell(
         onTap: onTap,
@@ -1686,7 +1666,20 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
     );
   }
 
-  String _monthName(int m) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1];
+  String _monthName(int m) => [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ][m - 1];
 }
 
 // ─── Repayment Provider Selection Sheet ──────────────────────────────────
@@ -1695,7 +1688,8 @@ class _RepayProviderSheet extends StatefulWidget {
   final String productName;
   final void Function(String provider, String phone) onPay;
 
-  const _RepayProviderSheet({required this.amount, required this.productName, required this.onPay});
+  const _RepayProviderSheet(
+      {required this.amount, required this.productName, required this.onPay});
 
   @override
   State<_RepayProviderSheet> createState() => _RepayProviderSheetState();
@@ -1724,10 +1718,10 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final lang = LanguageProvider.of(context);
     final isWallet = _providers[_operator]['key'] == 'WALLET';
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
         decoration: const BoxDecoration(
@@ -1738,12 +1732,23 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)),
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2)),
             ),
-            Text('Pay Instalment', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text('Pay Instalment',
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
             const SizedBox(height: 4),
-            Text(widget.productName, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            Text(widget.productName,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary)),
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
@@ -1751,18 +1756,30 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
               decoration: BoxDecoration(
                 color: AppColors.primaryGreen.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                border:
+                    Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
               ),
               child: Column(
                 children: [
-                  const Text('Amount to pay', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  const Text('Amount to pay',
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary)),
                   const SizedBox(height: 4),
-                  Text(_fmt(widget.amount), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primaryGreen)),
+                  Text(_fmt(widget.amount),
+                      style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryGreen)),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-            Text('Payment Method', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+            Text('Payment Method',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
             const SizedBox(height: 10),
             Row(
               children: List.generate(_providers.length, (i) {
@@ -1775,13 +1792,23 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: sel ? Color(p['color'] as int).withOpacity(0.12) : AppColors.offWhite,
+                        color: sel
+                            ? Color(p['color'] as int).withOpacity(0.12)
+                            : AppColors.offWhite,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: sel ? Color(p['color'] as int) : const Color(0xFFD0E8E5)),
+                        border: Border.all(
+                            color: sel
+                                ? Color(p['color'] as int)
+                                : const Color(0xFFD0E8E5)),
                       ),
                       child: Center(
                         child: Text(p['name'] as String,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sel ? Color(p['color'] as int) : AppColors.textSecondary)),
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: sel
+                                    ? Color(p['color'] as int)
+                                    : AppColors.textSecondary)),
                       ),
                     ),
                   ),
@@ -1796,7 +1823,8 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
                 decoration: const InputDecoration(
                   labelText: 'Phone Number',
                   hintText: '6XX XXX XXX',
-                  prefixIcon: Icon(Icons.phone_android_rounded, color: AppColors.primaryGreen),
+                  prefixIcon: Icon(Icons.phone_android_rounded,
+                      color: AppColors.primaryGreen),
                 ),
               ),
             ],
@@ -1807,14 +1835,17 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
                 final phone = isWallet ? '' : _phoneCtrl.text.trim();
                 if (!isWallet && phone.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Enter phone number'), backgroundColor: Colors.redAccent),
+                    const SnackBar(
+                        content: Text('Enter phone number'),
+                        backgroundColor: Colors.redAccent),
                   );
                   return;
                 }
                 Navigator.pop(context);
                 widget.onPay(provider, phone);
               },
-              child: const Text('Confirm Payment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              child: const Text('Confirm Payment',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -1829,7 +1860,8 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => AlertDialog(
-      icon: const Icon(Icons.check_circle_rounded, color: AppColors.primaryGreen, size: 48),
+      icon: const Icon(Icons.check_circle_rounded,
+          color: AppColors.primaryGreen, size: 48),
       title: const Text('Payment Initiated', textAlign: TextAlign.center),
       content: SingleChildScrollView(
         child: Column(
@@ -1847,11 +1879,15 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
                 ),
                 child: Column(
                   children: [
-                    const Text('Dial this USSD code to complete payment:', textAlign: TextAlign.center),
+                    const Text('Dial this USSD code to complete payment:',
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                     Text(ussdCode,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primaryGreen),
-                      textAlign: TextAlign.center),
+                        style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryGreen),
+                        textAlign: TextAlign.center),
                   ],
                 ),
               ),
@@ -1870,7 +1906,8 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
 }
 
 // ─── Poll payment status after dialog closes ─────────────────────────────
-Future<void> _pollPaymentStatus(BuildContext context, String transactionId, String type) async {
+Future<void> _pollPaymentStatus(
+    BuildContext context, String transactionId, String type) async {
   const maxAttempts = 30;
   String? finalStatus;
   for (int i = 0; i < maxAttempts; i++) {
@@ -1953,7 +1990,8 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
     if (amount > 0) {
       final walletBalance = WalletState.instance.balance;
       if (amount > walletBalance) {
-        setState(() => _error = 'Exceeds wallet balance: ${_fmt(walletBalance)}');
+        setState(
+            () => _error = 'Exceeds wallet balance: ${_fmt(walletBalance)}');
         return;
       }
     }
@@ -1975,7 +2013,8 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
         ? _typedAmount - widget.totalAmount
         : 0;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
         decoration: const BoxDecoration(
@@ -1986,7 +2025,8 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
                 color: Colors.grey.withOpacity(0.3),
@@ -1994,16 +2034,21 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
               ),
             ),
             Container(
-              width: 56, height: 56,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 color: AppColors.primaryGreen.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.payments_outlined, size: 28, color: AppColors.primaryGreen),
+              child: const Icon(Icons.payments_outlined,
+                  size: 28, color: AppColors.primaryGreen),
             ),
             const SizedBox(height: 14),
             Text(lang.enterFirstContribution,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
             const SizedBox(height: 6),
             const Text(
               'Pay any amount you\'re comfortable with. It will accumulate towards your total.',
@@ -2017,16 +2062,19 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
               decoration: BoxDecoration(
                 color: AppColors.primaryGreen.withOpacity(0.07),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
+                border:
+                    Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.savings_outlined, size: 16, color: AppColors.primaryGreen),
+                  const Icon(Icons.savings_outlined,
+                      size: 16, color: AppColors.primaryGreen),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Every payment accumulates. Transfer your balance to a new product anytime.',
-                      style: const TextStyle(fontSize: 12, color: AppColors.primaryGreen),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.primaryGreen),
                     ),
                   ),
                 ],
@@ -2042,15 +2090,21 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
                 decoration: BoxDecoration(
                   color: AppColors.primaryGreen.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                  border: Border.all(
+                      color: AppColors.primaryGreen.withOpacity(0.3)),
                 ),
                 child: Column(
                   children: [
-                    Text(lang.youAreContributing, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    Text(lang.youAreContributing,
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.textSecondary)),
                     const SizedBox(height: 2),
                     Text(
                       _fmt(_typedAmount),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.primaryGreen),
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryGreen),
                     ),
                   ],
                 ),
@@ -2059,7 +2113,8 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
             if (overpayPreview > 0)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: Colors.amber.shade50,
@@ -2068,12 +2123,16 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.account_balance_wallet_outlined, size: 16, color: Colors.amber.shade700),
+                    Icon(Icons.account_balance_wallet_outlined,
+                        size: 16, color: Colors.amber.shade700),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '${_fmt(overpayPreview)} above the total will be refunded to your wallet.',
-                        style: TextStyle(fontSize: 12, color: Colors.amber.shade800, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber.shade800,
+                            fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -2087,11 +2146,14 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
                 labelText: 'Amount (FCFA)',
                 hintText: 'e.g. 5,000',
                 errorText: _error,
-                prefixIcon: const Icon(Icons.attach_money_rounded, color: AppColors.primaryGreen),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.attach_money_rounded,
+                    color: AppColors.primaryGreen),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.primaryGreen, width: 2),
+                  borderSide:
+                      const BorderSide(color: AppColors.primaryGreen, width: 2),
                 ),
               ),
               onChanged: (val) {
@@ -2109,9 +2171,11 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
                 minimumSize: const Size(double.infinity, 52),
                 backgroundColor: AppColors.primaryGreen,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text(lang.makePayment, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              child: Text(lang.makePayment,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -2136,7 +2200,10 @@ class _PinConfirmSheetState extends State<_PinConfirmSheet> {
 
   void _addDigit(String d) {
     if (_pin.length >= 4 || _loading) return;
-    setState(() { _pin += d; _error = false; });
+    setState(() {
+      _pin += d;
+      _error = false;
+    });
     if (_pin.length == 4) _verify();
   }
 
@@ -2196,7 +2263,8 @@ class _PinConfirmSheetState extends State<_PinConfirmSheet> {
   Widget build(BuildContext context) {
     final lang = LanguageProvider.of(context);
     return Container(
-      padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 32),
+      padding: EdgeInsets.fromLTRB(
+          24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 32),
       decoration: const BoxDecoration(
         color: Color(0xFF0D1F1E),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -2205,7 +2273,8 @@ class _PinConfirmSheetState extends State<_PinConfirmSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40, height: 4,
+            width: 40,
+            height: 4,
             margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
@@ -2213,62 +2282,86 @@ class _PinConfirmSheetState extends State<_PinConfirmSheet> {
             ),
           ),
           Container(
-            width: 56, height: 56,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               color: AppColors.primaryGreen.withOpacity(0.15),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.lock_outline_rounded, size: 28, color: AppColors.primaryGreen),
+            child: const Icon(Icons.lock_outline_rounded,
+                size: 28, color: AppColors.primaryGreen),
           ),
           const SizedBox(height: 14),
-          Text(lang.enterPINToConfirm, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
+          Text(lang.enterPINToConfirm,
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white)),
           const SizedBox(height: 6),
-          Text(lang.confirmIdentityProceed, style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.55))),
+          Text(lang.confirmIdentityProceed,
+              style: TextStyle(
+                  fontSize: 13, color: Colors.white.withOpacity(0.55))),
           const SizedBox(height: 24),
           // PIN dots
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (i) => Container(
-              margin: const EdgeInsets.symmetric(horizontal: 10),
-              width: 16, height: 16,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: i < _pin.length
-                    ? AppColors.primaryGreen
-                    : Colors.white.withOpacity(0.15),
-                border: Border.all(
-                  color: _error ? Colors.redAccent : Colors.transparent,
-                  width: _error ? 2 : 0,
-                ),
-              ),
-            )),
+            children: List.generate(
+                4,
+                (i) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 10),
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: i < _pin.length
+                            ? AppColors.primaryGreen
+                            : Colors.white.withOpacity(0.15),
+                        border: Border.all(
+                          color: _error ? Colors.redAccent : Colors.transparent,
+                          width: _error ? 2 : 0,
+                        ),
+                      ),
+                    )),
           ),
           if (_error) ...[
             const SizedBox(height: 10),
-            Text(lang.incorrectPINTryAgain, style: TextStyle(color: Colors.redAccent, fontSize: 13)),
+            Text(lang.incorrectPINTryAgain,
+                style: TextStyle(color: Colors.redAccent, fontSize: 13)),
           ],
           if (_loading) ...[
             const SizedBox(height: 16),
-            const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryGreen)),
+            const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppColors.primaryGreen)),
           ],
           const SizedBox(height: 24),
           // Numpad
-          ...List.generate(3, (row) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(3, (col) {
-                final digit = '${row * 3 + col + 1}';
-                return _numKey(digit);
-              }),
-            ),
-          )),
+          ...List.generate(
+              3,
+              (row) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(3, (col) {
+                        final digit = '${row * 3 + col + 1}';
+                        return _numKey(digit);
+                      }),
+                    ),
+                  )),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _numKey('', icon: Icons.fingerprint_rounded, color: Colors.white70, onTap: _authenticateWithBiometric),
+              _numKey('',
+                  icon: Icons.fingerprint_rounded,
+                  color: Colors.white70,
+                  onTap: _authenticateWithBiometric),
               _numKey('0'),
-              _numKey('', icon: Icons.backspace_outlined, onTap: _deleteDigit, color: Colors.white60),
+              _numKey('',
+                  icon: Icons.backspace_outlined,
+                  onTap: _deleteDigit,
+                  color: Colors.white60),
             ],
           ),
         ],
@@ -2276,19 +2369,26 @@ class _PinConfirmSheetState extends State<_PinConfirmSheet> {
     );
   }
 
-  Widget _numKey(String digit, {IconData? icon, VoidCallback? onTap, Color? color}) {
+  Widget _numKey(String digit,
+      {IconData? icon, VoidCallback? onTap, Color? color}) {
     return GestureDetector(
       onTap: onTap ?? (digit.isEmpty ? null : () => _addDigit(digit)),
       child: Container(
-        width: 72, height: 56,
+        width: 72,
+        height: 56,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(digit.isEmpty && icon == null ? 0 : 0.07),
+          color: Colors.white
+              .withOpacity(digit.isEmpty && icon == null ? 0 : 0.07),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Center(
           child: icon != null
               ? Icon(icon, color: color ?? Colors.white, size: 22)
-              : Text(digit, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: color ?? Colors.white)),
+              : Text(digit,
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: color ?? Colors.white)),
         ),
       ),
     );
@@ -2310,9 +2410,23 @@ class BnplPaymentStatusScreen extends StatelessWidget {
     this.overpayRefunded = 0,
   });
 
-  String _fmt(int v) => '${v ~/ 1000},${(v % 1000).toString().padLeft(3, '0')} FCFA';
+  String _fmt(int v) =>
+      '${v ~/ 1000},${(v % 1000).toString().padLeft(3, '0')} FCFA';
 
-  String _monthName(int m) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
+  String _monthName(int m) => [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ][m - 1];
 
   @override
   Widget build(BuildContext context) {
@@ -2322,7 +2436,8 @@ class BnplPaymentStatusScreen extends StatelessWidget {
     // if the service fee hasn't been separately covered.
     final total = order.grandTotal;
     final isFullyPaid = order.accumulatedFunds >= total;
-    final remaining = isFullyPaid ? 0 : (total - order.accumulatedFunds).clamp(0, total);
+    final remaining =
+        isFullyPaid ? 0 : (total - order.accumulatedFunds).clamp(0, total);
     final progress = (order.accumulatedFunds / total).clamp(0.0, 1.0);
 
     return Scaffold(
@@ -2330,10 +2445,18 @@ class BnplPaymentStatusScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.primaryDark,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-          onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const MainShell()), (route) => false),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Colors.white, size: 20),
+          onPressed: () => Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const MainShell()),
+              (route) => false),
         ),
-        title: Text(lang.bnplPaymentTitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+        title: Text(lang.bnplPaymentTitle,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -2346,31 +2469,43 @@ class BnplPaymentStatusScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: isFullyPaid ? AppColors.primaryGreen : AppColors.primaryDark,
+                color: isFullyPaid
+                    ? AppColors.primaryGreen
+                    : AppColors.primaryDark,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
                 children: [
                   Container(
-                    width: 64, height: 64,
+                    width: 64,
+                    height: 64,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      isFullyPaid ? Icons.celebration_rounded : Icons.check_circle_outline_rounded,
-                      size: 36, color: Colors.white,
+                      isFullyPaid
+                          ? Icons.celebration_rounded
+                          : Icons.check_circle_outline_rounded,
+                      size: 36,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     isFullyPaid ? lang.fullyPaid : lang.paymentSuccessful,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
+                    style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isFullyPaid ? lang.completedAllPayments : lang.instalmentRecorded,
-                    style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75)),
+                    isFullyPaid
+                        ? lang.completedAllPayments
+                        : lang.instalmentRecorded,
+                    style: TextStyle(
+                        fontSize: 13, color: Colors.white.withOpacity(0.75)),
                   ),
                 ],
               ),
@@ -2383,18 +2518,27 @@ class BnplPaymentStatusScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(lang.paymentSummary, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                  Text(lang.paymentSummary,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textMuted,
+                          letterSpacing: 1)),
                   const SizedBox(height: 14),
                   _row(lang.orderLabel, order.orderNumber),
                   const Divider(height: 20),
                   _row(lang.productLabel, order.product.name),
                   const Divider(height: 20),
-                  _row(lang.contributionAdded, _fmt(amountPaid), valueColor: AppColors.primaryGreen),
+                  _row(lang.contributionAdded, _fmt(amountPaid),
+                      valueColor: AppColors.primaryGreen),
                   const Divider(height: 20),
-                  _row(lang.accumulatedFunds, _fmt(order.accumulatedFunds), valueColor: AppColors.primaryGreen),
+                  _row(lang.accumulatedFunds, _fmt(order.accumulatedFunds),
+                      valueColor: AppColors.primaryGreen),
                   const Divider(height: 20),
                   _row(lang.remainingBalance, _fmt(remaining),
-                      valueColor: remaining == 0 ? AppColors.primaryGreen : AppColors.warning),
+                      valueColor: remaining == 0
+                          ? AppColors.primaryGreen
+                          : AppColors.warning),
                   const Divider(height: 20),
                   _row(lang.totalAmount, _fmt(totalAmount)),
                 ],
@@ -2408,10 +2552,17 @@ class BnplPaymentStatusScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Fee Breakdown', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                  Text('Fee Breakdown',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textMuted,
+                          letterSpacing: 1)),
                   const SizedBox(height: 14),
                   _row('Base Price', _fmt(order.basePrice)),
-                  if (order.accountCreationFee > 0) _row('Account Creation Fee', '+ ${_fmt(order.accountCreationFee)}'),
+                  if (order.accountCreationFee > 0)
+                    _row('Account Creation Fee',
+                        '+ ${_fmt(order.accountCreationFee)}'),
                   _row('Delivery Fee', '+ ${_fmt(order.deliveryFee)}'),
                   _row('Collection Fee', '+ ${_fmt(order.collectionFee)}'),
                   _row('Stocking Fee', '+ ${_fmt(order.stockingFee)}'),
@@ -2433,8 +2584,16 @@ class BnplPaymentStatusScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(lang.repaymentProgress, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                      Text('${(progress * 100).round()}%', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
+                      Text(lang.repaymentProgress,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary)),
+                      Text('${(progress * 100).round()}%',
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryGreen)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -2444,15 +2603,24 @@ class BnplPaymentStatusScreen extends StatelessWidget {
                       value: progress.clamp(0.0, 1.0),
                       minHeight: 10,
                       backgroundColor: const Color(0xFFD0E8E5),
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.primaryGreen),
                     ),
                   ),
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${lang.paid2}: ${_fmt(amountPaid)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                      Text('${lang.leftLabel}: ${_fmt(remaining)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: remaining == 0 ? AppColors.primaryGreen : AppColors.warning)),
+                      Text('${lang.paid2}: ${_fmt(amountPaid)}',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                      Text('${lang.leftLabel}: ${_fmt(remaining)}',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: remaining == 0
+                                  ? AppColors.primaryGreen
+                                  : AppColors.warning)),
                     ],
                   ),
                 ],
@@ -2466,20 +2634,30 @@ class BnplPaymentStatusScreen extends StatelessWidget {
                 child: Row(
                   children: [
                     Container(
-                      width: 44, height: 44,
-                      decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.event_rounded, color: AppColors.warning, size: 22),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                          color: AppColors.warning.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.event_rounded,
+                          color: AppColors.warning, size: 22),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(lang.nextPaymentDue, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                          Text(lang.nextPaymentDue,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary)),
                           const SizedBox(height: 2),
                           Text(
                             '${order.nextDue.day} ${_monthName(order.nextDue.month)} ${order.nextDue.year}',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary),
                           ),
                         ],
                       ),
@@ -2495,20 +2673,30 @@ class BnplPaymentStatusScreen extends StatelessWidget {
                 child: Row(
                   children: [
                     Container(
-                      width: 44, height: 44,
-                      decoration: BoxDecoration(color: AppColors.primaryGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.account_balance_wallet_outlined, color: AppColors.primaryGreen, size: 22),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                          color: AppColors.primaryGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.account_balance_wallet_outlined,
+                          color: AppColors.primaryGreen, size: 22),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(lang.overpaymentRefunded, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                          Text(lang.overpaymentRefunded,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary)),
                           const SizedBox(height: 2),
                           Text(
                             '${_fmt(overpayRefunded)} ${lang.returnedToWallet}',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primaryGreen),
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryGreen),
                           ),
                         ],
                       ),
@@ -2520,30 +2708,40 @@ class BnplPaymentStatusScreen extends StatelessWidget {
             ],
 
             ElevatedButton(
-              onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const MainShell()), (route) => false),
+              onPressed: () => Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainShell()),
+                  (route) => false),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
                 backgroundColor: AppColors.primaryGreen,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text(lang.backToHome, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              child: Text(lang.backToHome,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
             ),
             const SizedBox(height: 10),
             OutlinedButton(
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 3, initialHistoryTab: 1)),
+                  MaterialPageRoute(
+                      builder: (_) => const MainShell(
+                          initialIndex: 3, initialHistoryTab: 1)),
                   (route) => false,
                 );
               },
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
                 side: const BorderSide(color: AppColors.primaryGreen),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text(lang.viewMyOrders, style: const TextStyle(color: AppColors.primaryGreen)),
+              child: Text(lang.viewMyOrders,
+                  style: const TextStyle(color: AppColors.primaryGreen)),
             ),
             const SizedBox(height: 24),
           ],
@@ -2559,12 +2757,16 @@ class BnplPaymentStatusScreen extends StatelessWidget {
         Expanded(
           child: Text(l,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+              style: const TextStyle(
+                  fontSize: 14, color: AppColors.textSecondary)),
         ),
         const SizedBox(width: 8),
         Text(v,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: valueColor ?? AppColors.textPrimary)),
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: valueColor ?? AppColors.textPrimary)),
       ],
     );
   }
@@ -2635,9 +2837,7 @@ class _InsufficientFundsSheet extends StatelessWidget {
             lang.insufficientBalanceDesc(_fmt(available), _fmt(required)),
             textAlign: TextAlign.center,
             style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-                height: 1.5),
+                fontSize: 14, color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 20),
 
@@ -2690,7 +2890,8 @@ class _InsufficientFundsSheet extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(lang.maybeLater,
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
+                style:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 14)),
           ),
         ],
       ),
