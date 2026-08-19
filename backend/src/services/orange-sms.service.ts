@@ -17,10 +17,15 @@ async function getAccessToken(): Promise<string> {
     throw new Error('ORANGE_SMS_AUTH_HEADER not configured');
   }
 
+  // Normalize: accept either the raw base64 value or the full "Basic xxx" string
+  const authorization = authHeader.toLowerCase().startsWith('basic ')
+    ? authHeader
+    : `Basic ${authHeader}`;
+
   const res = await fetch('https://api.orange.com/oauth/v3/token', {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${authHeader}`,
+      Authorization: authorization,
       'Content-Type': 'application/x-www-form-urlencoded',
       Accept: 'application/json',
     },
@@ -33,11 +38,14 @@ async function getAccessToken(): Promise<string> {
     throw new Error(`Orange OAuth failed: ${res.status}`);
   }
 
-  const data = (await res.json()) as { access_token: string; expires_in: number };
+  const data = (await res.json()) as { access_token: string; expires_in: string | number };
   // Cache with 5 min buffer
+  const expiresInSeconds = typeof data.expires_in === 'string'
+    ? parseInt(data.expires_in, 10)
+    : data.expires_in;
   cachedToken = {
     token: data.access_token,
-    expiresAt: Date.now() + (data.expires_in - 300) * 1000,
+    expiresAt: Date.now() + (expiresInSeconds - 300) * 1000,
   };
 
   logger.info('Orange SMS: access token obtained');
