@@ -997,12 +997,19 @@ class ApiService {
       body: jsonEncode({
         'participantPhones': [phone]
       }),
-    );
     final body = _decode(res);
     return body['conversationId'] as String;
   }
 
   // ── Profile ───────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> fetchStatistics() async {
+    final res = await http.get(
+      Uri.parse('$kApiBase/users/me/statistics'),
+      headers: await _headers(),
+    );
+    return _decode(res);
+  }
 
   static Future<Map<String, dynamic>> fetchProfile() async {
     final res = await http.get(

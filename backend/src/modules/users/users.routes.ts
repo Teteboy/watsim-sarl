@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { authenticate } from '../../middleware/authenticate';
 import { getProfile, listUserPurchases, listUserTransactions, updateProfile } from './users.service';
 import { paginationSchema, updateProfileSchema } from './users.schema';
+import { getUserStatistics } from '../../services/statistics.service';
 import { prisma } from '../../config/db';
 import { uploadProfilePicture, resolveImageUrl } from '../../services/storage-local.service';
 import { recomputeScore, getScoreHistory, getScoreTips } from '../../services/credit-scoring.service';
@@ -38,6 +39,18 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   app.get('/me/purchases', async (req) => {
     const purchases = await listUserPurchases(req.authUser!.id);
     return { items: purchases };
+  });
+
+  // ── Statistics ──────────────────────────────────────────────────────────
+  app.get('/me/statistics', async (req, reply) => {
+    try {
+      const stats = await getUserStatistics(req.authUser!.id);
+      return stats;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      req.log.error(e, 'Failed to fetch user statistics');
+      return reply.code(500).send({ error: 'StatisticsFetchFailed', message: msg });
+    }
   });
 
   // ── Wallet ──────────────────────────────────────────────────────────────

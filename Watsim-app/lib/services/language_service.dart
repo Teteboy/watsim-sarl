@@ -39,6 +39,12 @@ class LanguageService extends ChangeNotifier {
   String get security => _isFrench ? 'Sécurité' : 'Security';
   String get securitySubtitle =>
       _isFrench ? 'PIN, Biométrie, 2FA' : 'PIN, Biometrics, 2FA';
+  String get creditScore => _isFrench ? 'Score de crédit' : 'Credit Score';
+  String get creditScoreSubtitle => _isFrench
+      ? 'Consultez votre score et nos conseils'
+      : 'View your credit score and tips';
+  String get statisticsSubtitle =>
+      _isFrench ? 'Aperçu de votre activité' : 'Overview of your activity';
   String get support => _isFrench ? 'Assistance' : 'Support';
   String get helpSupport => _isFrench ? 'Aide & Assistance' : 'Help & Support';
   String get about => _isFrench ? 'À propos' : 'About';
@@ -406,6 +412,28 @@ class LanguageService extends ChangeNotifier {
   String get navHistory => _isFrench ? 'Historique' : 'History';
   String get navProfile => _isFrench ? 'Profil' : 'Profile';
   String get navReferrals => _isFrench ? 'Parrainages' : 'Referrals';
+
+  // ── Statistics screen strings ───────────────────────────────────────────
+  String get statisticsTitle => _isFrench ? 'Statistiques' : 'Statistics';
+  String get walletStatistics => _isFrench ? 'Portefeuille' : 'Wallet';
+  String get currentBalance => _isFrench ? 'Solde actuel' : 'Current Balance';
+  String get totalDeposited => _isFrench ? 'Total déposé' : 'Total Deposited';
+  String get totalWithdrawn => _isFrench ? 'Total retiré' : 'Total Withdrawn';
+  String get transferStatistics => _isFrench ? 'Transferts' : 'Transfers';
+  String get totalTransferredIn =>
+      _isFrench ? 'Transferts reçus' : 'Transfers Received';
+  String get totalTransferredOut =>
+      _isFrench ? 'Transferts envoyés' : 'Transfers Sent';
+  String get orderStatistics => _isFrench ? 'Commandes' : 'Orders';
+  String get totalOrders => _isFrench ? 'Commandes totales' : 'Total Orders';
+  String get completedOrders =>
+      _isFrench ? 'Commandes terminées' : 'Completed Orders';
+  String get activeOrders => _isFrench ? 'Commandes actives' : 'Active Orders';
+  String get totalOrderValue =>
+      _isFrench ? 'Valeur totale' : 'Total Order Value';
+  String get totalPaidOnOrders => _isFrench ? 'Total payé' : 'Total Paid';
+  String get remainingOnOrders => _isFrench ? 'Restant à payer' : 'Remaining';
+  String get retry => _isFrench ? 'Réessayer' : 'Retry';
 
   // ── History screen strings ──────────────────────────────────────────────
   String get history => _isFrench ? 'Historique' : 'History';

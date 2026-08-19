@@ -14,6 +14,7 @@ import 'security_screen.dart';
 import 'help_support_screen.dart';
 import 'about_screen.dart';
 import 'credit_score_screen.dart';
+import 'statistics_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -75,22 +76,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         maxWidth: 800,
         maxHeight: 800,
       );
-      
+
       if (picked == null) return;
-      
+
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => const Center(child: CircularProgressIndicator()),
       );
-      
+
       final bytes = await picked.readAsBytes();
       final result = await ApiService.uploadProfilePicture(bytes, picked.name);
 
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
 
-      final resolvedImageUrl = result['fullUrl']?.toString() ?? ApiService.resolveImageUrl(result['imageUrl']?.toString());
+      final resolvedImageUrl = result['fullUrl']?.toString() ??
+          ApiService.resolveImageUrl(result['imageUrl']?.toString());
       final updatedUser = {...?_user, 'imageUrl': resolvedImageUrl};
       setState(() => _user = updatedUser);
       await AuthService.saveUser(updatedUser);
@@ -98,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ProfileState.instance.updateUser(updatedUser);
       // Notify other screens that profile has been updated
       NotificationState.instance.onProfileUpdated(updatedUser);
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Profile picture updated successfully'),
@@ -181,13 +183,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       CircleAvatar(
                         radius: 36,
                         backgroundColor: const Color(0xFFE8F5E9),
-                        backgroundImage: (_user?['imageUrl'] != null && _user!['imageUrl'].toString().isNotEmpty)
-                          ? NetworkImage(ApiService.resolveImageUrl(_user!['imageUrl'].toString()))
-                          : null,
-                        child: (_user?['imageUrl'] == null || _user!['imageUrl'].toString().isEmpty)
-                          ? const Icon(Icons.person_rounded,
-                              size: 40, color: AppColors.secondaryGreen)
-                          : null,
+                        backgroundImage: (_user?['imageUrl'] != null &&
+                                _user!['imageUrl'].toString().isNotEmpty)
+                            ? NetworkImage(ApiService.resolveImageUrl(
+                                _user!['imageUrl'].toString()))
+                            : null,
+                        child: (_user?['imageUrl'] == null ||
+                                _user!['imageUrl'].toString().isEmpty)
+                            ? const Icon(Icons.person_rounded,
+                                size: 40, color: AppColors.secondaryGreen)
+                            : null,
                       ),
                       Positioned(
                         bottom: 0,
@@ -222,8 +227,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 4),
                         Text(_user?['phone'] ?? _user?['email'] ?? '—',
                             style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary)),
+                                fontSize: 13, color: AppColors.textSecondary)),
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -289,24 +293,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         builder: (_) => const NotificationsScreen())),
               ),
               _MenuItem(
-                icon: Icons.scoreboard_outlined,
+                icon: Icons.trending_up_rounded,
                 color: AppColors.secondaryGreen,
-                title: 'Credit Score',
-                subtitle: 'View your credit score and tips',
+                title: lang.creditScore,
+                subtitle: lang.creditScoreSubtitle,
                 onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
                         builder: (_) => const CreditScoreScreen())),
               ),
               _MenuItem(
+                icon: Icons.bar_chart_rounded,
+                color: AppColors.primaryGreen,
+                title: lang.statisticsTitle,
+                subtitle: lang.statisticsSubtitle,
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const StatisticsScreen())),
+              ),
+              _MenuItem(
                 icon: Icons.shield_outlined,
                 color: const Color(0xFF1565C0),
                 title: lang.security,
                 subtitle: lang.securitySubtitle,
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const SecurityScreen())),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const SecurityScreen())),
               ),
               // ── Language toggle row ──────────────────────────────
               _LanguageToggleItem(lang: lang),
@@ -328,10 +340,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: AppColors.textSecondary,
                 title: lang.about,
                 subtitle: lang.version,
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const AboutScreen())),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AboutScreen())),
               ),
             ]),
             const SizedBox(height: 16),
@@ -345,8 +355,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.error.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: AppColors.error.withOpacity(0.2)),
+                  border: Border.all(color: AppColors.error.withOpacity(0.2)),
                 ),
                 child: Row(
                   children: [
@@ -369,8 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _menuSection(
-      BuildContext context, String title, List<Widget> items) {
+  Widget _menuSection(BuildContext context, String title, List<Widget> items) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -393,8 +401,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               return Column(
                 children: [
                   e.value,
-                  if (!isLast)
-                    const Divider(height: 1, indent: 66),
+                  if (!isLast) const Divider(height: 1, indent: 66),
                 ],
               );
             }).toList(),
@@ -408,8 +415,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(lang.signOutConfirmTitle,
             style: const TextStyle(fontWeight: FontWeight.w700)),
         content: Text(lang.signOutConfirmBody),
@@ -510,7 +516,8 @@ class _LanguageToggleItem extends StatelessWidget {
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     decoration: BoxDecoration(
                       color: lang.isFrench
                           ? AppColors.primaryGreen
@@ -522,7 +529,8 @@ class _LanguageToggleItem extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: lang.isFrench ? Colors.white : AppColors.textMuted,
+                        color:
+                            lang.isFrench ? Colors.white : AppColors.textMuted,
                       ),
                     ),
                   ),
@@ -530,7 +538,8 @@ class _LanguageToggleItem extends StatelessWidget {
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     decoration: BoxDecoration(
                       color: !lang.isFrench
                           ? AppColors.primaryGreen
@@ -542,7 +551,8 @@ class _LanguageToggleItem extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: !lang.isFrench ? Colors.white : AppColors.textMuted,
+                        color:
+                            !lang.isFrench ? Colors.white : AppColors.textMuted,
                       ),
                     ),
                   ),
@@ -591,9 +601,7 @@ class _MenuItem extends StatelessWidget {
               color: AppColors.textPrimary)),
       subtitle: subtitle != null
           ? Text(subtitle!,
-              style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted))
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted))
           : null,
       trailing: const Icon(Icons.chevron_right_rounded,
           color: AppColors.textMuted, size: 18),
@@ -642,7 +650,8 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
         final fullName = profile['fullName'] as String? ?? '';
         final nameParts = fullName.split(' ');
         _firstNameCtrl.text = nameParts.isNotEmpty ? nameParts.first : '';
-        _lastNameCtrl.text = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+        _lastNameCtrl.text =
+            nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
         _phoneCtrl.text = profile['phone'] as String? ?? '';
         _emailCtrl.text = profile['email'] as String? ?? '';
         _cityCtrl.text = profile['city'] as String? ?? '';
@@ -659,10 +668,12 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
   Future<void> _saveProfile() async {
     setState(() => _loading = true);
     try {
-      final fullName = '${_firstNameCtrl.text.trim()} ${_lastNameCtrl.text.trim()}'.trim();
+      final fullName =
+          '${_firstNameCtrl.text.trim()} ${_lastNameCtrl.text.trim()}'.trim();
       final updated = await ApiService.updateProfile(
         fullName: fullName.isNotEmpty ? fullName : null,
-        phone: _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+        phone:
+            _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
       );
       if (mounted) {
         setState(() {
@@ -680,7 +691,8 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
             ]),
             backgroundColor: AppColors.primaryGreen,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -706,14 +718,14 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
         maxWidth: 800,
         maxHeight: 800,
       );
-      
+
       if (picked == null) return;
-      
+
       setState(() => _loading = true);
-      
+
       final bytes = await picked.readAsBytes();
       final result = await ApiService.uploadProfilePicture(bytes, picked.name);
-      
+
       if (mounted) {
         setState(() {
           _user = {...?_user, 'imageUrl': result['imageUrl']};
@@ -747,67 +759,71 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
       backgroundColor: AppColors.offWhite,
       appBar: WatsimAppBar(title: lang.myAccountTitle, showBack: true),
       body: _loading
-        ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Center(
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: const Color(0xFFE8F5E9),
-                        backgroundImage: (_user?['imageUrl'] != null && _user!['imageUrl'].toString().isNotEmpty)
-                          ? NetworkImage(ApiService.resolveImageUrl(_user!['imageUrl'].toString()))
-                          : null,
-                        child: (_user?['imageUrl'] == null || _user!['imageUrl'].toString().isEmpty)
-                          ? const Icon(Icons.person_rounded,
-                              size: 56, color: AppColors.secondaryGreen)
-                          : null,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: _pickAndUploadImage,
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primaryGreen,
-                              shape: BoxShape.circle,
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Center(
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: const Color(0xFFE8F5E9),
+                          backgroundImage: (_user?['imageUrl'] != null &&
+                                  _user!['imageUrl'].toString().isNotEmpty)
+                              ? NetworkImage(ApiService.resolveImageUrl(
+                                  _user!['imageUrl'].toString()))
+                              : null,
+                          child: (_user?['imageUrl'] == null ||
+                                  _user!['imageUrl'].toString().isEmpty)
+                              ? const Icon(Icons.person_rounded,
+                                  size: 56, color: AppColors.secondaryGreen)
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: _pickAndUploadImage,
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primaryGreen,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt_rounded,
+                                  size: 16, color: Colors.white),
                             ),
-                            child: const Icon(Icons.camera_alt_rounded,
-                                size: 16, color: Colors.white),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 28),
-                _field(lang.firstName, _firstNameCtrl),
-                const SizedBox(height: 14),
-                _field(lang.lastName, _lastNameCtrl),
-                const SizedBox(height: 14),
-                _field(lang.phoneNumber, _phoneCtrl),
-                const SizedBox(height: 14),
-                _field(lang.email, _emailCtrl, readOnly: true),
-                const SizedBox(height: 14),
-                _field(lang.city, _cityCtrl),
-                const SizedBox(height: 28),
-                ElevatedButton(
-                  onPressed: _saveProfile,
-                  child: Text(lang.saveChanges),
-                ),
-              ],
+                  const SizedBox(height: 28),
+                  _field(lang.firstName, _firstNameCtrl),
+                  const SizedBox(height: 14),
+                  _field(lang.lastName, _lastNameCtrl),
+                  const SizedBox(height: 14),
+                  _field(lang.phoneNumber, _phoneCtrl),
+                  const SizedBox(height: 14),
+                  _field(lang.email, _emailCtrl, readOnly: true),
+                  const SizedBox(height: 14),
+                  _field(lang.city, _cityCtrl),
+                  const SizedBox(height: 28),
+                  ElevatedButton(
+                    onPressed: _saveProfile,
+                    child: Text(lang.saveChanges),
+                  ),
+                ],
+              ),
             ),
-          ),
     );
   }
 
-  Widget _field(String label, TextEditingController controller, {bool readOnly = false}) {
+  Widget _field(String label, TextEditingController controller,
+      {bool readOnly = false}) {
     return TextField(
       decoration: InputDecoration(labelText: label),
       controller: controller,
