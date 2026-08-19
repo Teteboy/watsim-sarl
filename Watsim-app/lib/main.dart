@@ -8,7 +8,9 @@ import 'screens/history_screen.dart';
 import 'screens/referral_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/messaging_screen.dart';
+import 'screens/app_lock_screen.dart';
 import 'services/language_service.dart';
+import 'services/app_lock_manager.dart';
 import 'notification_state.dart';
 
 void main() {
@@ -29,14 +31,76 @@ void main() {
   runApp(const WatsimApp());
 }
 
-class WatsimApp extends StatelessWidget {
+class WatsimApp extends StatefulWidget {
   const WatsimApp({super.key});
+
+  @override
+  State<WatsimApp> createState() => _WatsimAppState();
+}
+
+class _WatsimAppState extends State<WatsimApp> with WidgetsBindingObserver {
+  final _lockManager = AppLockManager();
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  bool _lockRouteOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _lockManager.initialize().then((_) {
+      _lockManager.addListener(_onLockChanged);
+    });
+  }
+
+  @override
+  void dispose() {
+    _lockManager.removeListener(_onLockChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  void _onLockChanged() {
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) return;
+    if (_lockManager.isLocked && !_lockRouteOpen) {
+      _lockRouteOpen = true;
+      navigator.push(
+        PageRouteBuilder(
+          opaque: true,
+          fullscreenDialog: true,
+          pageBuilder: (_, __, ___) => const AppLockScreen(),
+          transitionsBuilder: (_, __, ___, child) => child,
+        ),
+      );
+    } else if (!_lockManager.isLocked && _lockRouteOpen) {
+      _lockRouteOpen = false;
+      if (navigator.canPop()) navigator.pop();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _lockManager.updateLastActive();
+    } else if (state == AppLifecycleState.resumed) {
+      _checkLock();
+    }
+  }
+
+  Future<void> _checkLock() async {
+    if (await AuthService.isLoggedIn() && await _lockManager.shouldLock()) {
+      _lockManager.lock();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return LanguageProvider(
       service: LanguageService(),
       child: MaterialApp(
+        navigatorKey: _navigatorKey,
         title: 'Watsim',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
