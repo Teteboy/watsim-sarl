@@ -50,7 +50,7 @@ export async function createPublicity(data: any) {
       endDate: data.endDate ? new Date(data.endDate) : null,
       imageUrl: data.imageUrl || null,
       status: 'PENDING',
-    },
+    } as any,
   });
 }
 
