@@ -930,6 +930,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                               letterSpacing: 1.0)),
                                       const SizedBox(height: 4),
                                       Text(item.name,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 17,
@@ -937,18 +939,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                       const SizedBox(height: 2),
                                       if (item.price.isNotEmpty) ...[
                                         Text(item.price,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w700)),
                                         const SizedBox(height: 2),
                                         Text(item.monthly,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                                 color: Colors.white
                                                     .withOpacity(0.7),
                                                 fontSize: 11)),
                                       ] else if (item.monthly.isNotEmpty) ...[
                                         Text('par ${item.monthly}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                                 color: Colors.white
                                                     .withOpacity(0.8),
