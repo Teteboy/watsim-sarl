@@ -59,6 +59,7 @@ export default function AdminPublicitiesPage() {
   const { toasts, addToast, removeToast } = useToast();
 
   const [confirmAction, setConfirmAction] = useState<{ pub: any; action: 'delete' } | null>(null);
+  const [detailPub, setDetailPub] = useState<any | null>(null);
 
   const [newPub, setNewPub] = useState({
     name: '',
@@ -485,6 +486,14 @@ export default function AdminPublicitiesPage() {
                               <i className="ri-check-line text-sm" style={{ color: '#22C55E' }} />
                             </button>
                           )}
+                          <button
+                            onClick={() => setDetailPub(pub)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                            style={{ background: '#F5FAF5' }}
+                            title="Voir les détails"
+                          >
+                            <i className="ri-eye-line text-sm" style={{ color: '#6B7280' }} />
+                          </button>
                           <button
                             onClick={() => setEditingPub(pub)}
                             className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
@@ -933,6 +942,170 @@ export default function AdminPublicitiesPage() {
                 }}
               >
                 Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {detailPub && (
+        <div
+          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setDetailPub(null)}
+        >
+          <div
+            className="rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            style={{ background: '#FFFFFF', border: '1px solid #E8F2F1', boxShadow: '0 20px 60px rgba(1,73,69,0.15)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
+                  Détails de la publicité
+                </h3>
+                <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                  {detailPub.id}
+                </p>
+              </div>
+              <button
+                onClick={() => setDetailPub(null)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-100"
+                style={{ background: '#F5FAF5' }}
+              >
+                <i className="ri-close-line" style={{ color: '#6B7280' }} />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              {(() => {
+                const statusStyle = getStatusStyle(detailPub.status);
+                const progress = detailPub.budget > 0 ? (detailPub.spent / detailPub.budget) * 100 : 0;
+                const ctr = detailPub.ctr ?? (detailPub.impressions > 0 ? (detailPub.clicks / detailPub.impressions) * 100 : 0);
+                return (
+                  <>
+                    <div className="rounded-xl overflow-hidden border border-[#E8F2F1]">
+                      <img
+                        src={resolveUploadUrl(detailPub.imageUrl || detailPub.image) ?? ''}
+                        alt={detailPub.name}
+                        className="w-full h-48 sm:h-64 object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Nom de la campagne</p>
+                        <p className="text-sm font-semibold" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>{detailPub.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Statut</p>
+                        <span
+                          className="text-xs px-2.5 py-1 rounded-full font-medium inline-block"
+                          style={{ background: statusStyle.bg, color: statusStyle.color, fontFamily: 'Poppins, sans-serif' }}
+                        >
+                          {statusStyle.label}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Type</p>
+                        <p className="text-sm font-semibold" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>
+                          {publicityTypes.find((t) => t.value === detailPub.type)?.label || detailPub.type}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Position</p>
+                        <p className="text-sm font-semibold" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>
+                          {getPositionLabel(detailPub.position)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Commercial / Marchand</p>
+                        <p className="text-sm font-semibold" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>
+                          {typeof detailPub.merchant === 'string' ? detailPub.merchant : detailPub.merchant?.businessName || detailPub.merchant?.name || '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Budget</p>
+                        <p className="text-sm font-semibold" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>
+                          {detailPub.budget.toLocaleString('fr-FR')} FCFA
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Dépensé</p>
+                        <p className="text-sm font-semibold" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>
+                          {detailPub.spent.toLocaleString('fr-FR')} FCFA ({progress.toFixed(0)}%)
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Période</p>
+                        <p className="text-sm font-semibold" style={{ color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }}>
+                          {detailPub.startDate} → {detailPub.endDate}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl p-4" style={{ background: '#F5FAF5' }}>
+                      <p className="text-xs font-medium mb-3 uppercase tracking-wider" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+                        Performance
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Impressions</p>
+                          <p className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
+                            {detailPub.impressions.toLocaleString('fr-FR')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Clics</p>
+                          <p className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
+                            {detailPub.clicks.toLocaleString('fr-FR')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>CTR</p>
+                          <p className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>
+                            {ctr.toFixed(2)}%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: '#E8F2F1' }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.min(progress, 100)}%`,
+                          background: progress >= 90
+                            ? 'linear-gradient(90deg, #EF4444, #F87171)'
+                            : 'linear-gradient(90deg, #4DB049, #22C55E)',
+                        }}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setDetailPub(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer whitespace-nowrap"
+                style={{ background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}
+              >
+                Fermer
+              </button>
+              <button
+                onClick={() => {
+                  const pub = detailPub;
+                  setDetailPub(null);
+                  setEditingPub(pub);
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap"
+                style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF', fontFamily: 'Poppins, sans-serif' }}
+              >
+                Modifier
               </button>
             </div>
           </div>
