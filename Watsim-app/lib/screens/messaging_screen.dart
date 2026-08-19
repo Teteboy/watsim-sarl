@@ -7,6 +7,7 @@ import '../notification_state.dart';
 import '../services/language_service.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 
 // ─── Messaging Screen (Conversation List) ────────────────────────────────
 class MessagingScreen extends StatefulWidget {
@@ -614,69 +615,6 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isTyping = false;
   bool _showAttachMenu = false;
   bool _showEmojiPicker = false;
-
-  static const _emojis = [
-    '😀',
-    '😂',
-    '🥰',
-    '😍',
-    '😎',
-    '😭',
-    '😡',
-    '👍',
-    '👎',
-    '👏',
-    '🙏',
-    '🤝',
-    '🔥',
-    '❤️',
-    '😅',
-    '🤣',
-    '😊',
-    '😉',
-    '😒',
-    '🙄',
-    '🤔',
-    '🥳',
-    '🎉',
-    '🎊',
-    '🎁',
-    '🎈',
-    '🌹',
-    '🌟',
-    '✨',
-    '💯',
-    '👌',
-    '✌️',
-    '🤞',
-    '🤟',
-    '🤘',
-    '🙌',
-    '💪',
-    '🧠',
-    '🥂',
-    '🍾',
-    '🚗',
-    '🏠',
-    '📱',
-    '💻',
-    '💰',
-    '💵',
-    '🪙',
-    '📞',
-    '✅',
-    '❌',
-    '⚠️',
-    '❓',
-    '❗',
-    '🎵',
-    '🎶',
-    '🕐',
-    '📅',
-    '📍',
-    '🌍',
-    '🏆',
-  ];
   Conversation get _conv =>
       NotificationState.instance.getConversation(widget.convId) ??
       Conversation(
@@ -1320,45 +1258,46 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildEmojiPicker() {
-    return Container(
-      height: 200,
-      color: Colors.white,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 8,
-          childAspectRatio: 1,
+    return SizedBox(
+      height: 280,
+      child: EmojiPicker(
+        textEditingController: _ctrl,
+        config: Config(
+          height: 280,
+          checkPlatformCompatibility: true,
+          emojiViewConfig: EmojiViewConfig(
+            emojiSizeMax: 28,
+            backgroundColor: AppColors.offWhite,
+            columns: 8,
+            emojiSizeMin: 20,
+          ),
+          categoryViewConfig: CategoryViewConfig(
+            backgroundColor: AppColors.offWhite,
+            indicatorColor: AppColors.primaryGreen,
+            iconColor: AppColors.textMuted,
+            iconColorSelected: AppColors.primaryGreen,
+            backspaceColor: AppColors.primaryGreen,
+          ),
+          bottomActionBarConfig: BottomActionBarConfig(
+            backgroundColor: AppColors.offWhite,
+            buttonColor: AppColors.primaryGreen,
+            buttonIconColor: Colors.white,
+            showBackspaceButton: true,
+          ),
+          searchViewConfig: SearchViewConfig(
+            backgroundColor: AppColors.offWhite,
+            buttonIconColor: AppColors.primaryGreen,
+            hintText: 'Rechercher un emoji',
+            textStyle: const TextStyle(color: AppColors.textPrimary),
+          ),
         ),
-        itemCount: _emojis.length,
-        itemBuilder: (_, i) {
-          final emoji = _emojis[i];
-          return InkWell(
-            onTap: () {
-              final text = _ctrl.text;
-              final start = _ctrl.selection.start < 0
-                  ? text.length
-                  : _ctrl.selection.start;
-              final end =
-                  _ctrl.selection.end < 0 ? text.length : _ctrl.selection.end;
-              final newText = text.replaceRange(start, end, emoji);
-              _ctrl.value = TextEditingValue(
-                text: newText,
-                selection:
-                    TextSelection.collapsed(offset: start + emoji.length),
-              );
-            },
-            child: Center(
-              child: Text(emoji, style: const TextStyle(fontSize: 24)),
-            ),
-          );
-        },
       ),
     );
   }
-
-  bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
 }
+
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
 
 // ─── Message Bubble ────────────────────────────────────────────────────────
 class _MessageBubble extends StatelessWidget {
