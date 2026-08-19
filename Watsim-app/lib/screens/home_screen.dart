@@ -187,51 +187,25 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }).toList();
 
-        // Use publicity for slideshow, fallback to products if no publicity
-        List<Map<String, dynamic>> slideshowData = _publicities.isNotEmpty
-            ? _publicities.take(4).toList()
-            : safeProducts.take(4).toList();
-
-        final slideList = slideshowData.map((item) {
-          // Check if it's publicity or product
-          final isPublicity =
-              item.containsKey('imageUrl') && item.containsKey('merchant');
-
-          if (isPublicity) {
-            // Handle merchant as object {id, businessName} or string
-            final merchantData = item['merchant'];
-            String merchantName = '';
-            if (merchantData is Map) {
-              merchantName = merchantData['businessName']?.toString() ??
-                  merchantData['name']?.toString() ??
-                  '';
-            } else if (merchantData is String) {
-              merchantName = merchantData;
-            }
-
-            return _SlideshowItem(
-              imageUrl: ApiService.resolveImageUrl(item['imageUrl'] as String?)
-                      .isNotEmpty
-                  ? ApiService.resolveImageUrl(item['imageUrl'] as String?)
-                  : 'https://picsum.photos/800/400.webp',
-              name: item['name'] as String? ?? 'Publicité',
-              price: '', // No price for publicity
-              monthly: merchantName,
-            );
-          } else {
-            // Product fallback
-            final price = priceToInt(item['price']);
-            final monthly = (price / 3).round();
-            return _SlideshowItem(
-              imageUrl: ApiService.resolveImageUrl(item['imageUrl'] as String?)
-                      .isNotEmpty
-                  ? ApiService.resolveImageUrl(item['imageUrl'] as String?)
-                  : 'https://picsum.photos/800/400.webp',
-              name: item['name'] as String? ?? 'Product',
-              price: '${fmt(price)} FCFA',
-              monthly: 'from ${fmt(monthly)} FCFA/mo',
-            );
+        // Build slideshow only from real backend publicities; no mock fallback
+        final slideList = _publicities.take(4).map((item) {
+          final merchantData = item['merchant'];
+          String merchantName = '';
+          if (merchantData is Map) {
+            merchantName = merchantData['businessName']?.toString() ??
+                merchantData['name']?.toString() ??
+                '';
+          } else if (merchantData is String) {
+            merchantName = merchantData;
           }
+
+          return _SlideshowItem(
+            imageUrl: ApiService.resolveImageUrl(item['imageUrl'] as String?),
+            name: item['name'] as String? ?? '',
+            price: '', // No price for publicity
+            monthly: merchantName,
+            publicity: item,
+          );
         }).toList();
 
         // Deduplicate slideshow by name (no ID available here)
@@ -854,11 +828,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: AppColors.textMuted,
                       ),
                       const SizedBox(height: 6),
-                      Flexible(
+                      const Flexible(
                         child: Text(
-                          _publicities.isNotEmpty
-                              ? 'Featured publicity will appear here'
-                              : 'Featured products will appear here',
+                          'Les publicités en vedette apparaîtront ici',
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
@@ -876,7 +848,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 builder: (_) =>
                                     const MainShell(initialIndex: 1))),
                         icon: const Icon(Icons.explore, size: 16),
-                        label: const Text('Browse Catalogue'),
+                        label: const Text('Parcourir le catalogue'),
                       ),
                     ],
                   ),
@@ -884,10 +856,17 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             else
               GestureDetector(
-                onTap: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const MainShell(initialIndex: 1))),
+                onTap: () {
+                  final pub = _slideshowItems[_slideshowIndex].publicity;
+                  if (pub != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PublicityDetailScreen(publicity: pub),
+                      ),
+                    );
+                  }
+                },
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: SizedBox(
@@ -1643,11 +1622,13 @@ class _SlideshowItem {
   final String name;
   final String price;
   final String monthly;
+  final Map<String, dynamic>? publicity;
   const _SlideshowItem({
     required this.imageUrl,
     required this.name,
     required this.price,
     required this.monthly,
+    this.publicity,
   });
 }
 
