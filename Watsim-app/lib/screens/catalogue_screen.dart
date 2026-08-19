@@ -646,13 +646,17 @@ class _ProductCardState extends State<_ProductCard>
                                 Icon(Icons.swap_horiz_rounded,
                                     color: Colors.white, size: 13),
                                 SizedBox(width: 4),
-                                Text(
-                                  'SELECT',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.5),
+                                Flexible(
+                                  child: Text(
+                                    'SELECT',
+                                    textAlign: TextAlign.center,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5),
+                                  ),
                                 ),
                               ],
                             ),
@@ -681,13 +685,17 @@ class _ProductCardState extends State<_ProductCard>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  lang.saveNow.toUpperCase(),
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.5),
+                                Flexible(
+                                  child: Text(
+                                    lang.saveNow.toUpperCase(),
+                                    textAlign: TextAlign.center,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5),
+                                  ),
                                 ),
                               ],
                             ),
