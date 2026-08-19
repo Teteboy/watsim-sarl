@@ -59,13 +59,13 @@ class PublicityDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.primaryDark,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 280,
             pinned: true,
-            backgroundColor: AppColors.background,
+            backgroundColor: AppColors.primaryDark,
             foregroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
               background: _imageUrl.isNotEmpty
@@ -168,7 +168,7 @@ class PublicityDetailScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.deepTeal,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -183,15 +183,17 @@ class PublicityDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          if (_type.isNotEmpty)
-            _detailRow(Icons.label_outline, 'Type', _type),
+          if (_type.isNotEmpty) _detailRow(Icons.label_outline, 'Type', _type),
           if (_position.isNotEmpty)
             _detailRow(Icons.place_outlined, 'Position', _position),
           if (_startDate != null)
             _detailRow(Icons.calendar_today_outlined, 'Début', _startDate!),
           if (_endDate != null)
             _detailRow(Icons.event_outlined, 'Fin', _endDate!),
-          if (_type.isEmpty && _position.isEmpty && _startDate == null && _endDate == null)
+          if (_type.isEmpty &&
+              _position.isEmpty &&
+              _startDate == null &&
+              _endDate == null)
             const Text(
               'Aucun détail supplémentaire disponible.',
               style: TextStyle(
