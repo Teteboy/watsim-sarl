@@ -39,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _profile;
   Map<String, dynamic>? _wallet;
 
-  // Slideshow items (publicity/ads) loaded from backend; fallback used only until first load
+  // Slideshow items (publicity/ads) loaded from backend only
   List<_SlideshowItem> _slideshowItems = const [];
 
   // Publicity/ads loaded from backend
@@ -790,7 +790,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
-                                    lang.isFrench ? 'Transférer' : 'Transfer',
+                                    lang.homeTransfer,
                                     style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 14,
@@ -1696,16 +1696,12 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
     final note = _noteCtrl.text.trim();
 
     if (identifier.isEmpty) {
-      _showError(lang.isFrench
-          ? 'Veuillez entrer un numéro de téléphone ou email'
-          : 'Please enter phone number or email');
+      _showError(lang.errorEnterRecipient);
       return;
     }
 
     if (amount < 100) {
-      _showError(lang.isFrench
-          ? 'Le montant minimum est de 100 FCFA'
-          : 'Minimum amount is 100 FCFA');
+      _showError(lang.errorMinAmount);
       return;
     }
 
@@ -1720,14 +1716,13 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
 
       if (result['success'] == true) {
         Navigator.pop(context);
-        _showSuccess(lang.isFrench
-            ? 'Transfert de ${amount}FCFA à ${result['recipientName'] ?? identifier} effectué avec succès'
-            : 'Successfully transferred ${amount}FCFA to ${result['recipientName'] ?? identifier}');
+        _showSuccess(lang.homeTransferSuccess(
+            amount.toString(), result['recipientName'] ?? identifier));
       } else {
         _showError(result['message'] ?? 'Transfer failed');
       }
     } catch (e) {
-      _showError(lang.isFrench ? 'Échec du transfert' : 'Transfer failed');
+      _showError(lang.errorTransferFailed);
     } finally {
       setState(() => _isProcessing = false);
     }
@@ -1738,7 +1733,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(lang.isFrench ? 'Erreur' : 'Error'),
+        title: Text(lang.errorGeneric),
         content: Text(message),
         actions: [
           TextButton(
@@ -1805,7 +1800,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
 
               // Title
               Text(
-                lang.isFrench ? 'Transférer de l\'argent' : 'Transfer Money',
+                lang.homeTransferMoney,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -1814,9 +1809,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
               ),
               const SizedBox(height: 8),
               Text(
-                lang.isFrench
-                    ? 'Envoyez de l\'argent à un autre utilisateur Watsim'
-                    : 'Send money to another Watsim user',
+                lang.homeTransferSubtitle,
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -1831,12 +1824,8 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
                 onChanged: (_) => setState(() => _recipientName = null),
                 onEditingComplete: _verifyRecipient,
                 decoration: InputDecoration(
-                  labelText: lang.isFrench
-                      ? 'Téléphone ou Email du destinataire'
-                      : 'Recipient Phone or Email',
-                  hintText: lang.isFrench
-                      ? '+237... ou email@example.com'
-                      : '+237... or email@example.com',
+                  labelText: lang.homeTransferRecipientLabel,
+                  hintText: lang.homeTransferRecipientHint,
                   prefixIcon: const Icon(Icons.person_outline),
                   suffixIcon: _isVerifying
                       ? const SizedBox(
@@ -1872,7 +1861,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${lang.isFrench ? 'Destinataire' : 'Recipient'}: $_recipientName',
+                          '${lang.recipient}: $_recipientName',
                           style: const TextStyle(
                               color: AppColors.primaryGreen,
                               fontWeight: FontWeight.w500),
@@ -1890,7 +1879,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
                 controller: _amountCtrl,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: lang.isFrench ? 'Montant (FCFA)' : 'Amount (FCFA)',
+                  labelText: lang.homeTransferAmountLabel,
                   hintText: '100',
                   prefixIcon: const Icon(Icons.attach_money),
                   border: OutlineInputBorder(
@@ -1905,11 +1894,8 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
                 controller: _noteCtrl,
                 maxLength: 50,
                 decoration: InputDecoration(
-                  labelText:
-                      lang.isFrench ? 'Note (optionnel)' : 'Note (optional)',
-                  hintText: lang.isFrench
-                      ? 'Ex: Remboursement dîner'
-                      : 'Ex: Dinner reimbursement',
+                  labelText: lang.homeTransferNoteLabel,
+                  hintText: lang.homeTransferNoteHint,
                   prefixIcon: const Icon(Icons.edit_note),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1941,7 +1927,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
                           ),
                         )
                       : Text(
-                          lang.isFrench ? 'TRANSFÉRER' : 'TRANSFER',
+                          lang.homeTransferButton,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -1953,9 +1939,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  lang.isFrench
-                      ? 'Minimum: 100 FCFA • Le destinataire recevra l\'argent instantanément'
-                      : 'Minimum: 100 FCFA • Recipient will receive money instantly',
+                  lang.homeTransferMinimum,
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[500],

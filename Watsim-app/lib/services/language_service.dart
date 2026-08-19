@@ -363,6 +363,42 @@ class LanguageService extends ChangeNotifier {
   String get paid => _isFrench ? 'PAYÉ ✓' : 'PAID ✓';
   String get perMonth => _isFrench ? 'FCFA/mois' : 'FCFA/mo';
 
+  // Home transfer sheet
+  String get homeTransfer => _isFrench ? 'Transférer' : 'Transfer';
+  String get homeTransferMoney =>
+      _isFrench ? 'Transférer de l\'argent' : 'Transfer Money';
+  String get homeTransferSubtitle => _isFrench
+      ? 'Envoyez de l\'argent à un autre utilisateur Watsim'
+      : 'Send money to another Watsim user';
+  String get homeTransferRecipientLabel => _isFrench
+      ? 'Téléphone ou Email du destinataire'
+      : 'Recipient Phone or Email';
+  String get homeTransferRecipientHint => _isFrench
+      ? '+237... ou email@example.com'
+      : '+237... or email@example.com';
+  String get homeTransferAmountLabel =>
+      _isFrench ? 'Montant (FCFA)' : 'Amount (FCFA)';
+  String get homeTransferNoteLabel =>
+      _isFrench ? 'Note (optionnel)' : 'Note (optional)';
+  String get homeTransferNoteHint =>
+      _isFrench ? 'Ex: Remboursement dîner' : 'Ex: Dinner reimbursement';
+  String get homeTransferMinimum => _isFrench
+      ? 'Minimum: 100 FCFA • Le destinataire recevra l\'argent instantanément'
+      : 'Minimum: 100 FCFA • Recipient will receive money instantly';
+  String get homeTransferButton => _isFrench ? 'TRANSFÉRER' : 'TRANSFER';
+  String homeTransferSuccess(String amount, String recipient) => _isFrench
+      ? 'Transfert de ${amount}FCFA à $recipient effectué avec succès'
+      : 'Successfully transferred ${amount}FCFA to $recipient';
+  String get errorEnterRecipient => _isFrench
+      ? 'Veuillez entrer un numéro de téléphone ou email'
+      : 'Please enter phone number or email';
+  String get errorMinAmount => _isFrench
+      ? 'Le montant minimum est de 100 FCFA'
+      : 'Minimum amount is 100 FCFA';
+  String get errorTransferFailed =>
+      _isFrench ? 'Échec du transfert' : 'Transfer failed';
+  String get errorGeneric => _isFrench ? 'Erreur' : 'Error';
+
   // ── Bottom nav strings ──────────────────────────────────────────────────
   String get navHome => _isFrench ? 'Accueil' : 'Home';
   String get navShop => _isFrench ? 'Boutique' : 'Shop';
