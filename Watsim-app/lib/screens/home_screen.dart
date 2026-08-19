@@ -17,6 +17,7 @@ import 'order_detail_screen.dart';
 import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'credit_score_screen.dart';
+import 'publicity_detail_screen.dart';
 import '../services/language_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -241,39 +242,14 @@ class _HomeScreenState extends State<HomeScreen> {
           return true;
         }).toList();
 
-        final offersList = safeBestOffers.take(8).map((p) {
-          final price = priceToInt(p['price']);
-          final monthly = (price / 3).round();
-          final Color baseColor = const Color(0xFF0A1A2A);
-          // Category can be a Map or a String
-          final dynamic cat = p['category'];
-          final String categoryName = cat is Map<String, dynamic>
-              ? (cat['name'] as String? ?? 'General')
-              : (cat as String? ?? 'General');
-          return Product(
-            id: p['id'] as String? ?? '',
-            name: p['name'] as String? ?? 'Product',
-            price: '${fmt(price)} FCFA',
-            monthlyPrice: 'from ${fmt(monthly)} FCFA/mo',
-            icon: Icons.shopping_bag_rounded,
-            category: categoryName,
-            cashback: 0,
-            color: baseColor,
-            imageUrl: ApiService.resolveImageUrl(p['imageUrl'] as String?),
-            imageGradient: [baseColor, baseColor],
-          );
-        }).toList();
-
-        // Deduplicate by product ID and name (in case same product has different IDs)
+        // Deduplicate exclusive offers by ID and name (same product might have different IDs)
         final seenIds = <String>{};
         final seenNames = <String>{};
-        _exclusiveOffers = offersList.where((p) {
-          // Check by ID first
+        _exclusiveOffers = _exclusiveOffers.where((p) {
           if (p.id != null && p.id!.isNotEmpty) {
             if (seenIds.contains(p.id)) return false;
             seenIds.add(p.id!);
           }
-          // Also check by name (same product might have different IDs)
           final normalizedName = p.name.trim().toLowerCase();
           if (seenNames.contains(normalizedName)) return false;
           seenNames.add(normalizedName);
@@ -1463,18 +1439,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _publicityCard(BuildContext context, Map<String, dynamic> publicity) {
-    final String name = publicity['name'] ?? 'Publicité';
-    final String imageUrl = publicity['imageUrl'] ?? '';
-    final String merchant = publicity['merchant'] ?? '';
-    final String position = publicity['position'] ?? '';
+    final String name = publicity['name']?.toString() ?? 'Publicité';
+    final String imageUrl =
+        ApiService.resolveImageUrl(publicity['imageUrl']?.toString());
+    final String position = publicity['position']?.toString() ?? '';
+
+    String merchant = '';
+    final rawMerchant = publicity['merchant'];
+    if (rawMerchant is Map<String, dynamic>) {
+      merchant = rawMerchant['businessName']?.toString() ??
+          rawMerchant['name']?.toString() ??
+          '';
+    } else if (rawMerchant is String) {
+      merchant = rawMerchant;
+    }
 
     return GestureDetector(
       onTap: () {
-        // Handle publicity click - could open a web view, show details, etc.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Publicité: $name'),
-            duration: const Duration(seconds: 2),
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PublicityDetailScreen(publicity: publicity),
           ),
         );
       },
