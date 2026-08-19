@@ -1082,9 +1082,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         children: [
           Icon(icon, size: 18, color: AppColors.primaryGreen),
           const SizedBox(width: 10),
-          Text(text,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary)),
+          Expanded(
+            child: Text(text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary)),
+          ),
         ],
       ),
     );
