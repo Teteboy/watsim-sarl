@@ -901,6 +901,29 @@ class ApiService {
     return _decode(res);
   }
 
+  /// Withdraw all contributed BNPL funds for a purchase back to the wallet.
+  static Future<Map<String, dynamic>> withdrawContribution(
+      {required String purchaseId}) async {
+    final res = await http.post(
+      Uri.parse('$kApiBase/bnpl/purchases/$purchaseId/withdraw'),
+      headers: await _headers(),
+    );
+    return _decode(res);
+  }
+
+  /// Transfer all contributed BNPL funds for a purchase to another Watsim user.
+  static Future<Map<String, dynamic>> transferContribution({
+    required String purchaseId,
+    required String recipientIdentifier,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$kApiBase/bnpl/purchases/$purchaseId/transfer'),
+      headers: await _headers(),
+      body: jsonEncode({'recipientIdentifier': recipientIdentifier}),
+    );
+    return _decode(res);
+  }
+
   // ── PIN management ────────────────────────────────────────────────────
 
   /// Set or change PIN after login (requires JWT token in storage)

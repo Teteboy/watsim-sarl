@@ -3,6 +3,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { simulateSchema, purchaseSchema, repaySchema } from './bnpl.schema';
 import { BnplError, createPurchase, getPurchase, repayInstalment, simulate } from './bnpl.service';
+import { BnplContributionError, transferContribution, withdrawContribution } from './bnpl-contributions.service';
 
 export async function bnplRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
@@ -49,6 +50,27 @@ export async function bnplRoutes(app: FastifyInstance): Promise<void> {
       return await repayInstalment(req.authUser!.id, body);
     } catch (e) {
       if (e instanceof BnplError) return reply.code(e.statusCode).send({ error: 'BnplError', message: e.message });
+      throw e;
+    }
+  });
+
+  app.post('/purchases/:id/withdraw', async (req, reply) => {
+    try {
+      const { id } = req.params as { id: string };
+      return await withdrawContribution(req.authUser!.id, id);
+    } catch (e) {
+      if (e instanceof BnplContributionError) return reply.code(e.statusCode).send({ error: 'BnplContributionError', message: e.message });
+      throw e;
+    }
+  });
+
+  app.post('/purchases/:id/transfer', async (req, reply) => {
+    try {
+      const { id } = req.params as { id: string };
+      const { recipientIdentifier } = req.body as { recipientIdentifier: string };
+      return await transferContribution(req.authUser!.id, id, recipientIdentifier);
+    } catch (e) {
+      if (e instanceof BnplContributionError) return reply.code(e.statusCode).send({ error: 'BnplContributionError', message: e.message });
       throw e;
     }
   });

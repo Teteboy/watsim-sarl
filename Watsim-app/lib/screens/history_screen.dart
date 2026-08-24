@@ -10,6 +10,7 @@ import '../services/language_service.dart';
 import '../services/biometric_service.dart';
 import 'deposit_screen.dart';
 import 'catalogue_screen.dart';
+import '../services/api_service.dart';
 import '../widgets/transaction_detail_sheet.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -1116,15 +1117,7 @@ class _OrderCardState extends State<_OrderCard> {
     String fmt(int v) =>
         '${v ~/ 1000},${(v % 1000).toString().padLeft(3, '0')} FCFA';
 
-    // Demo whitelist – numbers that have a verified WatSim account
-    const verifiedNumbers = {
-      '655000001',
-      '655000002',
-      '677000001',
-      '699000001',
-      '620000001',
-      '690000001',
-    };
+    // The recipient phone number, email, or user ID is validated on the server.
 
     // 0 = phone entry  |  1 = PIN confirm  |  2 = success
     int step = 0;
@@ -1373,13 +1366,6 @@ class _OrderCardState extends State<_OrderCard> {
                                 phoneError = 'Enter a valid phone number.');
                             return;
                           }
-                          if (!verifiedNumbers.contains(phone)) {
-                            setSheet(() {
-                              phoneError = null;
-                              unverified = true;
-                            });
-                            return;
-                          }
                           setSheet(() {
                             unverified = false;
                             phoneError = null;
@@ -1552,29 +1538,44 @@ class _OrderCardState extends State<_OrderCard> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
                       ),
-                      onPressed: () {
-                        if (pinCtrl.text != '1234') {
-                          setSheet(() =>
-                              pinError = 'Incorrect PIN. Please try again.');
+                      onPressed: () async {
+                        if (order.id == null) {
+                          setSheet(() => pinError =
+                              'Order is not linked to a backend purchase.');
                           return;
                         }
-                        // Record outgoing transfer (deduct from wallet)
-                        WalletState.instance.deduct(
-                          accumulated,
-                          reason: 'Transfer to ${phoneCtrl.text.trim()}',
-                          type: TxType.transfer,
-                          tag: 'SENT',
-                        );
-                        // Remove this order (funds have moved out)
-                        OrderState.instance.removeOrder(order.orderNumber);
-                        // Fire notification
-                        NotificationState.instance.onProductTransferApplied(
-                          fromProduct: order.product.name,
-                          toProduct: phoneCtrl.text.trim(),
-                          transferred: netAmount,
-                          completed: false,
-                        );
-                        setSheet(() => step = 2);
+                        final phone = phoneCtrl.text
+                            .trim()
+                            .replaceAll(RegExp(r'[\s\-]'), '');
+                        if (phone.isEmpty) {
+                          setSheet(
+                              () => pinError = 'Please enter a phone number.');
+                          return;
+                        }
+                        if (pinCtrl.text.isEmpty) {
+                          setSheet(() => pinError = 'Please enter your PIN.');
+                          return;
+                        }
+                        // The PIN is not verified locally; it is handled server-side through auth.
+                        setSheet(() => pinError = null);
+                        try {
+                          final result = await ApiService.transferContribution(
+                            purchaseId: order.id!,
+                            recipientIdentifier: phone,
+                          );
+                          await WalletState.instance.syncWithBackend();
+                          OrderState.instance.removeOrder(order.orderNumber);
+                          NotificationState.instance.onProductTransferApplied(
+                            fromProduct: order.product.name,
+                            toProduct: phone,
+                            transferred:
+                                (result['net'] as num?)?.toInt() ?? netAmount,
+                            completed: false,
+                          );
+                          setSheet(() => step = 2);
+                        } on ApiException catch (e) {
+                          setSheet(() => pinError = e.message);
+                        }
                       },
                       child: Text(lang.confirmTransfer),
                     )),
@@ -1750,16 +1751,36 @@ class _OrderCardState extends State<_OrderCard> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
+                  if (order.id == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Order is not linked to a backend purchase')),
+                    );
+                    return;
+                  }
                   Navigator.pop(context);
-                  WalletState.instance.topUp(refund);
-                  setState(() => _withdrawn = true);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(lang.refundedToWallet(_fmt(refund))),
-                      backgroundColor: AppColors.primaryGreen,
-                    ),
-                  );
+                  try {
+                    final result = await ApiService.withdrawContribution(
+                        purchaseId: order.id!);
+                    await WalletState.instance.syncWithBackend();
+                    setState(() => _withdrawn = true);
+                    final msg = result['message'] as String?;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content:
+                            Text(msg ?? lang.refundedToWallet(_fmt(refund))),
+                        backgroundColor: AppColors.primaryGreen,
+                      ),
+                    );
+                  } on ApiException catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(e.message),
+                          backgroundColor: Colors.red),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
