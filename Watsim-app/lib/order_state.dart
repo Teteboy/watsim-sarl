@@ -5,6 +5,9 @@ import 'screens/catalogue_screen.dart';
 import 'services/api_service.dart';
 
 class ConfirmedOrder {
+  /// Backend BNPL purchase id (null for demo/offline orders).
+  final String? id;
+
   Product product;
   final int months;
   final int monthly;
@@ -54,6 +57,7 @@ class ConfirmedOrder {
   int get grandTotal => basePrice + totalFees;
 
   ConfirmedOrder({
+    this.id,
     required this.product,
     required this.months,
     required this.monthly,
@@ -75,10 +79,10 @@ class ConfirmedOrder {
     this.deliveryFee = 0,
     this.collectionFee = 0,
     this.totalFees = 0,
-  }) : paidInstallments = paidInstallments ?? {},
-       this.instalments = instalments ?? [],
-       _accumulatedFunds = initialAccumulatedFunds,
-       contributionAmounts = contributionAmounts ?? [];
+  })  : paidInstallments = paidInstallments ?? {},
+        this.instalments = instalments ?? [],
+        _accumulatedFunds = initialAccumulatedFunds,
+        contributionAmounts = contributionAmounts ?? [];
 
   /// Exchange this order's product for [newProduct] at [newPrice].
   ///
@@ -89,20 +93,21 @@ class ConfirmedOrder {
   /// Returns a record describing the outcome:
   ///   - overpay : excess funds above newPrice (caller should refund to wallet)
   ///   - completed: whether the new product is immediately fully paid
-  ({int overpay, bool completed}) exchangeProduct(Product newProduct, int newPrice) {
-    product  = newProduct;
+  ({int overpay, bool completed}) exchangeProduct(
+      Product newProduct, int newPrice) {
+    product = newProduct;
     basePrice = newPrice;
 
     // Reset installment slots — they will be re-credited from accumulated funds
     paidInstallments.clear();
 
     final int carried = _accumulatedFunds;
-    int overpay  = 0;
+    int overpay = 0;
     bool completed = false;
 
     if (carried >= newPrice) {
       // New product is already fully covered
-      overpay   = carried - newPrice;
+      overpay = carried - newPrice;
       completed = true;
       // Cap accumulated funds at newPrice (excess is refunded separately)
       _accumulatedFunds = newPrice;
@@ -144,7 +149,11 @@ class ConfirmedOrder {
   void toggleCollectionFee(bool enabled) {
     final originalValue = collectionFee;
     collectionFee = enabled ? 1000 : 0;
-    totalFees = downPayment + stockingFee + accountCreationFee + deliveryFee + collectionFee;
+    totalFees = downPayment +
+        stockingFee +
+        accountCreationFee +
+        deliveryFee +
+        collectionFee;
     if (originalValue != collectionFee) {
       OrderState.instance._notify();
     }
@@ -270,7 +279,8 @@ class ConfirmedOrder {
   }
 
   /// Due date for the current installment.
-  DateTime get currentInstallmentDue => installmentDueDate(currentInstallmentIndex);
+  DateTime get currentInstallmentDue =>
+      installmentDueDate(currentInstallmentIndex);
 
   /// Next unpaid installment due date.
   DateTime get nextDue {
@@ -302,8 +312,18 @@ class ConfirmedOrder {
         due.day == today.day;
     if (isToday) return 'Next payment: Today';
     const monthNames = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return 'Next payment: ${due.day} ${monthNames[due.month - 1]}';
   }
@@ -313,8 +333,18 @@ class ConfirmedOrder {
   String get contributionEndLabel {
     if (isFullyPaid) return 'Completed ✓';
     const monthNames = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     final end = installmentDueDate(totalInstallments - 1);
     return 'Ends ${end.day} ${monthNames[end.month - 1]} ${end.year}';
@@ -334,6 +364,10 @@ class OrderState {
   String? get error => _error;
 
   void addOrder(ConfirmedOrder order) {
+    // Remove any existing order with the same backend id to avoid duplicates.
+    if (order.id != null && order.id!.isNotEmpty) {
+      _orders.removeWhere((o) => o.id == order.id);
+    }
     _orders.insert(0, order); // newest first
     _notify();
   }
@@ -343,18 +377,18 @@ class OrderState {
     _isLoading = true;
     _error = null;
     _notify();
-    
+
     try {
       final purchases = await ApiService.fetchOrders();
       _orders.clear();
-      
+
       for (final p in purchases) {
         final order = _convertPurchaseToOrder(p);
         if (order != null) {
           _orders.add(order);
         }
       }
-      
+
       _isLoading = false;
       _notify();
     } catch (e) {
@@ -363,19 +397,20 @@ class OrderState {
       _notify();
     }
   }
-  
+
   /// Convert backend purchase JSON to ConfirmedOrder
   ConfirmedOrder? _convertPurchaseToOrder(Map<String, dynamic> p) {
     try {
       final product = p['product'] as Map<String, dynamic>?;
       if (product == null) return null;
-      
+
       final price = (product['price'] as num?)?.toInt() ?? 0;
       final totalAmount = (p['totalAmount'] as num?)?.toInt() ?? price;
       final instalmentCount = (p['instalmentCount'] as num?)?.toInt() ?? 3;
-      final instalmentAmount = (p['instalmentAmount'] as num?)?.toInt() ?? (totalAmount ~/ instalmentCount);
+      final instalmentAmount = (p['instalmentAmount'] as num?)?.toInt() ??
+          (totalAmount ~/ instalmentCount);
       final downPayment = (p['downPayment'] as num?)?.toInt() ?? 0;
-      
+
       // Build paid installments from backend instalments data if available
       final Set<int> paidInstalments = {};
       final instalments = p['instalments'] as List<dynamic>?;
@@ -388,9 +423,10 @@ class OrderState {
           }
         }
       }
-      
+
       // Calculate accumulated funds from paid installments
-      final accumulatedFunds = paidInstalments.length * instalmentAmount + downPayment;
+      final accumulatedFunds =
+          paidInstalments.length * instalmentAmount + downPayment;
 
       // Build raw instalment list for repayment screen
       final rawInstalments = <Map<String, dynamic>>[];
@@ -406,15 +442,29 @@ class OrderState {
         }
       }
 
+      // Frequency may be stored lower-case in the backend.
+      final rawFrequency =
+          (p['frequency'] as String? ?? 'monthly').toLowerCase();
+      final paymentFrequency = rawFrequency == 'daily'
+          ? 'Daily'
+          : rawFrequency == 'weekly'
+              ? 'Weekly'
+              : 'Monthly';
+
       return ConfirmedOrder(
+        id: p['id'] as String?,
         product: Product(
           id: product['id'] as String?,
-          merchantId: (p['merchant'] as Map<String, dynamic>?)?['id'] as String? ?? p['merchantId'] as String?,
+          merchantId:
+              (p['merchant'] as Map<String, dynamic>?)?['id'] as String? ??
+                  p['merchantId'] as String?,
           name: product['name'] as String? ?? 'Unknown Product',
           price: '${_formatPrice(price)} FCFA',
           monthlyPrice: '${_formatPrice(instalmentAmount)} FCFA/month',
           icon: Icons.shopping_bag_rounded,
-          category: (product['category'] as Map<String, dynamic>?)?['name'] as String? ?? 'General',
+          category: (product['category'] as Map<String, dynamic>?)?['name']
+                  as String? ??
+              'General',
           cashback: 0,
           color: const Color(0xFF014945),
           imageUrl: product['imageUrl'] as String? ?? '',
@@ -427,12 +477,14 @@ class OrderState {
         confirmedAt: p['createdAt'] != null
             ? DateTime.tryParse(p['createdAt'] as String) ?? DateTime.now()
             : DateTime.now(),
-        orderNumber: p['id'] as String? ?? 'ORD-${DateTime.now().millisecondsSinceEpoch}',
-        paymentFrequency: 'Monthly', // Backend default
+        orderNumber: p['id'] as String? ??
+            'ORD-${DateTime.now().millisecondsSinceEpoch}',
+        paymentFrequency: paymentFrequency,
         paidInstallments: paidInstalments,
         instalments: rawInstalments,
         isDemo: false,
-        deliveryRequested: p['status'] == 'DELIVERED' || p['status'] == 'SHIPPED',
+        deliveryRequested:
+            p['status'] == 'DELIVERED' || p['status'] == 'SHIPPED',
         deliveryCompleted: p['status'] == 'DELIVERED',
         initialAccumulatedFunds: accumulatedFunds,
         downPayment: downPayment,
@@ -446,7 +498,7 @@ class OrderState {
       return null;
     }
   }
-  
+
   String _formatPrice(int v) {
     if (v < 1000) return '$v';
     final k = v ~/ 1000;
@@ -488,7 +540,8 @@ class OrderState {
     int remaining = applied;
     int credited = 0;
     for (int i = 0; i < target.totalInstallments; i++) {
-      if (!target.paidInstallments.contains(i) && remaining >= target.perInstallment) {
+      if (!target.paidInstallments.contains(i) &&
+          remaining >= target.perInstallment) {
         target.paidInstallments.add(i);
         remaining -= target.perInstallment;
         credited++;

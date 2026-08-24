@@ -1321,6 +1321,15 @@ class ApiService {
     return _decode(res);
   }
 
+  static Future<Map<String, dynamic>> updateReferralCode(String code) async {
+    final res = await http.patch(
+      Uri.parse('$kApiBase/users/me/referral'),
+      headers: await _headers(),
+      body: jsonEncode({'code': code.trim().toUpperCase()}),
+    );
+    return _decode(res);
+  }
+
   static Future<bool> registerWithReferral(
       String phone, String? referralCode) async {
     final body = <String, dynamic>{'phone': phone};

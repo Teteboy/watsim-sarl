@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import 'deposit_screen.dart';
 import 'history_screen.dart';
 import 'messaging_screen.dart';
+import '../widgets/transaction_detail_sheet.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -500,6 +501,13 @@ class _WalletScreenState extends State<WalletScreen> {
                                 amount: tx.amountFormatted,
                                 isCredit: tx.isCredit,
                                 tag: tx.tag,
+                                onTap: () => showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  isScrollControlled: true,
+                                  builder: (_) =>
+                                      TransactionDetailSheet(tx: tx),
+                                ),
                               ),
                             ],
                           );

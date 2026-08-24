@@ -6,7 +6,7 @@ import { getUserStatistics } from '../../services/statistics.service';
 import { prisma } from '../../config/db';
 import { uploadProfilePicture, resolveImageUrl } from '../../services/storage-local.service';
 import { recomputeScore, getScoreHistory, getScoreTips } from '../../services/credit-scoring.service';
-import { ensureUserReferralCode, getReferralStats } from '../../services/referral.service';
+import { ensureUserReferralCode, getReferralStats, updateReferralCode } from '../../services/referral.service';
 import { getUserBadges, checkAndAwardBadges } from '../../services/badge.service';
 import { processWithdrawal, WithdrawalProvider } from '../../services/withdrawal.service';
 import { processTransfer, getTransferHistory } from '../../services/transfer.service';
@@ -255,6 +255,20 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     const code = await ensureUserReferralCode(userId);
     const stats = await getReferralStats(userId);
     return { code, ...stats };
+  });
+
+  app.patch('/me/referral', async (req, reply) => {
+    const userId = req.authUser!.id;
+    const { code } = req.body as { code?: string };
+    if (!code) {
+      return reply.code(400).send({ error: 'MissingCode', message: 'Referral code is required' });
+    }
+    try {
+      const updatedCode = await updateReferralCode(userId, code);
+      return { code: updatedCode };
+    } catch (e: any) {
+      return reply.code(400).send({ error: 'InvalidReferralCode', message: e.message });
+    }
   });
 
   // ── Rewards & Cashback ───────────────────────────────────────────────────

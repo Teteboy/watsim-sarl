@@ -905,6 +905,7 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
           final orderNum = backendPurchaseId ??
               '#WTS-${DateTime.now().year}-${(DateTime.now().millisecondsSinceEpoch % 100000).toString().padLeft(5, '0')}';
           final order = ConfirmedOrder(
+            id: backendPurchaseId,
             product: product,
             months: months,
             monthly: monthly,
@@ -930,7 +931,9 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
           } else if (actualAmount > 0) {
             order.paidInstallments.add(0);
           }
-          OrderState.instance.addOrder(order);
+          // Do not add this local success-screen order to OrderState:
+          // syncWithBackend() already populated the real backend purchase,
+          // and adding a local copy would create a duplicate entry.
           CartState.instance.clear();
           NotificationState.instance.onBnplOrderConfirmed(
             product.name,

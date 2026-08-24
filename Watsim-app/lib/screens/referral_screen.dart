@@ -29,6 +29,11 @@ class _ReferralScreenState extends State<ReferralScreen> {
 
   List<ReferralItem> _referrals = [];
 
+  bool _isEditing = false;
+  bool _isSaving = false;
+  String? _editError;
+  final _codeController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +96,69 @@ class _ReferralScreenState extends State<ReferralScreen> {
       return '${(amount / 1000).toStringAsFixed(1)}k';
     }
     return amount.toString();
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveCode() async {
+    final lang = LanguageProvider.of(context);
+    final newCode = _codeController.text.trim().toUpperCase();
+    if (newCode.isEmpty) {
+      setState(() => _editError =
+          lang.isFrench ? 'Veuillez entrer un code' : 'Please enter a code');
+      return;
+    }
+    if (newCode.length < 4 || newCode.length > 16) {
+      setState(() => _editError = lang.isFrench
+          ? 'Le code doit faire 4 à 16 caractères'
+          : 'Code must be 4 to 16 characters');
+      return;
+    }
+    if (!RegExp(r'^[A-Z0-9_-]+$').hasMatch(newCode)) {
+      setState(() => _editError = lang.isFrench
+          ? 'Caractères autorisés : lettres, chiffres, - et _'
+          : 'Only letters, numbers, - and _ are allowed');
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _editError = null;
+    });
+
+    try {
+      final result = await ApiService.updateReferralCode(newCode);
+      setState(() {
+        _code = (result['code'] as String?) ?? newCode;
+        _isEditing = false;
+        _isSaving = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(lang.isFrench
+              ? 'Code de parrainage mis à jour'
+              : 'Referral code updated'),
+          backgroundColor: AppColors.primaryGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on ApiException catch (e) {
+      setState(() {
+        _editError = e.message;
+        _isSaving = false;
+      });
+    } catch (e) {
+      setState(() {
+        _editError =
+            lang.isFrench ? 'Échec de la mise à jour' : 'Update failed';
+        _isSaving = false;
+      });
+    }
   }
 
   // ── Copy code ─────────────────────────────────────────────────────────────
@@ -224,30 +292,151 @@ class _ReferralScreenState extends State<ReferralScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        lang.yourReferralCode,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 11,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: Text(
-                              _code.isEmpty ? '---' : _code,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 2,
-                              ),
+                          Text(
+                            lang.yourReferralCode,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              letterSpacing: 1.2,
                             ),
                           ),
+                          if (!_isEditing)
+                            GestureDetector(
+                              onTap: () {
+                                _codeController.text = _code;
+                                setState(() {
+                                  _isEditing = true;
+                                  _editError = null;
+                                });
+                              },
+                              child: Text(
+                                lang.isFrench ? 'Modifier' : 'Edit',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      if (_isEditing) ...[
+                        TextField(
+                          controller: _codeController,
+                          autofocus: true,
+                          textCapitalization: TextCapitalization.characters,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2,
+                          ),
+                          decoration: InputDecoration(
+                            hintText:
+                                lang.isFrench ? 'NOUVEAU CODE' : 'NEW CODE',
+                            hintStyle: const TextStyle(color: Colors.white38),
+                            border: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white30),
+                            ),
+                            enabledBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white30),
+                            ),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white),
+                            ),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        if (_editError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              _editError!,
+                              style: const TextStyle(
+                                  color: Color(0xFFFFCDD2), fontSize: 12),
+                            ),
+                          ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: _isSaving
+                                    ? null
+                                    : () => setState(() => _isEditing = false),
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    lang.isFrench ? 'Annuler' : 'Cancel',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: _isSaving ? null : _saveCode,
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryGreen,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: _isSaving
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text(
+                                          lang.isFrench
+                                              ? 'Enregistrer'
+                                              : 'Save',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _code.isEmpty ? '---' : _code,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),

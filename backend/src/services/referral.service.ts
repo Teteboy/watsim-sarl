@@ -35,6 +35,28 @@ export async function ensureUserReferralCode(userId: string): Promise<string> {
   throw new Error('Failed to generate unique referral code');
 }
 
+export async function updateReferralCode(userId: string, newCode: string): Promise<string> {
+  const code = newCode.trim().toUpperCase();
+  if (!code || code.length < 4 || code.length > 16) {
+    throw new Error('Referral code must be between 4 and 16 characters');
+  }
+  if (!/^[A-Z0-9_-]+$/i.test(code)) {
+    throw new Error('Referral code can only contain letters, numbers, hyphens and underscores');
+  }
+
+  const existing = await prisma.user.findUnique({ where: { referralCode: code } });
+  if (existing && existing.id !== userId) {
+    throw new Error('Referral code already in use');
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { referralCode: code },
+  });
+
+  return code;
+}
+
 export async function processReferralRegistration(referredUserId: string, referralCode: string): Promise<void> {
   if (!referralCode) return;
   

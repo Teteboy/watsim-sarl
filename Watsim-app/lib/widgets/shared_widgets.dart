@@ -493,6 +493,7 @@ class TransactionRow extends StatelessWidget {
   final String amount;
   final bool isCredit;
   final String? tag;
+  final VoidCallback? onTap;
 
   const TransactionRow({
     super.key,
@@ -504,11 +505,12 @@ class TransactionRow extends StatelessWidget {
     required this.amount,
     required this.isCredit,
     this.tag,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final child = Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
@@ -569,6 +571,15 @@ class TransactionRow extends StatelessWidget {
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: child,
+      );
+    }
+    return child;
   }
 
   Color _tagColor(String tag) {

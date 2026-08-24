@@ -170,30 +170,49 @@ class _CatalogueScreenState extends State<CatalogueScreen>
   }
 
   Future<void> _loadProducts() async {
+    // Load products and categories independently; categories must always
+    // be built even if the product fetch fails.
+    List<dynamic> raw = [];
+    List<dynamic> categories = [];
     try {
-      final raw = await ApiService.fetchProducts(limit: 50);
-      final categories = await ApiService.fetchCategories();
-      if (!mounted) return;
-      final loaded = raw
-          .whereType<Map<String, dynamic>>()
-          .map((j) => Product.fromJson(j))
-          .toList();
-      final cats = <String>{'All'};
-      for (final c in categories.whereType<Map<String, dynamic>>()) {
-        final name = c['name'] as String?;
-        if (name != null && name.isNotEmpty) cats.add(name);
-      }
-      setState(() {
-        _backendProducts = loaded;
-        _categoryKeys = cats.toList();
-        _loadingProducts = false;
-      });
-    } catch (_) {
-      if (mounted)
-        setState(() {
-          _loadingProducts = false;
-        });
+      raw = await ApiService.fetchProducts(limit: 50);
+    } catch (e, s) {
+      debugPrint('Products fetch failed: $e\n$s');
     }
+    try {
+      categories = await ApiService.fetchCategories();
+    } catch (e, s) {
+      debugPrint('Categories fetch failed: $e\n$s');
+    }
+
+    if (!mounted) return;
+
+    final loaded = raw
+        .whereType<Map<String, dynamic>>()
+        .map((j) => Product.fromJson(j))
+        .toList();
+
+    final cats = <String>{'All'};
+
+    // 1. Backend categories endpoint
+    for (final c in categories.whereType<Map<String, dynamic>>()) {
+      final name = c['name'] as String?;
+      if (name != null && name.isNotEmpty) cats.add(name);
+    }
+
+    // 2. Fallback: derive categories from products if endpoint is empty
+    if (cats.length == 1) {
+      for (final p in loaded) {
+        final name = p.category;
+        if (name.isNotEmpty) cats.add(name);
+      }
+    }
+
+    setState(() {
+      _backendProducts = loaded;
+      _categoryKeys = cats.toList();
+      _loadingProducts = false;
+    });
   }
 
   @override

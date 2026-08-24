@@ -10,6 +10,7 @@ import '../services/language_service.dart';
 import '../services/biometric_service.dart';
 import 'deposit_screen.dart';
 import 'catalogue_screen.dart';
+import '../widgets/transaction_detail_sheet.dart';
 
 class HistoryScreen extends StatefulWidget {
   final int initialTab;
@@ -355,6 +356,12 @@ class _HistoryScreenState extends State<HistoryScreen>
                       amount: t.amountFormatted,
                       isCredit: t.isCredit,
                       tag: t.tag,
+                      onTap: () => showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (_) => TransactionDetailSheet(tx: t),
+                      ),
                     );
                   },
                 ),
