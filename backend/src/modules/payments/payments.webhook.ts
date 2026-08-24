@@ -7,7 +7,7 @@ import { campayMtnAdapter } from './providers/campay.adapter';
 import type { PaymentAdapter } from './providers/types';
 
 async function handle(adapter: PaymentAdapter, req: FastifyRequest, reply: FastifyReply) {
-  const signature = (req.headers['x-signature'] || req.headers['x-webhook-signature'] || '') as string;
+  const signature = (req.headers['x-campay-signature'] || req.headers['x-signature'] || req.headers['x-webhook-signature'] || '') as string;
   const rawBody = JSON.stringify(req.body ?? {});
   if (!adapter.verifyWebhookSignature(rawBody, signature)) {
     return reply.code(401).send({ error: 'InvalidSignature' });
@@ -23,7 +23,7 @@ export const orangeWebhook = (req: FastifyRequest, reply: FastifyReply) => handl
 export const mtnWebhook = (req: FastifyRequest, reply: FastifyReply) => handle(mtnMomoAdapter, req, reply);
 
 export const campayWebhook = async (req: FastifyRequest, reply: FastifyReply) => {
-  const signature = (req.headers['x-signature'] || req.headers['x-webhook-signature'] || '') as string;
+  const signature = (req.headers['x-campay-signature'] || req.headers['x-signature'] || req.headers['x-webhook-signature'] || '') as string;
   const rawBody = JSON.stringify(req.body ?? {});
   if (!campayMtnAdapter.verifyWebhookSignature(rawBody, signature)) {
     return reply.code(401).send({ error: 'InvalidSignature' });
