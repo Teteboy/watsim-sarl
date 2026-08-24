@@ -201,7 +201,7 @@ class ApiService {
         if (!refreshed) {
           await AuthService.clear();
           throw const ApiException(
-              401, 'Session expired. Please log in again.');
+              401, 'Votre session a expiré. Veuillez vous reconnecter.');
         }
       }
     } on ApiException {
@@ -209,7 +209,8 @@ class ApiService {
     } catch (e) {
       debugPrint('Token expiry check failed: $e');
       await AuthService.clear();
-      throw const ApiException(401, 'Session expired. Please log in again.');
+      throw const ApiException(
+          401, 'Votre session a expiré. Veuillez vous reconnecter.');
     }
   }
 
@@ -226,29 +227,63 @@ class ApiService {
   static String _fallbackMessage(int statusCode) {
     switch (statusCode) {
       case 400:
-        return 'Invalid request. Please check your input.';
+        return 'Requête invalide. Veuillez vérifier vos informations.';
       case 401:
-        return 'Session expired. Please log in again.';
+        return 'Votre session a expiré. Veuillez vous reconnecter.';
       case 403:
-        return 'You don\'t have permission to perform this action.';
+        return 'Vous n\'avez pas la permission d\'effectuer cette action.';
       case 404:
-        return 'The requested resource was not found.';
+        return 'La ressource demandée est introuvable.';
       case 409:
-        return 'This action conflicts with existing data.';
+        return 'Cette action entre en conflit avec des données existantes.';
       case 429:
-        return 'Too many requests. Please wait a moment and try again.';
+        return 'Trop de requêtes. Veuillez patienter un moment.';
       default:
         if (statusCode >= 500) {
-          return 'Something went wrong. Please try again later.';
+          return 'Un problème est survenu. Veuillez réessayer plus tard.';
         }
-        return 'Request failed. Please try again.';
+        return 'La requête a échoué. Veuillez réessayer.';
     }
+  }
+
+  /// Convert raw backend error text into friendly French toast messages.
+  static String _sanitizeErrorMessage(String message, int statusCode) {
+    final lower = message.toLowerCase();
+    if (lower.contains('invalid credentials') ||
+        lower.contains('invalid pin') ||
+        lower.contains('incorrect')) {
+      return 'Identifiants incorrects. Veuillez vérifier et réessayer.';
+    }
+    if (lower.contains('unauthorized') || lower.contains('unauthenticated')) {
+      return 'Votre session a expiré. Veuillez vous reconnecter.';
+    }
+    if (lower.contains('network') || lower.contains('socket')) {
+      return 'Problème de connexion. Vérifiez votre réseau.';
+    }
+    if (lower.contains('timeout')) {
+      return 'Le serveur met trop de temps à répondre. Veuillez réessayer.';
+    }
+    if (lower.contains('already exists') || lower.contains('duplicate')) {
+      return 'Ces informations existent déjà.';
+    }
+    if (lower.contains('not found')) {
+      return 'Élément introuvable.';
+    }
+    if (lower.contains('insufficient funds') ||
+        lower.contains('insufficient balance')) {
+      return 'Solde insuffisant.';
+    }
+    if (message.length > 200) {
+      return _fallbackMessage(statusCode);
+    }
+    return message;
   }
 
   static Map<String, dynamic> _decode(http.Response res) {
     if (res.statusCode == 401) {
       AuthService.clear();
-      throw const ApiException(401, 'Session expired. Please log in again.');
+      throw const ApiException(
+          401, 'Votre session a expiré. Veuillez vous reconnecter.');
     }
     // Gracefully handle empty body (e.g. 204 No Content or proxy strip)
     final bodyText = res.body.trim();
@@ -283,7 +318,8 @@ class ApiService {
     if (res.statusCode >= 400) {
       final dynamic msgRaw =
           body['message'] ?? body['error'] ?? _fallbackMessage(res.statusCode);
-      final String msg = msgRaw is String ? msgRaw : msgRaw.toString();
+      final String rawMsg = msgRaw is String ? msgRaw : msgRaw.toString();
+      final msg = _sanitizeErrorMessage(rawMsg, res.statusCode);
       debugPrint('🔍 API error ${res.statusCode}: $msg');
       throw ApiException(res.statusCode, msg);
     }
@@ -294,7 +330,8 @@ class ApiService {
   static List<dynamic> _decodeList(http.Response res) {
     if (res.statusCode == 401) {
       AuthService.clear();
-      throw const ApiException(401, 'Session expired. Please log in again.');
+      throw const ApiException(
+          401, 'Votre session a expiré. Veuillez vous reconnecter.');
     }
     final bodyText = res.body.trim();
     if (bodyText.isEmpty) {
@@ -318,12 +355,14 @@ class ApiService {
     if (res.statusCode >= 400) {
       // Error responses may be {message/error} or even a plain string.
       if (decoded is Map<dynamic, dynamic>) {
-        final msg = decoded['message'] ??
+        final rawMsg = decoded['message'] ??
             decoded['error'] ??
             _fallbackMessage(res.statusCode);
+        final msg = rawMsg is String
+            ? _sanitizeErrorMessage(rawMsg, res.statusCode)
+            : _fallbackMessage(res.statusCode);
         debugPrint('🔍 API error ${res.statusCode}: $msg');
-        throw ApiException(
-            res.statusCode, msg is String ? msg : msg.toString());
+        throw ApiException(res.statusCode, msg);
       }
       throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
     }

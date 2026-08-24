@@ -31,9 +31,24 @@ class _DepositScreenState extends State<DepositScreen> {
   final _phoneCtrl = TextEditingController();
 
   final _operators = [
-    {'name': 'Orange Money', 'sub': 'Fee: 0% • Instant', 'color': 0xFFFF6600, 'logo': 'assets/images/orange-money.png'},
-    {'name': 'MTN MoMo', 'sub': 'Fee: 0% • Instant', 'color': 0xFFFFCC00, 'logo': 'assets/images/momo.png'},
-    {'name': 'Pay in Cash', 'sub': 'Fee: 0% • Collected by Watsim Official', 'color': 0xFF4CAF50, 'logo': 'assets/images/cash.png'},
+    {
+      'name': 'Orange Money',
+      'sub': 'Frais : 0% • Instantané',
+      'color': 0xFFFF6600,
+      'logo': 'assets/images/orange-money.png'
+    },
+    {
+      'name': 'MTN MoMo',
+      'sub': 'Frais : 0% • Instantané',
+      'color': 0xFFFFCC00,
+      'logo': 'assets/images/momo.png'
+    },
+    {
+      'name': 'Payer en espèces',
+      'sub': 'Frais : 0% • Collecté par un agent Watsim',
+      'color': 0xFF4CAF50,
+      'logo': 'assets/images/cash.png'
+    },
   ];
 
   // Sandbox presets include small amounts for Campay demo (max 25 XAF)
@@ -45,7 +60,9 @@ class _DepositScreenState extends State<DepositScreen> {
   void initState() {
     super.initState();
     _amountCtrl.addListener(() {
-      final parsed = int.tryParse(_amountCtrl.text.replaceAll(' ', '').replaceAll(',', '')) ?? 0;
+      final parsed = int.tryParse(
+              _amountCtrl.text.replaceAll(' ', '').replaceAll(',', '')) ??
+          0;
       if (parsed != _amount) {
         setState(() => _amount = parsed);
       }
@@ -63,12 +80,16 @@ class _DepositScreenState extends State<DepositScreen> {
     if (_amount < 1) return;
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
-      setState(() => _payError = 'Please enter your mobile money phone number.');
+      setState(
+          () => _payError = 'Please enter your mobile money phone number.');
       return;
     }
     final providerKey = _operator == 0 ? 'ORANGE_MONEY' : 'MTN_MOMO';
     final opName = _operators[_operator]['name'] as String;
-    setState(() { _paying = true; _payError = null; });
+    setState(() {
+      _paying = true;
+      _payError = null;
+    });
     try {
       debugPrint('DEPOSIT: Creating transaction...');
       final result = await ApiService.initiateDeposit(
@@ -81,8 +102,11 @@ class _DepositScreenState extends State<DepositScreen> {
       setState(() => _paying = false);
       final txId = result['transactionId'] as String?;
       if (mounted) {
-        debugPrint('DEPOSIT: Showing success dialog, ussdCode=${result['ussdCode']} txId=$txId');
-        _showSuccess(context, 'Deposit request sent!\nPlease approve on your phone.', ussdCode: result['ussdCode'] as String?);
+        debugPrint(
+            'DEPOSIT: Showing success dialog, ussdCode=${result['ussdCode']} txId=$txId');
+        _showSuccess(context,
+            'Demande de dépôt envoyée !\nVeuillez approuver sur votre téléphone.',
+            ussdCode: result['ussdCode'] as String?);
         // Start polling for payment status
         if (txId != null) {
           _pollPaymentStatus(context, txId, 'Deposit');
@@ -92,11 +116,17 @@ class _DepositScreenState extends State<DepositScreen> {
       }
     } on ApiException catch (e) {
       debugPrint('DEPOSIT: ApiException = ${e.message}');
-      setState(() { _paying = false; _payError = e.message; });
+      setState(() {
+        _paying = false;
+        _payError = e.message;
+      });
     } catch (e, st) {
       debugPrint('DEPOSIT: ERROR = $e');
       debugPrint('DEPOSIT: Stack = $st');
-      setState(() { _paying = false; _payError = 'Deposit failed. Check your connection.'; });
+      setState(() {
+        _paying = false;
+        _payError = 'Le dépôt a échoué. Vérifiez votre connexion.';
+      });
     }
   }
 
@@ -153,8 +183,8 @@ class _DepositScreenState extends State<DepositScreen> {
         const Icon(Icons.check_circle_rounded, color: Colors.white),
         const SizedBox(width: 10),
         Text(collectedAmount != _cashRequestedAmount
-            ? 'Deposit completed — amount updated. Check your messages.'
-            : 'Cash deposit confirmed! Wallet credited.'),
+            ? 'Dépôt terminé — montant mis à jour. Vérifiez vos messages.'
+            : 'Dépôt en espèces confirmé ! Portefeuille crédité.'),
       ]),
       backgroundColor: AppColors.primaryGreen,
       behavior: SnackBarBehavior.floating,
@@ -166,14 +196,15 @@ class _DepositScreenState extends State<DepositScreen> {
   /// be an admin action, not a user-facing button.
   void _showOfficeConfirmSheet() {
     final lang = LanguageProvider.of(context);
-    final ctrlAmount = TextEditingController(text: _cashRequestedAmount.toString());
+    final ctrlAmount =
+        TextEditingController(text: _cashRequestedAmount.toString());
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => Padding(
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Container(
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(24),
@@ -212,7 +243,7 @@ class _DepositScreenState extends State<DepositScreen> {
               ]),
               const SizedBox(height: 20),
               Text(
-                'Enter the actual cash amount handed in at the office:',
+                'Entrez le montant réel remis au bureau :',
                 style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),
@@ -241,8 +272,9 @@ class _DepositScreenState extends State<DepositScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      final collected = int.tryParse(
-                              ctrlAmount.text.replaceAll(',', '').replaceAll(' ', '')) ??
+                      final collected = int.tryParse(ctrlAmount.text
+                              .replaceAll(',', '')
+                              .replaceAll(' ', '')) ??
                           _cashRequestedAmount;
                       Navigator.pop(context);
                       _simulateOfficeConfirm(collectedAmount: collected);
@@ -266,7 +298,7 @@ class _DepositScreenState extends State<DepositScreen> {
     if (_cashPending) {
       return Scaffold(
         backgroundColor: AppColors.offWhite,
-        appBar: const WatsimAppBar(title: 'Deposit', showBack: true),
+        appBar: const WatsimAppBar(title: 'Dépôt', showBack: true),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -280,14 +312,15 @@ class _DepositScreenState extends State<DepositScreen> {
                   color: const Color(0xFFFFF8E1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: const Color(0xFFFFC107).withOpacity(0.4), width: 2),
+                      color: const Color(0xFFFFC107).withOpacity(0.4),
+                      width: 2),
                 ),
                 child: const Icon(Icons.hourglass_top_rounded,
                     size: 48, color: Color(0xFFFFC107)),
               ),
               const SizedBox(height: 24),
               const Text(
-                'Deposit Pending',
+                'Dépôt en attente',
                 style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -295,9 +328,10 @@ class _DepositScreenState extends State<DepositScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Your request has been received. A Watsim official is on their way to collect your cash.',
+                'Votre demande a été reçue. Un agent Watsim est en route pour collecter votre argent.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
+                style: TextStyle(
+                    fontSize: 14, color: AppColors.textSecondary, height: 1.5),
               ),
               const SizedBox(height: 28),
               AppCard(
@@ -305,20 +339,20 @@ class _DepositScreenState extends State<DepositScreen> {
                   children: [
                     _pendingRow(
                         Icons.currency_franc_rounded,
-                        'Requested Amount',
+                        'Montant demandé',
                         '${_formatAmount(_cashRequestedAmount)} FCFA',
                         const Color(0xFF00A86B)),
                     const Divider(height: 24),
                     _pendingRow(
                         Icons.person_pin_circle_rounded,
-                        'Collection Method',
-                        'Watsim Official Visit',
+                        'Méthode de collecte',
+                        'Visite d\'un agent Watsim',
                         AppColors.primaryGreen),
                     const Divider(height: 24),
                     _pendingRow(
                         Icons.schedule_rounded,
-                        'Status',
-                        'Pending — Awaiting Collection',
+                        'Statut',
+                        'En attente — collecte en cours',
                         const Color(0xFFFFC107)),
                   ],
                 ),
@@ -339,7 +373,7 @@ class _DepositScreenState extends State<DepositScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Once the Watsim official delivers your cash to the office, your wallet will be credited automatically and you will be notified.',
+                        'Une fois que l\'agent Watsim aura remis votre argent au bureau, votre portefeuille sera crédité automatiquement et vous serez notifié.',
                         style: TextStyle(
                             fontSize: 13,
                             color: AppColors.primaryGreen,
@@ -399,21 +433,21 @@ class _DepositScreenState extends State<DepositScreen> {
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       resizeToAvoidBottomInset: true,
-      appBar: const WatsimAppBar(title: 'Deposit', showBack: true),
+      appBar: const WatsimAppBar(title: 'Dépôt', showBack: true),
       body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.fromLTRB(
+            20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Add Money",
+            const Text("Ajouter de l'argent",
                 style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
             const SizedBox(height: 4),
             Text(lang.fundAccountInstantly,
-                style: TextStyle(
-                    fontSize: 14, color: AppColors.textSecondary)),
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             const SizedBox(height: 28),
 
             Text(lang.chooseOperator,
@@ -462,10 +496,13 @@ class _DepositScreenState extends State<DepositScreen> {
                               color: Color(0xFF2E7D32))),
                     ]),
                     const SizedBox(height: 10),
-                    _cashStep('1', 'Submit your deposit request below'),
-                    _cashStep('2', 'A Watsim official visits you to collect the cash'),
-                    _cashStep('3', 'Cash is handed in at our office'),
-                    _cashStep('4', 'Your wallet is credited instantly — we notify you'),
+                    _cashStep(
+                        '1', 'Soumettez votre demande de dépôt ci-dessous'),
+                    _cashStep(
+                        '2', 'Un agent Watsim vient collecter votre argent'),
+                    _cashStep('3', 'L\'argent est déposé à notre bureau'),
+                    _cashStep('4',
+                        'Une fois collecté, le bureau confirme la réception et votre portefeuille est crédité.'),
                   ],
                 ),
               ),
@@ -488,7 +525,7 @@ class _DepositScreenState extends State<DepositScreen> {
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary),
               decoration: const InputDecoration(
-                hintText: 'Enter amount',
+                hintText: 'Entrez le montant',
                 suffixText: 'FCFA',
                 suffixStyle: TextStyle(
                     color: AppColors.textSecondary,
@@ -531,19 +568,18 @@ class _DepositScreenState extends State<DepositScreen> {
                           fontWeight: FontWeight.w700,
                           color: AppColors.primaryGreen)),
                   const SizedBox(height: 12),
-                  _summaryRow('Amount', '${_formatAmount(_amount)} FCFA'),
+                  _summaryRow('Montant', '${_formatAmount(_amount)} FCFA'),
                   const SizedBox(height: 8),
-                  _summaryRow('Deposit Fee', 'Free (0 FCFA)',
+                  _summaryRow('Frais de dépôt', 'Gratuit (0 FCFA)',
                       highlight: true),
                   if (_isCashSelected) ...[
                     const SizedBox(height: 8),
-                    _summaryRow('Collection', 'By Watsim Official'),
+                    _summaryRow('Collecte', 'Par un agent Watsim'),
                     const SizedBox(height: 8),
-                    _summaryRow('Crediting', 'After office receipt'),
+                    _summaryRow('Crédit', 'Après réception au bureau'),
                   ],
                   const Divider(height: 20),
-                  _summaryRow(
-                      'Total to Pay', '${_formatAmount(_amount)} FCFA',
+                  _summaryRow('Total à payer', '${_formatAmount(_amount)} FCFA',
                       bold: true),
                 ],
               ),
@@ -555,36 +591,41 @@ class _DepositScreenState extends State<DepositScreen> {
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: 'Your mobile money number',
-                  hintText: 'e.g. 6XXXXXXXX',
+                  labelText: 'Votre numéro de mobile money',
+                  hintText: 'ex. 6XXXXXXXX',
                   prefixIcon: const Icon(Icons.phone_android_rounded,
                       color: AppColors.primaryGreen),
                   errorText: _payError,
                 ),
-                onChanged: (_) { if (_payError != null) setState(() => _payError = null); },
+                onChanged: (_) {
+                  if (_payError != null) setState(() => _payError = null);
+                },
               ),
               const SizedBox(height: 16),
             ],
             ElevatedButton(
-              onPressed: _paying ? null : () {
-                if (_isCashSelected) {
-                  _submitCashDeposit();
-                } else {
-                  _processMoMoDeposit();
-                }
-              },
+              onPressed: _paying
+                  ? null
+                  : () {
+                      if (_isCashSelected) {
+                        _submitCashDeposit();
+                      } else {
+                        _processMoMoDeposit();
+                      }
+                    },
               child: _paying
                   ? const SizedBox(
-                      height: 22, width: 22,
+                      height: 22,
+                      width: 22,
                       child: CircularProgressIndicator(
                           strokeWidth: 2.5, color: Colors.white))
                   : Text(_isCashSelected
-                      ? 'Request Cash Collection'
+                      ? 'Demander la collecte en espèces'
                       : lang.depositBtn),
             ),
             const SizedBox(height: 12),
             const Text(
-              "By tapping Deposit, you agree to our financial services terms and conditions.",
+              "En appuyant sur Déposer, vous acceptez nos conditions de services financiers.",
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
@@ -687,7 +728,8 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => AlertDialog(
-      icon: const Icon(Icons.check_circle_rounded, color: AppColors.primaryGreen, size: 48),
+      icon: const Icon(Icons.check_circle_rounded,
+          color: AppColors.primaryGreen, size: 48),
       title: const Text('Payment Initiated', textAlign: TextAlign.center),
       content: SingleChildScrollView(
         child: Column(
@@ -705,11 +747,15 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
                 ),
                 child: Column(
                   children: [
-                    const Text('Dial this USSD code to complete payment:', textAlign: TextAlign.center),
+                    const Text('Dial this USSD code to complete payment:',
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                     Text(ussdCode,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primaryGreen),
-                      textAlign: TextAlign.center),
+                        style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryGreen),
+                        textAlign: TextAlign.center),
                   ],
                 ),
               ),
@@ -735,7 +781,8 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
 }
 
 // ─── Poll payment status after dialog closes ─────────────────────────────
-Future<void> _pollPaymentStatus(BuildContext context, String transactionId, String type) async {
+Future<void> _pollPaymentStatus(
+    BuildContext context, String transactionId, String type) async {
   const maxAttempts = 30; // 30 x 5 seconds = 2.5 minutes
   String? finalStatus;
   for (int i = 0; i < maxAttempts; i++) {
@@ -796,18 +843,32 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
   int _operator = 0;
   int _amount = 10000;
   final _amountCtrl = TextEditingController(text: '10000');
-  
+
   // Phone number for mobile money
   final _phoneCtrl = TextEditingController();
-  
+
   // Payment loading state
   bool _paying = false;
   String? _payError;
 
   final _operators = [
-    {'name': 'Orange Money', 'sub': 'Fee: 1% • ~2 min', 'color': 0xFFFF6600, 'logo': 'assets/images/orange-money.png'},
-    {'name': 'MTN MoMo', 'sub': 'Fee: 1% • ~2 min', 'color': 0xFFFFCC00, 'logo': 'assets/images/momo.png'},
-    {'name': 'Counter Withdrawal', 'sub': 'Fee: 0% • In-agency', 'color': 0xFF014945},
+    {
+      'name': 'Orange Money',
+      'sub': 'Fee: 1% • ~2 min',
+      'color': 0xFFFF6600,
+      'logo': 'assets/images/orange-money.png'
+    },
+    {
+      'name': 'MTN MoMo',
+      'sub': 'Fee: 1% • ~2 min',
+      'color': 0xFFFFCC00,
+      'logo': 'assets/images/momo.png'
+    },
+    {
+      'name': 'Counter Withdrawal',
+      'sub': 'Fee: 0% • In-agency',
+      'color': 0xFF014945
+    },
   ];
 
   final _presets = [5000, 10000, 25000, 50000];
@@ -816,7 +877,9 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
   void initState() {
     super.initState();
     _amountCtrl.addListener(() {
-      final parsed = int.tryParse(_amountCtrl.text.replaceAll(' ', '').replaceAll(',', '')) ?? 0;
+      final parsed = int.tryParse(
+              _amountCtrl.text.replaceAll(' ', '').replaceAll(',', '')) ??
+          0;
       if (parsed != _amount) setState(() => _amount = parsed);
     });
   }
@@ -832,12 +895,16 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
     if (_amount < 1) return;
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
-      setState(() => _payError = 'Please enter your mobile money phone number.');
+      setState(
+          () => _payError = 'Please enter your mobile money phone number.');
       return;
     }
     final providerKey = _operator == 0 ? 'ORANGE_MONEY' : 'MTN_MOMO';
     final opName = _operators[_operator]['name'] as String;
-    setState(() { _paying = true; _payError = null; });
+    setState(() {
+      _paying = true;
+      _payError = null;
+    });
     try {
       final result = await ApiService.initiateWithdrawal(
         amount: _amount,
@@ -848,13 +915,21 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
       setState(() => _paying = false);
       final txId = result['transactionId'] as String?;
       if (mounted) {
-        _showSuccess(context, 'Withdrawal request sent!\nPlease approve on your phone.', ussdCode: result['ussdCode'] as String?);
+        _showSuccess(
+            context, 'Withdrawal request sent!\nPlease approve on your phone.',
+            ussdCode: result['ussdCode'] as String?);
         if (txId != null) _pollPaymentStatus(context, txId, 'Withdrawal');
       }
     } on ApiException catch (e) {
-      setState(() { _paying = false; _payError = e.message; });
+      setState(() {
+        _paying = false;
+        _payError = e.message;
+      });
     } catch (e) {
-      setState(() { _paying = false; _payError = 'Withdrawal failed. Check your connection.'; });
+      setState(() {
+        _paying = false;
+        _payError = 'Withdrawal failed. Check your connection.';
+      });
     }
   }
 
@@ -877,82 +952,113 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
       resizeToAvoidBottomInset: true,
       appBar: const WatsimAppBar(title: 'Withdraw', showBack: true),
       body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.fromLTRB(
+            20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text("Withdraw Money",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
             const SizedBox(height: 4),
             Text(lang.withdrawToMobileMoney,
                 style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             const SizedBox(height: 28),
             Text(lang.withdrawalMethod,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
             const SizedBox(height: 10),
-            ...List.generate(_operators.length, (i) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: OperatorCard(
-                name: _operators[i]['name'] as String,
-                subtitle: _operators[i]['sub'] as String,
-                color: Color(_operators[i]['color'] as int),
-                selected: _operator == i,
-                onTap: () => setState(() => _operator = i),
-                logoAsset: _operators[i]['logo'] as String?,
-              ),
-            )),
+            ...List.generate(
+                _operators.length,
+                (i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: OperatorCard(
+                        name: _operators[i]['name'] as String,
+                        subtitle: _operators[i]['sub'] as String,
+                        color: Color(_operators[i]['color'] as int),
+                        selected: _operator == i,
+                        onTap: () => setState(() => _operator = i),
+                        logoAsset: _operators[i]['logo'] as String?,
+                      ),
+                    )),
             const SizedBox(height: 20),
             Text(lang.amountLabel2,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
             const SizedBox(height: 10),
             TextField(
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+              style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary),
               decoration: const InputDecoration(
-                hintText: 'Enter amount',
+                hintText: 'Entrez le montant',
                 suffixText: 'FCFA',
-                suffixStyle: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w500),
-                prefixIcon: Icon(Icons.currency_franc_rounded, color: AppColors.primaryGreen),
+                suffixStyle: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500),
+                prefixIcon: Icon(Icons.currency_franc_rounded,
+                    color: AppColors.primaryGreen),
               ),
             ),
             const SizedBox(height: 12),
             Row(
-              children: _presets.map((v) => Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: AmountChip(
-                    label: '${v ~/ 1000} 000',
-                    selected: _amount == v,
-                    onTap: () {
-                      setState(() => _amount = v);
-                      _amountCtrl.text = v.toString();
-                      _amountCtrl.selection = TextSelection.fromPosition(TextPosition(offset: _amountCtrl.text.length));
-                    },
-                  ),
-                ),
-              )).toList(),
+              children: _presets
+                  .map((v) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: AmountChip(
+                            label: '${v ~/ 1000} 000',
+                            selected: _amount == v,
+                            onTap: () {
+                              setState(() => _amount = v);
+                              _amountCtrl.text = v.toString();
+                              _amountCtrl.selection =
+                                  TextSelection.fromPosition(TextPosition(
+                                      offset: _amountCtrl.text.length));
+                            },
+                          ),
+                        ),
+                      ))
+                  .toList(),
             ),
             const SizedBox(height: 24),
             AppCard(
               child: Column(
                 children: [
-                  _row('Available Balance', WalletState.instance.balanceFormatted),
+                  _row('Available Balance',
+                      WalletState.instance.balanceFormatted),
                   const SizedBox(height: 8),
                   _row('Withdrawal Amount', '${_fmt(_amount)} FCFA'),
                   const SizedBox(height: 8),
                   _row('Fee (1%)', '${_fmt(_amount ~/ 100)} FCFA'),
                   const Divider(height: 20),
-                  _row('You will receive', '${_fmt(_amount - _amount ~/ 100)} FCFA', bold: true),
+                  _row('You will receive',
+                      '${_fmt(_amount - _amount ~/ 100)} FCFA',
+                      bold: true),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Phone number input for mobile money
             if (_operator < 2) ...[
               Text('Phone Number',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textMuted,
+                      letterSpacing: 1)),
               const SizedBox(height: 10),
               TextField(
                 controller: _phoneCtrl,
@@ -962,17 +1068,19 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
                   prefixIcon: Icon(Icons.phone, color: AppColors.primaryGreen),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.primaryGreen, width: 1),
+                    borderSide:
+                        BorderSide(color: AppColors.primaryGreen, width: 1),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.primaryGreen, width: 2),
+                    borderSide:
+                        BorderSide(color: AppColors.primaryGreen, width: 2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            
+
             // Error display
             if (_payError != null) ...[
               Container(
@@ -984,47 +1092,58 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.red.shade600, size: 20),
+                    Icon(Icons.error_outline,
+                        color: Colors.red.shade600, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(_payError!, style: TextStyle(color: Colors.red.shade600, fontSize: 14)),
+                      child: Text(_payError!,
+                          style: TextStyle(
+                              color: Colors.red.shade600, fontSize: 14)),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            
+
             ElevatedButton(
-              onPressed: _paying ? null : () {
-                if (_operator < 2) {
-                  _processMoMoWithdrawal();
-                } else {
-                  // Counter withdrawal - local processing
-                  try {
-                    WalletState.instance.deduct(_amount, reason: 'Counter Withdrawal', type: TxType.withdrawal, tag: 'PROCESSED');
-                    NotificationState.instance.onWithdrawalCompleted(_amount);
-                    _showSuccess(context, 'Withdrawal initiated!');
-                  } catch (_) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(lang.insufficientFunds), backgroundColor: Colors.redAccent));
-                  }
-                }
-              },
-              child: _paying 
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Processing...'),
-                    ],
-                  )
-                : Text(lang.withdrawBtn),
+              onPressed: _paying
+                  ? null
+                  : () {
+                      if (_operator < 2) {
+                        _processMoMoWithdrawal();
+                      } else {
+                        // Counter withdrawal - local processing
+                        try {
+                          WalletState.instance.deduct(_amount,
+                              reason: 'Counter Withdrawal',
+                              type: TxType.withdrawal,
+                              tag: 'PROCESSED');
+                          NotificationState.instance
+                              .onWithdrawalCompleted(_amount);
+                          _showSuccess(context, 'Withdrawal initiated!');
+                        } catch (_) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(lang.insufficientFunds),
+                              backgroundColor: Colors.redAccent));
+                        }
+                      }
+                    },
+              child: _paying
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('Processing...'),
+                      ],
+                    )
+                  : Text(lang.withdrawBtn),
             ),
           ],
         ),
@@ -1039,12 +1158,18 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
         Expanded(
           child: Text(l,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 14, color: bold ? AppColors.textPrimary : AppColors.textSecondary, fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
+              style: TextStyle(
+                  fontSize: 14,
+                  color: bold ? AppColors.textPrimary : AppColors.textSecondary,
+                  fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
         ),
         const SizedBox(width: 8),
         Text(v,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 14, fontWeight: bold ? FontWeight.w700 : FontWeight.w600, color: AppColors.textPrimary)),
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
+                color: AppColors.textPrimary)),
       ],
     );
   }
@@ -1067,30 +1192,42 @@ class _TransferScreenState extends State<TransferScreen> {
     {'name': 'Jean-Marc T.', 'phone': '+237 677 234 567'},
     {'name': 'Fatou Diop', 'phone': '+237 655 345 678'},
   ];
-  
+
   final _operators = [
-    {'name': 'Orange Money', 'sub': 'Fee: 0% • Instant', 'color': 0xFFFF6600, 'logo': 'assets/images/orange-money.png'},
-    {'name': 'MTN MoMo', 'sub': 'Fee: 0% • Instant', 'color': 0xFFFFCC00, 'logo': 'assets/images/momo.png'},
+    {
+      'name': 'Orange Money',
+      'sub': 'Fee: 0% • Instant',
+      'color': 0xFFFF6600,
+      'logo': 'assets/images/orange-money.png'
+    },
+    {
+      'name': 'MTN MoMo',
+      'sub': 'Fee: 0% • Instant',
+      'color': 0xFFFFCC00,
+      'logo': 'assets/images/momo.png'
+    },
   ];
-  
+
   // Form controllers
   final _recipientCtrl = TextEditingController();
   final _amountCtrl = TextEditingController(text: '15000');
   final _phoneCtrl = TextEditingController();
-  
+
   // Payment loading state
   bool _paying = false;
   String? _payError;
-  
+
   @override
   void initState() {
     super.initState();
     _amountCtrl.addListener(() {
-      final parsed = int.tryParse(_amountCtrl.text.replaceAll(' ', '').replaceAll(',', '')) ?? 0;
+      final parsed = int.tryParse(
+              _amountCtrl.text.replaceAll(' ', '').replaceAll(',', '')) ??
+          0;
       if (parsed != _amount) setState(() => _amount = parsed);
     });
   }
-  
+
   @override
   void dispose() {
     _recipientCtrl.dispose();
@@ -1098,17 +1235,21 @@ class _TransferScreenState extends State<TransferScreen> {
     _phoneCtrl.dispose();
     super.dispose();
   }
-  
+
   Future<void> _processTransfer() async {
     if (_amount < 1) return;
     final recipient = _recipientCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
     if (recipient.isEmpty || phone.isEmpty) {
-      setState(() => _payError = 'Please enter recipient name and phone number.');
+      setState(
+          () => _payError = 'Please enter recipient name and phone number.');
       return;
     }
     final providerKey = _operator == 0 ? 'ORANGE_MONEY' : 'MTN_MOMO';
-    setState(() { _paying = true; _payError = null; });
+    setState(() {
+      _paying = true;
+      _payError = null;
+    });
     try {
       final result = await ApiService.initiateTransfer(
         amount: _amount,
@@ -1120,13 +1261,21 @@ class _TransferScreenState extends State<TransferScreen> {
       setState(() => _paying = false);
       final txId = result['transactionId'] as String?;
       if (mounted) {
-        _showSuccess(context, 'Transfer request sent!\nPlease approve on your phone.', ussdCode: result['ussdCode'] as String?);
+        _showSuccess(
+            context, 'Transfer request sent!\nPlease approve on your phone.',
+            ussdCode: result['ussdCode'] as String?);
         if (txId != null) _pollPaymentStatus(context, txId, 'Transfer');
       }
     } on ApiException catch (e) {
-      setState(() { _paying = false; _payError = e.message; });
+      setState(() {
+        _paying = false;
+        _payError = e.message;
+      });
     } catch (e) {
-      setState(() { _paying = false; _payError = 'Transfer failed. Check your connection.'; });
+      setState(() {
+        _paying = false;
+        _payError = 'Transfer failed. Check your connection.';
+      });
     }
   }
 
@@ -1138,18 +1287,26 @@ class _TransferScreenState extends State<TransferScreen> {
       resizeToAvoidBottomInset: true,
       appBar: const WatsimAppBar(title: 'Transfer', showBack: true),
       body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.fromLTRB(
+            20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(lang.transferMoney,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
             const SizedBox(height: 4),
             Text(lang.sendToAnotherWatsim,
                 style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             const SizedBox(height: 28),
             Text('Recipient Name',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
             const SizedBox(height: 10),
             TextField(
               controller: _recipientCtrl,
@@ -1160,7 +1317,11 @@ class _TransferScreenState extends State<TransferScreen> {
             ),
             const SizedBox(height: 16),
             Text('Phone Number',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
             const SizedBox(height: 10),
             TextField(
               controller: _phoneCtrl,
@@ -1172,7 +1333,11 @@ class _TransferScreenState extends State<TransferScreen> {
             ),
             const SizedBox(height: 16),
             Text(lang.recentLabel,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
             const SizedBox(height: 10),
             SizedBox(
               height: 80,
@@ -1186,16 +1351,21 @@ class _TransferScreenState extends State<TransferScreen> {
                     children: [
                       CircleAvatar(
                         radius: 26,
-                        backgroundColor: AppColors.primaryGreen.withOpacity(0.15),
+                        backgroundColor:
+                            AppColors.primaryGreen.withOpacity(0.15),
                         child: Text((r['name'] as String).substring(0, 1),
-                            style: const TextStyle(color: AppColors.secondaryGreen, fontWeight: FontWeight.w700, fontSize: 18)),
+                            style: const TextStyle(
+                                color: AppColors.secondaryGreen,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18)),
                       ),
                       const SizedBox(height: 4),
                       SizedBox(
                         width: 60,
                         child: Text((r['name'] as String).split(' ').first,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                            style: const TextStyle(
+                                fontSize: 11, color: AppColors.textSecondary)),
                       ),
                     ],
                   );
@@ -1204,59 +1374,78 @@ class _TransferScreenState extends State<TransferScreen> {
             ),
             const SizedBox(height: 20),
             Text('Payment Method',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
             const SizedBox(height: 10),
-            ...List.generate(_operators.length, (i) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: OperatorCard(
-                name: _operators[i]['name'] as String,
-                subtitle: _operators[i]['sub'] as String,
-                color: Color(_operators[i]['color'] as int),
-                selected: _operator == i,
-                onTap: () => setState(() => _operator = i),
-                logoAsset: _operators[i]['logo'] as String?,
-              ),
-            )),
+            ...List.generate(
+                _operators.length,
+                (i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: OperatorCard(
+                        name: _operators[i]['name'] as String,
+                        subtitle: _operators[i]['sub'] as String,
+                        color: Color(_operators[i]['color'] as int),
+                        selected: _operator == i,
+                        onTap: () => setState(() => _operator = i),
+                        logoAsset: _operators[i]['logo'] as String?,
+                      ),
+                    )),
             const SizedBox(height: 20),
             Text(lang.amountLabel2,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted, letterSpacing: 1)),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
             const SizedBox(height: 10),
             TextField(
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary),
               decoration: InputDecoration(
                 hintText: '0',
                 suffixText: 'FCFA',
-                prefixIcon: Icon(Icons.currency_franc_rounded, color: AppColors.primaryGreen),
+                prefixIcon: Icon(Icons.currency_franc_rounded,
+                    color: AppColors.primaryGreen),
               ),
             ),
             const SizedBox(height: 12),
             Row(
-              children: _presets.map((v) => Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: AmountChip(
-                    label: '${v ~/ 1000} K',
-                    selected: _amount == v,
-                    onTap: () {
-                      setState(() => _amount = v);
-                      _amountCtrl.text = v.toString();
-                      _amountCtrl.selection = TextSelection.fromPosition(TextPosition(offset: _amountCtrl.text.length));
-                    },
-                  ),
-                ),
-              )).toList(),
+              children: _presets
+                  .map((v) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: AmountChip(
+                            label: '${v ~/ 1000} K',
+                            selected: _amount == v,
+                            onTap: () {
+                              setState(() => _amount = v);
+                              _amountCtrl.text = v.toString();
+                              _amountCtrl.selection =
+                                  TextSelection.fromPosition(TextPosition(
+                                      offset: _amountCtrl.text.length));
+                            },
+                          ),
+                        ),
+                      ))
+                  .toList(),
             ),
             const SizedBox(height: 16),
             const TextField(
               decoration: InputDecoration(
                 labelText: 'Note / Reason (optional)',
-                prefixIcon: Icon(Icons.note_outlined, color: AppColors.primaryGreen),
+                prefixIcon:
+                    Icon(Icons.note_outlined, color: AppColors.primaryGreen),
               ),
             ),
             const SizedBox(height: 28),
-            
+
             // Error display
             if (_payError != null) ...[
               Container(
@@ -1268,33 +1457,37 @@ class _TransferScreenState extends State<TransferScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.red.shade600, size: 20),
+                    Icon(Icons.error_outline,
+                        color: Colors.red.shade600, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(_payError!, style: TextStyle(color: Colors.red.shade600, fontSize: 14)),
+                      child: Text(_payError!,
+                          style: TextStyle(
+                              color: Colors.red.shade600, fontSize: 14)),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            
+
             ElevatedButton(
               onPressed: _paying ? null : _processTransfer,
-              child: _paying 
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Processing...'),
-                    ],
-                  )
-                : Text(lang.transferBtn),
+              child: _paying
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('Processing...'),
+                      ],
+                    )
+                  : Text(lang.transferBtn),
             ),
           ],
         ),
@@ -1323,18 +1516,29 @@ class BalanceCheckScreen extends StatelessWidget {
               child: Column(
                 children: [
                   Text(lang.totalBalance,
-                      style: const TextStyle(color: Colors.white60, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12,
+                          letterSpacing: 1.5,
+                          fontWeight: FontWeight.w600)),
                   const SizedBox(height: 10),
                   const Text('125,000 FCFA',
-                      style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w800)),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800)),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.trending_up_rounded, color: AppColors.primaryGreen, size: 16),
+                      Icon(Icons.trending_up_rounded,
+                          color: AppColors.primaryGreen, size: 16),
                       SizedBox(width: 4),
                       Text(lang.growthThisMonth,
-                          style: TextStyle(color: AppColors.primaryGreen, fontSize: 13, fontWeight: FontWeight.w600)),
+                          style: TextStyle(
+                              color: AppColors.primaryGreen,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ],
@@ -1342,15 +1546,23 @@ class BalanceCheckScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Row(children: [
-              Expanded(child: _balanceCard('Wallet', '125,000', AppColors.primaryGreen)),
+              Expanded(
+                  child: _balanceCard(
+                      'Wallet', '125,000', AppColors.primaryGreen)),
               const SizedBox(width: 12),
-              Expanded(child: _balanceCard('BNPL Available', '75,000', AppColors.secondaryGreen)),
+              Expanded(
+                  child: _balanceCard(
+                      'BNPL Available', '75,000', AppColors.secondaryGreen)),
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _balanceCard('Spent (month)', '32,500', AppColors.warning)),
+              Expanded(
+                  child: _balanceCard(
+                      'Spent (month)', '32,500', AppColors.warning)),
               const SizedBox(width: 12),
-              Expanded(child: _balanceCard('Cashback', '3,200', AppColors.primaryGreen)),
+              Expanded(
+                  child: _balanceCard(
+                      'Cashback', '3,200', AppColors.primaryGreen)),
             ]),
             const SizedBox(height: 24),
             AppCard(
@@ -1358,7 +1570,10 @@ class BalanceCheckScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(lang.creditScore,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary)),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -1367,9 +1582,14 @@ class BalanceCheckScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text('750',
-                                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.primaryGreen)),
+                                style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.primaryGreen)),
                             Text(lang.excellent,
-                                style: const TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.w600)),
+                                style: const TextStyle(
+                                    color: AppColors.primaryGreen,
+                                    fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
@@ -1383,10 +1603,14 @@ class BalanceCheckScreen extends StatelessWidget {
                               value: 0.75,
                               strokeWidth: 8,
                               backgroundColor: AppColors.divider,
-                              valueColor: const AlwaysStoppedAnimation(AppColors.primaryGreen),
+                              valueColor: const AlwaysStoppedAnimation(
+                                  AppColors.primaryGreen),
                             ),
                             const Text('75%',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary)),
                           ],
                         ),
                       ),
@@ -1412,9 +1636,12 @@ class BalanceCheckScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
+          Text(label,
+              style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
           const SizedBox(height: 6),
-          Text('$amount FCFA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+          Text('$amount FCFA',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w700, color: color)),
         ],
       ),
     );

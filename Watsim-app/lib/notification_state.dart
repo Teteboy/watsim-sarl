@@ -274,8 +274,8 @@ class NotificationState extends ChangeNotifier {
 
     _addNotification(AppNotification(
       id: 'dep_${DateTime.now().millisecondsSinceEpoch}',
-      title: isFirst ? 'First Deposit Confirmed' : 'Deposit Confirmed',
-      body: '$amtStr credited to your wallet via $operator.',
+      title: isFirst ? 'Premier dépôt confirmé' : 'Dépôt confirmé',
+      body: '$amtStr crédités sur votre portefeuille via $operator.',
       type: 'transaction',
       iconCodePoint: 0xe058,
       iconColor: 0xFF00A86B,
@@ -283,8 +283,8 @@ class NotificationState extends ChangeNotifier {
     ));
 
     final supportMsg = isFirst
-        ? 'Congratulations on your first deposit! Your $amtStr via $operator has been confirmed and added to your wallet. You can now shop on BNPL or transfer funds. Welcome to Watsim!'
-        : 'Your deposit of $amtStr via $operator has been successfully processed and credited to your wallet. Thank you for using Watsim!';
+        ? 'Félicitations pour votre premier dépôt ! Votre $amtStr via $operator a été confirmé et ajouté à votre portefeuille. Vous pouvez maintenant acheter en BNPL ou transférer des fonds. Bienvenue sur Watsim !'
+        : 'Votre dépôt de $amtStr via $operator a été traité avec succès et crédité sur votre portefeuille. Merci d\'utiliser Watsim !';
 
     Future.delayed(const Duration(seconds: 2), () {
       addMessageToConversation(
@@ -303,8 +303,9 @@ class NotificationState extends ChangeNotifier {
     final amtStr = _fmt(amount);
     _addNotification(AppNotification(
       id: 'wd_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Withdrawal Initiated',
-      body: '$amtStr withdrawal is being processed. Funds arrive shortly.',
+      title: 'Retrait initié',
+      body:
+          'Le retrait de $amtStr est en cours de traitement. Les fonds arrivent bientôt.',
       type: 'transaction',
       iconCodePoint: 0xe8d6,
       iconColor: 0xFF1A5F7A,
@@ -317,7 +318,7 @@ class NotificationState extends ChangeNotifier {
             id: 'msg_wd_${DateTime.now().millisecondsSinceEpoch}',
             conversationId: 'watsim_support',
             text:
-                'Your withdrawal of $amtStr has been initiated. You\'ll receive the funds in your mobile money account within a few minutes.',
+                'Votre retrait de $amtStr a été initié. Vous recevrez les fonds sur votre compte mobile money sous quelques minutes.',
             isMe: false,
             timestamp: DateTime.now(),
           ));
@@ -328,8 +329,8 @@ class NotificationState extends ChangeNotifier {
     final amtStr = _fmt(amount);
     _addNotification(AppNotification(
       id: 'tx_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Transfer Sent',
-      body: '$amtStr sent to $recipient. They will receive it shortly.',
+      title: 'Transfert envoyé',
+      body: '$amtStr envoyés à $recipient. Ils seront reçus sous peu.',
       type: 'transaction',
       iconCodePoint: 0xe8d6,
       iconColor: 0xFF1A5F7A,
@@ -342,7 +343,7 @@ class NotificationState extends ChangeNotifier {
             id: 'msg_tx_${DateTime.now().millisecondsSinceEpoch}',
             conversationId: 'watsim_support',
             text:
-                'Your transfer of $amtStr to $recipient has been initiated. The recipient will receive the funds in their mobile money account within a few minutes.',
+                'Votre transfert de $amtStr à $recipient a été initié. Le destinataire recevra les fonds sur son compte mobile money sous quelques minutes.',
             isMe: false,
             timestamp: DateTime.now(),
           ));
@@ -355,10 +356,10 @@ class NotificationState extends ChangeNotifier {
     final isLast = installment >= total;
     _addNotification(AppNotification(
       id: 'bnpl_${DateTime.now().millisecondsSinceEpoch}',
-      title: isLast ? 'BNPL Completed' : 'BNPL Payment Confirmed',
+      title: isLast ? 'BNPL terminé' : 'Paiement BNPL confirmé',
       body: isLast
-          ? 'You\'ve fully paid for $productName. It\'s all yours!'
-          : 'Instalment $installment/$total of $amtStr for $productName confirmed.',
+          ? 'Vous avez entièrement payé $productName. Il est à vous !'
+          : 'Versement $installment/$total de $amtStr pour $productName confirmé.',
       type: 'bnpl',
       iconCodePoint: 0xef6d,
       iconColor: 0xFFFFC107,
@@ -366,8 +367,8 @@ class NotificationState extends ChangeNotifier {
     ));
     Future.delayed(const Duration(seconds: 2), () {
       final msg = isLast
-          ? 'Amazing! You\'ve completed all payments for $productName. The device is fully yours — no more instalments. Thank you for being a Watsim BNPL customer!'
-          : 'Instalment $installment of $total paid! $amtStr for $productName recorded. ${total - installment} instalment(s) remaining. Keep it up!';
+          ? 'Félicitations ! Vous avez terminé tous les paiements pour $productName. L\'appareil est entièrement à vous — plus de versements. Merci d\'être client Watsim BNPL !'
+          : 'Versement $installment/$total payé ! $amtStr pour $productName enregistré. Il reste ${total - installment} versement(s). Continuez comme ça !';
       addMessageToConversation(
           'watsim_support',
           AppMessage(
@@ -386,19 +387,20 @@ class NotificationState extends ChangeNotifier {
     final String durationLabel;
     final String freqLabel;
     if (paymentFrequency == 'Daily') {
-      durationLabel = '${months * 30} days';
-      freqLabel = 'day';
+      durationLabel = '${months * 30} jours';
+      freqLabel = 'jour';
     } else if (paymentFrequency == 'Weekly') {
-      durationLabel = '${months * 4} weeks';
-      freqLabel = 'week';
+      durationLabel = '${months * 4} semaines';
+      freqLabel = 'semaine';
     } else {
-      durationLabel = '$months month${months > 1 ? 's' : ''}';
-      freqLabel = 'month';
+      durationLabel = '$months mois';
+      freqLabel = 'mois';
     }
     _addNotification(AppNotification(
       id: 'order_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Order Confirmed!',
-      body: '$productName approved. Pay $amtStr/$freqLabel for $durationLabel.',
+      title: 'Commande confirmée !',
+      body:
+          '$productName approuvé. Payez $amtStr/$freqLabel pendant $durationLabel.',
       type: 'bnpl',
       iconCodePoint: 0xe86c,
       iconColor: 0xFF00A86B,
@@ -411,7 +413,7 @@ class NotificationState extends ChangeNotifier {
             id: 'msg_order_${DateTime.now().millisecondsSinceEpoch}',
             conversationId: 'watsim_support',
             text:
-                'Your BNPL order for $productName has been confirmed! You\'ll pay $amtStr per $freqLabel for $durationLabel. Your first instalment has been collected. Enjoy your new device!',
+                'Votre commande BNPL pour $productName a été confirmée ! Vous paierez $amtStr par $freqLabel pendant $durationLabel. Votre premier versement a été collecté. Profitez de votre nouvel appareil !',
             isMe: false,
             timestamp: DateTime.now(),
           ));
@@ -433,9 +435,9 @@ class NotificationState extends ChangeNotifier {
       // Product fully paid AND overpay refund issued
       _addNotification(AppNotification(
         id: 'txc_${DateTime.now().millisecondsSinceEpoch}',
-        title: '$toProduct — Fully Paid!',
+        title: '$toProduct — Entièrement payé !',
         body:
-            'Transferred $amtStr completed the payment. ${_fmt(refund)} refunded to your wallet.',
+            'Le transfert de $amtStr a complété le paiement. ${_fmt(refund)} remboursés sur votre portefeuille.',
         type: 'transaction',
         iconCodePoint: 0xe876, // check_circle
         iconColor: 0xFF00A86B,
@@ -448,8 +450,8 @@ class NotificationState extends ChangeNotifier {
               id: 'msg_txc_${DateTime.now().millisecondsSinceEpoch}',
               conversationId: 'watsim_support',
               text:
-                  'Great news! Your transfer of $amtStr from $fromProduct has fully covered the remaining balance on $toProduct — it'
-                  's now 100% paid off! The excess ${_fmt(refund)} has been refunded to your Watsim wallet.',
+                  'Bonne nouvelle ! Votre transfert de $amtStr de $fromProduct a couvert le solde restant sur $toProduct — il '
+                  'est maintenant 100% payé ! L\'excédent de ${_fmt(refund)} a été remboursé sur votre portefeuille Watsim.',
               isMe: false,
               timestamp: DateTime.now(),
             ));
@@ -458,9 +460,9 @@ class NotificationState extends ChangeNotifier {
       // Product fully paid, no overpay
       _addNotification(AppNotification(
         id: 'txc_${DateTime.now().millisecondsSinceEpoch}',
-        title: '$toProduct — Fully Paid!',
+        title: '$toProduct — Entièrement payé !',
         body:
-            'Transfer of $amtStr completed all payments. The product is yours!',
+            'Le transfert de $amtStr a réglé tous les paiements. Le produit est à vous !',
         type: 'transaction',
         iconCodePoint: 0xe876,
         iconColor: 0xFF00A86B,
@@ -473,7 +475,7 @@ class NotificationState extends ChangeNotifier {
               id: 'msg_txc_${DateTime.now().millisecondsSinceEpoch}',
               conversationId: 'watsim_support',
               text:
-                  'Your transfer of $amtStr from $fromProduct has completed all payments for $toProduct! No more instalments — the product is fully yours.',
+                  'Votre transfert de $amtStr de $fromProduct a réglé tous les paiements pour $toProduct ! Plus de versements — le produit est entièrement à vous.',
               isMe: false,
               timestamp: DateTime.now(),
             ));
@@ -482,9 +484,9 @@ class NotificationState extends ChangeNotifier {
       // Not fully paid, but partial overpay refunded
       _addNotification(AppNotification(
         id: 'txr_${DateTime.now().millisecondsSinceEpoch}',
-        title: 'Refund Issued',
+        title: 'Remboursement effectué',
         body:
-            'Transfer applied. Excess ${_fmt(refund)} returned to your wallet.',
+            'Transfert appliqué. L\'excédent de ${_fmt(refund)} a été retourné sur votre portefeuille.',
         type: 'transaction',
         iconCodePoint: 0xe8d6,
         iconColor: 0xFF1A5F7A,
@@ -494,8 +496,8 @@ class NotificationState extends ChangeNotifier {
       // Normal transfer, no completion, no refund
       _addNotification(AppNotification(
         id: 'txs_${DateTime.now().millisecondsSinceEpoch}',
-        title: 'Transfer Applied',
-        body: '$amtStr from $fromProduct credited to $toProduct.',
+        title: 'Transfert appliqué',
+        body: '$amtStr de $fromProduct crédités vers $toProduct.',
         type: 'transaction',
         iconCodePoint: 0xe8d6,
         iconColor: 0xFF1A5F7A,
@@ -511,9 +513,9 @@ class NotificationState extends ChangeNotifier {
     final amtStr = _fmt(amount);
     _addNotification(AppNotification(
       id: 'cash_pend_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Cash Deposit Pending',
+      title: 'Dépôt en espèces en attente',
       body:
-          'Your $amtStr cash deposit is pending. Please provide your details so we can dispatch a Watsim official.',
+          'Votre dépôt en espèces de $amtStr est en attente. Veuillez fournir vos coordonnées pour que nous envoyions un agent Watsim.',
       type: 'transaction',
       iconCodePoint: 0xe8b5, // hourglass
       iconColor: 0xFFFFC107, // amber
@@ -527,13 +529,12 @@ class NotificationState extends ChangeNotifier {
             id: 'msg_cash_pend_${DateTime.now().millisecondsSinceEpoch}',
             conversationId: 'watsim_support',
             text:
-                'Hello! We have received your cash deposit request of $amtStr.\n\n'
-                'To dispatch a Watsim official to you, we need a few quick details.'
-                'Please reply with the following:\n\n'
-                '1. Full Name\n'
-                '2. Your Location / Address\n'
-                '3. Phone Number\n\n'
-                'Once we have your details, our agent will be on their way to collect your cash.',
+                'Bonjour ! Nous avons reçu votre demande de dépôt en espèces de $amtStr.\n\n'
+                'Pour envoyer un agent Watsim chez vous, nous avons besoin de quelques informations :\n\n'
+                '1. Nom complet\n'
+                '2. Localisation / Adresse\n'
+                '3. Numéro de téléphone\n\n'
+                'Dès réception, notre agent sera en route pour collecter votre argent.',
             isMe: false,
             timestamp: DateTime.now(),
           ));
@@ -548,8 +549,8 @@ class NotificationState extends ChangeNotifier {
     final amtStr = _fmt(collectedAmount);
     _addNotification(AppNotification(
       id: 'cash_done_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Cash Deposit Completed',
-      body: '$amtStr has been credited to your Watsim wallet.',
+      title: 'Dépôt en espèces terminé',
+      body: '$amtStr ont été crédités sur votre portefeuille Watsim.',
       type: 'transaction',
       iconCodePoint: 0xe058, // account_balance_wallet
       iconColor: 0xFF00A86B,
@@ -562,10 +563,10 @@ class NotificationState extends ChangeNotifier {
           AppMessage(
             id: 'msg_cash_done_${DateTime.now().millisecondsSinceEpoch}',
             conversationId: 'watsim_support',
-            text: 'Great news! The Watsim official has delivered your cash and'
-                'your deposit of $amtStr has been confirmed at our office.\n\n'
-                '$amtStr has been credited to your Watsim wallet.'
-                'You can now use your funds to shop, transfer, or pay instalments.',
+            text: 'Bonne nouvelle ! L\'agent Watsim a remis votre argent et'
+                'votre dépôt de $amtStr a été confirmé à notre bureau.\n\n'
+                '$amtStr ont été crédités sur votre portefeuille Watsim.'
+                'Vous pouvez maintenant acheter, transférer ou payer vos cotisations.',
             isMe: false,
             timestamp: DateTime.now(),
           ));
@@ -587,9 +588,9 @@ class NotificationState extends ChangeNotifier {
 
     _addNotification(AppNotification(
       id: 'cash_mis_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Deposit Amount Updated',
+      title: 'Montant du dépôt mis à jour',
       body:
-          'You requested $reqStr but $colStr was received. Your wallet has been updated accordingly.',
+          'Vous avez demandé $reqStr mais $colStr ont été reçus. Votre portefeuille a été mis à jour.',
       type: 'transaction',
       iconCodePoint: 0xe002, // warning
       iconColor: 0xFFFF9800, // orange
@@ -597,21 +598,21 @@ class NotificationState extends ChangeNotifier {
     ));
 
     final detailMsg = isMore
-        ? 'Heads up! There is a small difference in your cash deposit.\n\n'
-            '• You requested: $reqStr\n'
-            '• Amount received at office: $colStr\n'
-            '• Difference: +$diffStr (extra received)\n\n'
-            'Your wallet has been credited with the actual amount received ($colStr).'
-            'The extra $diffStr will be reviewed and processed by our team.'
-            'If you have any questions, please reply here or contact our support team.'
-        : 'Heads up! There is a difference in your cash deposit.\n\n'
-            '• You requested: $reqStr\n'
-            '• Amount received at office: $colStr\n'
-            '• Shortfall: $diffStr less than requested\n\n'
-            'Your wallet has been credited with $colStr — the actual amount'
-            'delivered by the Watsim official.\n\n'
-            'If you believe this is an error, please contact your Watsim official'
-            'or reply here and our support team will assist you promptly. We apologise for any inconvenience.';
+        ? 'Attention ! Il y a une petite différence sur votre dépôt en espèces.\n\n'
+            '• Vous avez demandé : $reqStr\n'
+            '• Montant reçu au bureau : $colStr\n'
+            '• Différence : +$diffStr (excédent)\n\n'
+            'Votre portefeuille a été crédité du montant réellement reçu ($colStr).'
+            'L\'excédent de $diffStr sera examiné et traité par notre équipe.'
+            'Pour toute question, répondez ici ou contactez notre support.'
+        : 'Attention ! Il y a une différence sur votre dépôt en espèces.\n\n'
+            '• Vous avez demandé : $reqStr\n'
+            '• Montant reçu au bureau : $colStr\n'
+            '• Manquant : $diffStr de moins que demandé\n\n'
+            'Votre portefeuille a été crédité de $colStr — le montant réel'
+            'remis par l\'agent Watsim.\n\n'
+            'Si vous pensez qu\'il s\'agit d\'une erreur, contactez votre agent Watsim'
+            'ou répondez ici et notre support vous assistera rapidement. Nous nous excusons pour ce désagrément.';
 
     Future.delayed(const Duration(seconds: 2), () {
       addMessageToConversation(
@@ -629,8 +630,8 @@ class NotificationState extends ChangeNotifier {
   void onTransferSent(String recipient, int amount) {
     _addNotification(AppNotification(
       id: 'txs_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Transfer Sent',
-      body: '${_fmt(amount)} sent to $recipient successfully.',
+      title: 'Transfert envoyé',
+      body: '${_fmt(amount)} envoyés à $recipient avec succès.',
       type: 'transaction',
       iconCodePoint: 0xe8d6,
       iconColor: 0xFF1A5F7A,
@@ -641,8 +642,8 @@ class NotificationState extends ChangeNotifier {
   void onTransferReceived(String sender, int amount) {
     _addNotification(AppNotification(
       id: 'rxr_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Transfer Received',
-      body: '$sender sent you ${_fmt(amount)}.',
+      title: 'Transfert reçu',
+      body: '$sender vous a envoyé ${_fmt(amount)}.',
       type: 'transaction',
       iconCodePoint: 0xe058,
       iconColor: 0xFF00A86B,
@@ -653,9 +654,9 @@ class NotificationState extends ChangeNotifier {
   void onDeliveryRequested(String productName) {
     _addNotification(AppNotification(
       id: 'dlv_req_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Delivery Requested',
+      title: 'Livraison demandée',
       body:
-          'Your delivery request for $productName has been received. You will receive your product shortly.',
+          'Votre demande de livraison pour $productName a été reçue. Vous recevrez votre produit sous peu.',
       type: 'transaction',
       iconCodePoint: 0xe558, // local_shipping
       iconColor: 0xFF1565C0,
@@ -668,7 +669,7 @@ class NotificationState extends ChangeNotifier {
             id: 'msg_dlv_req_${DateTime.now().millisecondsSinceEpoch}',
             conversationId: 'watsim_support',
             text:
-                'Your delivery request for $productName has been confirmed! Our team is preparing your shipment and you will receive it shortly. Thank you for using WatSim!',
+                'Votre demande de livraison pour $productName a été confirmée ! Notre équipe prépare votre envoi et vous le recevrez sous peu. Merci d\'utiliser WatSim !',
             isMe: false,
             timestamp: DateTime.now(),
           ));
@@ -678,9 +679,8 @@ class NotificationState extends ChangeNotifier {
   void onDeliveryCompleted(String productName) {
     _addNotification(AppNotification(
       id: 'dlv_done_${DateTime.now().millisecondsSinceEpoch}',
-      title: 'Product Delivered! 🎉',
-      body:
-          '$productName was successfully delivered. Thank you for using WatSim!',
+      title: 'Produit livré ! 🎉',
+      body: '$productName a été livré avec succès. Merci d\'utiliser WatSim !',
       type: 'transaction',
       iconCodePoint: 0xe876, // check_circle
       iconColor: 0xFF00A86B,
@@ -693,7 +693,7 @@ class NotificationState extends ChangeNotifier {
             id: 'msg_dlv_done_${DateTime.now().millisecondsSinceEpoch}',
             conversationId: 'watsim_support',
             text:
-                '$productName was successfully delivered to you! We hope you enjoy it. Thank you for using WatSim — it\'s been a pleasure serving you! 🎉',
+                'Votre $productName a été livré avec succès ! Nous espérons qu\'il vous plaîra. Pour toute question, contactez notre support.',
             isMe: false,
             timestamp: DateTime.now(),
           ));

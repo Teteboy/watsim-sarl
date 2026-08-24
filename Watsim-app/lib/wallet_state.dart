@@ -151,7 +151,7 @@ class WalletState {
   String cashDepositPending(int requestedAmount) {
     final tx = WalletTransaction(
       type: TxType.deposit,
-      title: 'Cash Deposit via Watsim Official',
+      title: 'Dépôt en espèces via un agent Watsim',
       amount: requestedAmount,
       isCredit: true,
       date: DateTime.now(),
@@ -173,7 +173,8 @@ class WalletState {
     // Find the most recent PENDING cash deposit to update its tag
     final pending = _transactions.lastWhere(
       (t) =>
-          t.tag == 'PENDING' && t.title == 'Cash Deposit via Watsim Official',
+          t.tag == 'PENDING' &&
+          t.title == 'Dépôt en espèces via un agent Watsim',
       orElse: () => WalletTransaction(
         type: TxType.deposit,
         title: '',
@@ -197,8 +198,8 @@ class WalletState {
       _addTx(WalletTransaction(
         type: TxType.deposit,
         title: diff > 0
-            ? 'Cash Deposit Adjustment (+)'
-            : 'Cash Deposit Adjustment',
+            ? 'Ajustement de dépôt en espèces (+)'
+            : 'Ajustement de dépôt en espèces',
         amount: diff.abs(),
         isCredit: diff > 0,
         date: DateTime.now(),

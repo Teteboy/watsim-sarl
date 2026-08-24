@@ -145,7 +145,7 @@ class _CatalogueScreenState extends State<CatalogueScreen>
   String _category = 'All';
   String _searchQuery = '';
   final _searchController = TextEditingController();
-  // Internal keys — display labels come from lang in build
+  // Category names come from the backend categories endpoint
   List<String> _categoryKeys = ['All'];
 
   // Products loaded from backend only
@@ -172,13 +172,17 @@ class _CatalogueScreenState extends State<CatalogueScreen>
   Future<void> _loadProducts() async {
     try {
       final raw = await ApiService.fetchProducts(limit: 50);
+      final categories = await ApiService.fetchCategories();
       if (!mounted) return;
       final loaded = raw
           .whereType<Map<String, dynamic>>()
           .map((j) => Product.fromJson(j))
           .toList();
       final cats = <String>{'All'};
-      for (final p in loaded) cats.add(p.category);
+      for (final c in categories.whereType<Map<String, dynamic>>()) {
+        final name = c['name'] as String?;
+        if (name != null && name.isNotEmpty) cats.add(name);
+      }
       setState(() {
         _backendProducts = loaded;
         _categoryKeys = cats.toList();
