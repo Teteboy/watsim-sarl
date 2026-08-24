@@ -14,6 +14,9 @@ import 'services/app_lock_manager.dart';
 import 'services/websocket_service.dart';
 import 'services/api_service.dart';
 import 'notification_state.dart';
+import 'profile_state.dart';
+import 'wallet_state.dart';
+import 'order_state.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -89,8 +92,20 @@ class _WatsimAppState extends State<WatsimApp> with WidgetsBindingObserver {
       _lockManager.updateLastActive();
     } else if (state == AppLifecycleState.resumed) {
       _connectWebSocketIfLoggedIn();
+      _refreshAppDataOnResume();
       _checkLock();
     }
+  }
+
+  /// Refresh singleton state from backend so the app reflects dashboard changes
+  void _refreshAppDataOnResume() {
+    AuthService.isLoggedIn().then((loggedIn) {
+      if (!loggedIn) return;
+      ProfileState.instance.syncWithBackend();
+      WalletState.instance.syncWithBackend();
+      OrderState.instance.syncWithBackend();
+      NotificationState.instance.syncWithBackend();
+    });
   }
 
   Future<void> _checkLock() async {

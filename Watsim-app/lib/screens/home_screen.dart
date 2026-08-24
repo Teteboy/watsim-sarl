@@ -27,7 +27,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _balanceVisible = true;
   bool _showAllPayments = false;
   int _notifCount = 0;
@@ -51,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _slideshowController = PageController();
     _notifCount = NotificationState.instance.unreadCount;
     NotificationState.instance.addListener(_onNotifChanged);
@@ -60,6 +61,13 @@ class _HomeScreenState extends State<HomeScreen> {
     // Auto-advance slideshow every 3.5 seconds
     Future.delayed(Duration.zero, _startSlideshow);
     _loadHomeData();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadHomeData();
+    }
   }
 
   Future<void> _loadHomeData() async {
@@ -341,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _slideshowController.dispose();
     NotificationState.instance.removeListener(_onNotifChanged);
     OrderState.instance.removeListener(_onOrderChanged);

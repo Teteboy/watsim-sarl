@@ -140,7 +140,8 @@ class CatalogueScreen extends StatefulWidget {
   State<CatalogueScreen> createState() => _CatalogueScreenState();
 }
 
-class _CatalogueScreenState extends State<CatalogueScreen> {
+class _CatalogueScreenState extends State<CatalogueScreen>
+    with WidgetsBindingObserver {
   String _category = 'All';
   String _searchQuery = '';
   final _searchController = TextEditingController();
@@ -156,8 +157,16 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     NotificationState.instance.addListener(_rebuild);
     _loadProducts();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadProducts();
+    }
   }
 
   Future<void> _loadProducts() async {
@@ -185,6 +194,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     NotificationState.instance.removeListener(_rebuild);
     super.dispose();

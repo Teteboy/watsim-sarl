@@ -83,6 +83,17 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   const prefix = env.API_PREFIX;
+
+  // Prevent any client or proxy from caching API responses (mobile must always get fresh data)
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (request.url?.startsWith(prefix)) {
+      reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      reply.header('Pragma', 'no-cache');
+      reply.header('Expires', '0');
+    }
+    return payload;
+  });
+
   await app.register(authRoutes, { prefix: `${prefix}/auth` });
   await app.register(userRoutes, { prefix: `${prefix}/users` });
   await app.register(securityRoutes, { prefix: `${prefix}/users` });
