@@ -6,6 +6,16 @@ import '../widgets/shared_widgets.dart';
 import '../wallet_state.dart';
 import '../notification_state.dart';
 
+String _fmtAmount(int v) {
+  final s = v.abs().toString();
+  final buf = StringBuffer();
+  for (int i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+    buf.write(s[i]);
+  }
+  return v < 0 ? '-$buf' : buf.toString();
+}
+
 // ─── Deposit Screen ───────────────────────────────────────────────────────
 class DepositScreen extends StatefulWidget {
   const DepositScreen({super.key});
@@ -217,7 +227,7 @@ class _DepositScreenState extends State<DepositScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryGreen.withOpacity(0.1),
+                    color: AppColors.primaryGreen.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.admin_panel_settings_rounded,
@@ -309,7 +319,7 @@ class _DepositScreenState extends State<DepositScreen> {
                   color: const Color(0xFFFFF8E1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: const Color(0xFFFFC107).withOpacity(0.4),
+                      color: const Color(0xFFFFC107).withValues(alpha: 0.4),
                       width: 2),
                 ),
                 child: const Icon(Icons.hourglass_top_rounded,
@@ -358,10 +368,10 @@ class _DepositScreenState extends State<DepositScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.06),
+                  color: AppColors.primaryGreen.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                      color: AppColors.primaryGreen.withOpacity(0.2)),
+                      color: AppColors.primaryGreen.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   children: [
@@ -474,10 +484,10 @@ class _DepositScreenState extends State<DepositScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.08),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: const Color(0xFF4CAF50).withOpacity(0.25)),
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.25)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,7 +668,7 @@ class _DepositScreenState extends State<DepositScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: color, size: 18),
@@ -726,7 +736,7 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  color: AppColors.primaryGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.primaryGreen),
                 ),
@@ -1511,24 +1521,20 @@ class _BalanceCheckScreenState extends State<BalanceCheckScreen> {
                     Expanded(
                         child: _balanceCard(
                             'Wallet',
-                            Product._formatPriceInt(
-                                WalletState.instance.balance),
+                            _fmtAmount(WalletState.instance.balance),
                             AppColors.primaryGreen)),
                     const SizedBox(width: 12),
                     Expanded(
                         child: _balanceCard(
                             'BNPL Available',
-                            Product._formatPriceInt(
-                                WalletState.instance.availableCredit),
+                            _fmtAmount(WalletState.instance.availableCredit),
                             AppColors.secondaryGreen)),
                   ]),
                   const SizedBox(height: 12),
                   Row(children: [
                     Expanded(
-                        child: _balanceCard(
-                            'Spent (month)',
-                            Product._formatPriceInt(monthSpent),
-                            AppColors.warning)),
+                        child: _balanceCard('Spent (month)',
+                            _fmtAmount(monthSpent), AppColors.warning)),
                     const SizedBox(width: 12),
                     Expanded(
                         child: _balanceCard(
@@ -1599,15 +1605,16 @@ class _BalanceCheckScreenState extends State<BalanceCheckScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
+              style:
+                  TextStyle(fontSize: 12, color: color.withValues(alpha: 0.8))),
           const SizedBox(height: 6),
           Text('$amount FCFA',
               style: TextStyle(
