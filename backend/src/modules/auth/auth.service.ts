@@ -87,10 +87,10 @@ export async function issueTokens(app: FastifyInstance, user: { id: string; role
 export async function rotateRefreshToken(app: FastifyInstance, oldToken: string): Promise<AuthTokens> {
   const record = await prisma.refreshToken.findUnique({ where: { token: oldToken }, include: { user: true } });
   if (!record || record.expiresAt < new Date()) {
-    if (record) await prisma.refreshToken.delete({ where: { id: record.id } }).catch(() => null);
+    if (record) await prisma.refreshToken.deleteMany({ where: { id: record.id } });
     throw new AuthError(401, 'Invalid or expired refresh token');
   }
-  await prisma.refreshToken.delete({ where: { id: record.id } }).catch(() => null);
+  await prisma.refreshToken.deleteMany({ where: { id: record.id } });
   return issueTokens(app, { id: record.user.id, role: record.user.role, email: record.user.email });
 }
 
