@@ -7,6 +7,7 @@ import { deliverNotificationToUser } from '../../services/notification.service';
 import { suggestSellPrice } from '../products/products.service';
 import { resolveImageUrl } from '../../services/storage-local.service';
 import { initiatePayment } from '../payments/payments.service';
+import { getRedis } from '../../config/redis';
 
 export async function listAllConversations(params: { page?: number; limit?: number; search?: string }) {
   const page = params.page || 1;
@@ -309,7 +310,20 @@ export async function createTransaction(adminId: string, data: { userId: string;
   return transaction;
 }
 
+const DASHBOARD_SUMMARY_CACHE_KEY = 'admin:dashboard:summary';
+const DASHBOARD_SUMMARY_CACHE_TTL = 60; // seconds
+
 export async function reportsSummary() {
+  const redis = getRedis();
+  const cached = await redis.get(DASHBOARD_SUMMARY_CACHE_KEY);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      // stale/invalid cache; continue to recompute
+    }
+  }
+
   const monthStart = new Date();
   monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
@@ -354,7 +368,7 @@ export async function reportsSummary() {
   const avgCost = costAgg._avg.costPrice ?? 0;
   const avgMargin = avgPrice > 0 && avgCost > 0 ? Math.round(((avgPrice - avgCost) / avgPrice) * 10000) / 100 : 22.5;
 
-  return {
+  const result = {
     totalDisbursed: disbursed._sum.totalAmount ?? 0,
     totalRepayments: repayments._sum.amount ?? 0,
     repaymentRate,
@@ -380,6 +394,19 @@ export async function reportsSummary() {
       collectionFee: bnplFeeSettings.collectionFee,
     },
   };
+
+  try {
+    await redis.set(
+      DASHBOARD_SUMMARY_CACHE_KEY,
+      JSON.stringify(result),
+      'EX',
+      DASHBOARD_SUMMARY_CACHE_TTL,
+    );
+  } catch {
+    // ignore cache write failures
+  }
+
+  return result;
 }
 
 // ===== Platform Categories & BNPL Settings (admin) =====

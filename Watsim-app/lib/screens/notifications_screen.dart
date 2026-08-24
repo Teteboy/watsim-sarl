@@ -184,92 +184,117 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               const SizedBox(height: 10),
                           itemBuilder: (_, i) {
                             final n = _filtered[i];
-                            return GestureDetector(
-                              onTap: () =>
-                                  NotificationState.instance.markRead(n.id),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.all(14),
+                            return Dismissible(
+                              key: ValueKey(n.id),
+                              direction: n.isRead
+                                  ? DismissDirection.endToStart
+                                  : DismissDirection.none,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 20),
                                 decoration: BoxDecoration(
-                                  color: !n.isRead
-                                      ? AppColors.primaryGreen.withOpacity(0.04)
-                                      : AppColors.white,
+                                  color: Colors.redAccent,
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
+                                ),
+                                child: const Icon(Icons.delete_outline,
+                                    color: Colors.white),
+                              ),
+                              onDismissed: (_) => NotificationState.instance
+                                  .deleteNotification(n.id),
+                              child: GestureDetector(
+                                onTap: () =>
+                                    NotificationState.instance.markRead(n.id),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
                                     color: !n.isRead
                                         ? AppColors.primaryGreen
-                                            .withOpacity(0.2)
-                                        : const Color(0xFFE8F2F1),
-                                    width: !n.isRead ? 1.5 : 1,
+                                            .withOpacity(0.04)
+                                        : AppColors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: !n.isRead
+                                          ? AppColors.primaryGreen
+                                              .withOpacity(0.2)
+                                          : const Color(0xFFE8F2F1),
+                                      width: !n.isRead ? 1.5 : 1,
+                                    ),
                                   ),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 42,
-                                      height: 42,
-                                      decoration: BoxDecoration(
-                                        color: _iconColor(n.iconColor)
-                                            .withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(12),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          color: _iconColor(n.iconColor)
+                                              .withOpacity(0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Icon(
+                                          IconData(n.iconCodePoint,
+                                              fontFamily: 'MaterialIcons'),
+                                          color: _iconColor(n.iconColor),
+                                          size: 20,
+                                        ),
                                       ),
-                                      child: Icon(
-                                        IconData(n.iconCodePoint,
-                                            fontFamily: 'MaterialIcons'),
-                                        color: _iconColor(n.iconColor),
-                                        size: 20,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(n.title,
-                                                    style: TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight: !n.isRead
-                                                            ? FontWeight.w700
-                                                            : FontWeight.w600,
-                                                        color: AppColors
-                                                            .textPrimary)),
-                                              ),
-                                              if (!n.isRead)
-                                                Container(
-                                                  width: 8,
-                                                  height: 8,
-                                                  decoration:
-                                                      const BoxDecoration(
-                                                    color:
-                                                        AppColors.primaryGreen,
-                                                    shape: BoxShape.circle,
-                                                  ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(n.title,
+                                                      style: TextStyle(
+                                                          fontSize: 14,
+                                                          fontWeight: !n.isRead
+                                                              ? FontWeight.w700
+                                                              : FontWeight.w600,
+                                                          color: AppColors
+                                                              .textPrimary)),
                                                 ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(n.body,
-                                              style: const TextStyle(
-                                                  fontSize: 13,
-                                                  color:
-                                                      AppColors.textSecondary,
-                                                  height: 1.4),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis),
-                                          const SizedBox(height: 6),
-                                          Text(_relativeTime(n.timestamp, lang),
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: AppColors.textMuted)),
-                                        ],
+                                                if (!n.isRead)
+                                                  Container(
+                                                    width: 8,
+                                                    height: 8,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                      color: AppColors
+                                                          .primaryGreen,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(n.body,
+                                                style: const TextStyle(
+                                                    fontSize: 13,
+                                                    color:
+                                                        AppColors.textSecondary,
+                                                    height: 1.4),
+                                                maxLines: 2,
+                                                overflow:
+                                                    TextOverflow.ellipsis),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                                _relativeTime(
+                                                    n.timestamp, lang),
+                                                style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        AppColors.textMuted)),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             );

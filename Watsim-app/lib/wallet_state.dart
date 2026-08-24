@@ -41,19 +41,37 @@ class WalletState {
 
   int _balance = 0;
 
-  // Tracks the user's remaining BNPL contribution allowance.
-  int _maxContribution = 500000;
+  // Tracks the user's total BNPL credit limit (loaded from the backend).
+  int _creditLimit = 0;
+  int get creditLimit => _creditLimit;
+
+  /// Total price of all active (not fully paid) BNPL orders.
+  int _usedCredit = 0;
+  int get usedCredit => _usedCredit;
+  int get availableCredit =>
+      (_creditLimit - _usedCredit).clamp(0, _creditLimit);
+
+  void setCreditLimit(int amount) {
+    _creditLimit = amount.clamp(0, double.maxFinite.toInt());
+    _notify();
+  }
+
+  void setUsedCredit(int amount) {
+    _usedCredit = amount.clamp(0, _creditLimit);
+    _notify();
+  }
+
+  /// @deprecated Use [setCreditLimit] and [setUsedCredit] from real data.
+  int _maxContribution = 0;
   int get maxContribution => _maxContribution;
   void deductMaxContribution(int amount) {
-    _maxContribution = (_maxContribution - amount).clamp(0, _maxContribution);
+    _usedCredit = (_usedCredit + amount).clamp(0, _creditLimit);
     _notify();
   }
 
   /// Restore [amount] to the BNPL contribution allowance.
-  /// Called when a user exchanges a product (removes the old product's price)
-  /// or when the cap needs to be partially reversed.
   void restoreMaxContribution(int amount) {
-    _maxContribution = (_maxContribution + amount).clamp(0, 500000);
+    _usedCredit = (_usedCredit - amount).clamp(0, _creditLimit);
     _notify();
   }
 
@@ -217,20 +235,43 @@ class WalletState {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  /// Sync wallet balance and transactions from backend
+  /// Sync wallet, credit limit and active BNPL usage from the backend.
   Future<void> syncWithBackend() async {
     _isLoading = true;
     _error = null;
     _notify();
 
     try {
-      // Fetch wallet balance
-      final walletData = await ApiService.fetchWallet();
-      final backendBalance = (walletData['balance'] as num?)?.toInt() ?? 0;
+      // Fetch wallet balance and profile in parallel
+      final [walletData, profileData] = await Future.wait([
+        ApiService.fetchWallet(),
+        ApiService.fetchProfile(),
+      ]);
 
-      // Update balance if different
+      final backendBalance =
+          ((walletData as Map)['balance'] as num?)?.toInt() ?? 0;
+      final parsedLimit =
+          ((profileData as Map)['creditLimit'] as num?)?.toInt() ?? 0;
+
       if (backendBalance != _balance) {
         _balance = backendBalance;
+      }
+
+      _creditLimit = parsedLimit;
+      _maxContribution = parsedLimit;
+
+      // Fetch active BNPL purchases to compute real credit usage.
+      final purchases = await ApiService.fetchOrders();
+      _usedCredit = 0;
+      for (final raw in purchases) {
+        final p = Map<String, dynamic>.from(raw as Map<dynamic, dynamic>);
+        final status = p['status'] as String? ?? '';
+        if (status == 'COMPLETED' ||
+            status == 'CANCELLED' ||
+            status == 'REFUNDED') continue;
+        _usedCredit += (p['totalAmount'] as num?)?.toInt() ??
+            (p['product']?['price'] as num?)?.toInt() ??
+            0;
       }
 
       // Fetch transactions

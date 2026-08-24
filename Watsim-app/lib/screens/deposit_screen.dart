@@ -51,9 +51,6 @@ class _DepositScreenState extends State<DepositScreen> {
     },
   ];
 
-  // Sandbox presets include small amounts for Campay demo (max 25 XAF)
-  final _presets = [10, 20, 5000, 10000, 25000, 50000];
-
   bool get _isCashSelected => _operator == 2;
 
   @override
@@ -521,39 +518,27 @@ class _DepositScreenState extends State<DepositScreen> {
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
               style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary),
-              decoration: const InputDecoration(
-                hintText: 'Entrez le montant',
+              decoration: InputDecoration(
+                hintText: lang.isFrench ? 'Entrez le montant' : 'Enter amount',
                 suffixText: 'FCFA',
-                suffixStyle: TextStyle(
+                suffixStyle: const TextStyle(
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500),
-                prefixIcon: Icon(Icons.currency_franc_rounded,
+                prefixIcon: const Icon(Icons.currency_franc_rounded,
                     color: AppColors.primaryGreen),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.divider),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.primaryGreen, width: 2),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: _presets
-                  .map((v) => Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: AmountChip(
-                            label: '${v ~/ 1000} 000',
-                            selected: _amount == v,
-                            onTap: () {
-                              setState(() => _amount = v);
-                              _amountCtrl.text = v.toString();
-                              _amountCtrl.selection =
-                                  TextSelection.fromPosition(TextPosition(
-                                      offset: _amountCtrl.text.length));
-                            },
-                          ),
-                        ),
-                      ))
-                  .toList(),
             ),
             const SizedBox(height: 24),
 
@@ -782,13 +767,16 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
 
 // ─── Poll payment status after dialog closes ─────────────────────────────
 Future<void> _pollPaymentStatus(
-    BuildContext context, String transactionId, String type) async {
+    BuildContext context, String transactionId, String type,
+    {bool useTransactionEndpoint = false}) async {
   const maxAttempts = 30; // 30 x 5 seconds = 2.5 minutes
   String? finalStatus;
   for (int i = 0; i < maxAttempts; i++) {
     await Future.delayed(const Duration(seconds: 5));
     try {
-      final status = await ApiService.getPaymentStatus(transactionId);
+      final status = useTransactionEndpoint
+          ? await ApiService.getTransactionStatus(transactionId)
+          : await ApiService.getPaymentStatus(transactionId);
       debugPrint('POLL: attempt=$i status=$status');
       if (status['status'] == 'COMPLETED') {
         finalStatus = 'COMPLETED';
@@ -871,8 +859,6 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
     },
   ];
 
-  final _presets = [5000, 10000, 25000, 50000];
-
   @override
   void initState() {
     super.initState();
@@ -891,7 +877,7 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
     super.dispose();
   }
 
-  Future<void> _processMoMoWithdrawal() async {
+  Future<void> _processWithdrawal() async {
     if (_amount < 1) return;
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
@@ -899,8 +885,11 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
           () => _payError = 'Please enter your mobile money phone number.');
       return;
     }
-    final providerKey = _operator == 0 ? 'ORANGE_MONEY' : 'MTN_MOMO';
-    final opName = _operators[_operator]['name'] as String;
+    final providerKey = _operator == 0
+        ? 'ORANGE_MONEY'
+        : _operator == 1
+            ? 'MTN_MOMO'
+            : 'CASH';
     setState(() {
       _paying = true;
       _payError = null;
@@ -916,9 +905,15 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
       final txId = result['transactionId'] as String?;
       if (mounted) {
         _showSuccess(
-            context, 'Withdrawal request sent!\nPlease approve on your phone.',
+            context,
+            providerKey == 'CASH'
+                ? 'Cash withdrawal request submitted!\nVisit an agent with ID and reference.'
+                : 'Withdrawal request sent!\nPlease approve on your phone.',
             ussdCode: result['ussdCode'] as String?);
-        if (txId != null) _pollPaymentStatus(context, txId, 'Withdrawal');
+        if (txId != null && providerKey != 'CASH') {
+          _pollPaymentStatus(context, txId, 'Withdrawal',
+              useTransactionEndpoint: true);
+        }
       }
     } on ApiException catch (e) {
       setState(() {
@@ -998,88 +993,81 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
               style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary),
-              decoration: const InputDecoration(
-                hintText: 'Entrez le montant',
+              decoration: InputDecoration(
+                hintText: lang.isFrench ? 'Entrez le montant' : 'Enter amount',
                 suffixText: 'FCFA',
-                suffixStyle: TextStyle(
+                suffixStyle: const TextStyle(
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500),
-                prefixIcon: Icon(Icons.currency_franc_rounded,
+                prefixIcon: const Icon(Icons.currency_franc_rounded,
                     color: AppColors.primaryGreen),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.divider),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.primaryGreen, width: 2),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: _presets
-                  .map((v) => Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: AmountChip(
-                            label: '${v ~/ 1000} 000',
-                            selected: _amount == v,
-                            onTap: () {
-                              setState(() => _amount = v);
-                              _amountCtrl.text = v.toString();
-                              _amountCtrl.selection =
-                                  TextSelection.fromPosition(TextPosition(
-                                      offset: _amountCtrl.text.length));
-                            },
-                          ),
-                        ),
-                      ))
-                  .toList(),
             ),
             const SizedBox(height: 24),
             AppCard(
               child: Column(
                 children: [
-                  _row('Available Balance',
+                  _row(lang.isFrench ? 'Solde disponible' : 'Available Balance',
                       WalletState.instance.balanceFormatted),
                   const SizedBox(height: 8),
-                  _row('Withdrawal Amount', '${_fmt(_amount)} FCFA'),
-                  const SizedBox(height: 8),
-                  _row('Fee (1%)', '${_fmt(_amount ~/ 100)} FCFA'),
+                  _row(
+                      lang.isFrench
+                          ? 'Montant du retrait'
+                          : 'Withdrawal Amount',
+                      '${_fmt(_amount)} FCFA'),
+                  if (_operator < 2) ...[
+                    const SizedBox(height: 8),
+                    _row(lang.isFrench ? 'Frais (1%)' : 'Fee (1%)',
+                        '${_fmt(_amount ~/ 100)} FCFA'),
+                  ],
                   const Divider(height: 20),
-                  _row('You will receive',
-                      '${_fmt(_amount - _amount ~/ 100)} FCFA',
+                  _row(lang.isFrench ? 'Vous recevrez' : 'You will receive',
+                      '${_fmt(_operator < 2 ? _amount - _amount ~/ 100 : _amount)} FCFA',
                       bold: true),
                 ],
               ),
             ),
             const SizedBox(height: 24),
 
-            // Phone number input for mobile money
-            if (_operator < 2) ...[
-              Text('Phone Number',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textMuted,
-                      letterSpacing: 1)),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  hintText: '+237 6XX XXX XXX',
-                  prefixIcon: Icon(Icons.phone, color: AppColors.primaryGreen),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        BorderSide(color: AppColors.primaryGreen, width: 1),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        BorderSide(color: AppColors.primaryGreen, width: 2),
-                  ),
+            // Phone number input
+            Text(lang.isFrench ? 'Numéro de téléphone' : 'Phone Number',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                hintText: '+237 6XX XXX XXX',
+                prefixIcon: Icon(Icons.phone, color: AppColors.primaryGreen),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      BorderSide(color: AppColors.primaryGreen, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      BorderSide(color: AppColors.primaryGreen, width: 2),
                 ),
               ),
-              const SizedBox(height: 16),
-            ],
+            ),
+            const SizedBox(height: 16),
 
             // Error display
             if (_payError != null) ...[
@@ -1107,28 +1095,7 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
             ],
 
             ElevatedButton(
-              onPressed: _paying
-                  ? null
-                  : () {
-                      if (_operator < 2) {
-                        _processMoMoWithdrawal();
-                      } else {
-                        // Counter withdrawal - local processing
-                        try {
-                          WalletState.instance.deduct(_amount,
-                              reason: 'Counter Withdrawal',
-                              type: TxType.withdrawal,
-                              tag: 'PROCESSED');
-                          NotificationState.instance
-                              .onWithdrawalCompleted(_amount);
-                          _showSuccess(context, 'Withdrawal initiated!');
-                        } catch (_) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(lang.insufficientFunds),
-                              backgroundColor: Colors.redAccent));
-                        }
-                      }
-                    },
+              onPressed: _paying ? null : _processWithdrawal,
               child: _paying
                   ? Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1185,33 +1152,11 @@ class TransferScreen extends StatefulWidget {
 
 class _TransferScreenState extends State<TransferScreen> {
   int _amount = 15000;
-  int _operator = 0;
-  final _presets = [5000, 10000, 15000, 25000];
-  final _recents = [
-    {'name': 'Marie Kamga', 'phone': '+237 699 123 456'},
-    {'name': 'Jean-Marc T.', 'phone': '+237 677 234 567'},
-    {'name': 'Fatou Diop', 'phone': '+237 655 345 678'},
-  ];
-
-  final _operators = [
-    {
-      'name': 'Orange Money',
-      'sub': 'Fee: 0% • Instant',
-      'color': 0xFFFF6600,
-      'logo': 'assets/images/orange-money.png'
-    },
-    {
-      'name': 'MTN MoMo',
-      'sub': 'Fee: 0% • Instant',
-      'color': 0xFFFFCC00,
-      'logo': 'assets/images/momo.png'
-    },
-  ];
 
   // Form controllers
   final _recipientCtrl = TextEditingController();
   final _amountCtrl = TextEditingController(text: '15000');
-  final _phoneCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController();
 
   // Payment loading state
   bool _paying = false;
@@ -1232,20 +1177,24 @@ class _TransferScreenState extends State<TransferScreen> {
   void dispose() {
     _recipientCtrl.dispose();
     _amountCtrl.dispose();
-    _phoneCtrl.dispose();
+    _noteCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _processTransfer() async {
-    if (_amount < 1) return;
-    final recipient = _recipientCtrl.text.trim();
-    final phone = _phoneCtrl.text.trim();
-    if (recipient.isEmpty || phone.isEmpty) {
-      setState(
-          () => _payError = 'Please enter recipient name and phone number.');
+    if (_amount < 100) {
+      setState(() => _payError = LanguageProvider.of(context).isFrench
+          ? 'Le montant minimum est de 100 FCFA'
+          : 'Minimum amount is 100 FCFA');
       return;
     }
-    final providerKey = _operator == 0 ? 'ORANGE_MONEY' : 'MTN_MOMO';
+    final recipient = _recipientCtrl.text.trim();
+    if (recipient.isEmpty) {
+      setState(() => _payError = LanguageProvider.of(context).isFrench
+          ? "Veuillez entrer le téléphone ou l'email du destinataire"
+          : 'Please enter recipient phone number or email');
+      return;
+    }
     setState(() {
       _paying = true;
       _payError = null;
@@ -1253,18 +1202,16 @@ class _TransferScreenState extends State<TransferScreen> {
     try {
       final result = await ApiService.initiateTransfer(
         amount: _amount,
-        provider: providerKey,
-        phone: phone,
-        recipientName: recipient,
+        recipientIdentifier: recipient,
+        note: _noteCtrl.text.trim(),
       );
-      NotificationState.instance.onTransferCompleted(_amount, recipient);
+      final recipientName = result['recipientName'] as String? ?? recipient;
+      NotificationState.instance.onTransferCompleted(_amount, recipientName);
       setState(() => _paying = false);
-      final txId = result['transactionId'] as String?;
+      await WalletState.instance.syncWithBackend();
       if (mounted) {
-        _showSuccess(
-            context, 'Transfer request sent!\nPlease approve on your phone.',
-            ussdCode: result['ussdCode'] as String?);
-        if (txId != null) _pollPaymentStatus(context, txId, 'Transfer');
+        _showSuccess(context,
+            'Transfer sent to $recipientName!\nThe recipient will receive the funds instantly.');
       }
     } on ApiException catch (e) {
       setState(() {
@@ -1277,6 +1224,40 @@ class _TransferScreenState extends State<TransferScreen> {
         _payError = 'Transfer failed. Check your connection.';
       });
     }
+  }
+
+  String _fmt(int v) {
+    if (v <= 0) return '0';
+    final s = v.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
+
+  Widget _row(String l, String v, {bool bold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(l,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 14,
+                  color: bold ? AppColors.textPrimary : AppColors.textSecondary,
+                  fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
+        ),
+        const SizedBox(width: 8),
+        Text(v,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
+                color: AppColors.textPrimary)),
+      ],
+    );
   }
 
   @override
@@ -1301,7 +1282,7 @@ class _TransferScreenState extends State<TransferScreen> {
             Text(lang.sendToAnotherWatsim,
                 style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             const SizedBox(height: 28),
-            Text('Recipient Name',
+            Text(lang.isFrench ? 'DESTINATAIRE' : 'RECIPIENT',
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -1310,90 +1291,15 @@ class _TransferScreenState extends State<TransferScreen> {
             const SizedBox(height: 10),
             TextField(
               controller: _recipientCtrl,
+              keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
-                hintText: 'Enter recipient name',
+                hintText: lang.isFrench
+                    ? 'Téléphone ou email du destinataire'
+                    : 'Recipient phone number or email',
                 prefixIcon: Icon(Icons.person, color: AppColors.primaryGreen),
               ),
             ),
-            const SizedBox(height: 16),
-            Text('Phone Number',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textMuted,
-                    letterSpacing: 1)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _phoneCtrl,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                hintText: '+237 6XX XXX XXX',
-                prefixIcon: Icon(Icons.phone, color: AppColors.primaryGreen),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(lang.recentLabel,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textMuted,
-                    letterSpacing: 1)),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 80,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _recents.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (_, i) {
-                  final r = _recents[i];
-                  return Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 26,
-                        backgroundColor:
-                            AppColors.primaryGreen.withOpacity(0.15),
-                        child: Text((r['name'] as String).substring(0, 1),
-                            style: const TextStyle(
-                                color: AppColors.secondaryGreen,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 18)),
-                      ),
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        width: 60,
-                        child: Text((r['name'] as String).split(' ').first,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 11, color: AppColors.textSecondary)),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text('Payment Method',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textMuted,
-                    letterSpacing: 1)),
-            const SizedBox(height: 10),
-            ...List.generate(
-                _operators.length,
-                (i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: OperatorCard(
-                        name: _operators[i]['name'] as String,
-                        subtitle: _operators[i]['sub'] as String,
-                        color: Color(_operators[i]['color'] as int),
-                        selected: _operator == i,
-                        onTap: () => setState(() => _operator = i),
-                        logoAsset: _operators[i]['logo'] as String?,
-                      ),
-                    )),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             Text(lang.amountLabel2,
                 style: TextStyle(
                     fontSize: 11,
@@ -1404,44 +1310,61 @@ class _TransferScreenState extends State<TransferScreen> {
             TextField(
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+              style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary),
               decoration: InputDecoration(
-                hintText: '0',
+                hintText: lang.isFrench ? 'Entrez le montant' : 'Enter amount',
                 suffixText: 'FCFA',
-                prefixIcon: Icon(Icons.currency_franc_rounded,
+                prefixIcon: const Icon(Icons.currency_franc_rounded,
+                    color: AppColors.primaryGreen),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.divider),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.primaryGreen, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(lang.isFrench ? 'NOTE (OPTIONNEL)' : 'NOTE (OPTIONAL)',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _noteCtrl,
+              decoration: InputDecoration(
+                hintText: lang.isFrench
+                    ? 'Ex : Remboursement dîner'
+                    : 'Ex: Dinner reimbursement',
+                prefixIcon: const Icon(Icons.note_outlined,
                     color: AppColors.primaryGreen),
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: _presets
-                  .map((v) => Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: AmountChip(
-                            label: '${v ~/ 1000} K',
-                            selected: _amount == v,
-                            onTap: () {
-                              setState(() => _amount = v);
-                              _amountCtrl.text = v.toString();
-                              _amountCtrl.selection =
-                                  TextSelection.fromPosition(TextPosition(
-                                      offset: _amountCtrl.text.length));
-                            },
-                          ),
-                        ),
-                      ))
-                  .toList(),
-            ),
-            const SizedBox(height: 16),
-            const TextField(
-              decoration: InputDecoration(
-                labelText: 'Note / Reason (optional)',
-                prefixIcon:
-                    Icon(Icons.note_outlined, color: AppColors.primaryGreen),
+            const SizedBox(height: 24),
+            AppCard(
+              child: Column(
+                children: [
+                  _row(lang.isFrench ? 'Solde disponible' : 'Available Balance',
+                      WalletState.instance.balanceFormatted),
+                  const SizedBox(height: 8),
+                  _row(lang.isFrench ? 'Montant' : 'Amount',
+                      '${_fmt(_amount)} FCFA'),
+                  const Divider(height: 20),
+                  _row(
+                      lang.isFrench
+                          ? 'Total à transférer'
+                          : 'Total to transfer',
+                      '${_fmt(_amount)} FCFA',
+                      bold: true),
+                ],
               ),
             ),
             const SizedBox(height: 28),
@@ -1497,131 +1420,178 @@ class _TransferScreenState extends State<TransferScreen> {
 }
 
 // ─── Balance Check Screen ─────────────────────────────────────────────────
-class BalanceCheckScreen extends StatelessWidget {
+class BalanceCheckScreen extends StatefulWidget {
   const BalanceCheckScreen({super.key});
+
+  @override
+  State<BalanceCheckScreen> createState() => _BalanceCheckScreenState();
+}
+
+class _BalanceCheckScreenState extends State<BalanceCheckScreen> {
+  bool _loading = true;
+  int _creditScore = 0;
+  Map<String, dynamic>? _creditData;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    WalletState.instance.addListener(_onChange);
+  }
+
+  @override
+  void dispose() {
+    WalletState.instance.removeListener(_onChange);
+    super.dispose();
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _load() async {
+    await WalletState.instance.syncWithBackend();
+    try {
+      _creditData = await ApiService.getCreditScore();
+      _creditScore = (_creditData?['score'] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      _creditScore = 0;
+    }
+    if (mounted) setState(() => _loading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     final lang = LanguageProvider.of(context);
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthSpent = WalletState.instance.transactions
+        .where((t) => !t.isCredit && t.date.isAfter(monthStart))
+        .fold(0, (sum, t) => sum + t.amount);
+    final scorePercent = _creditScore.clamp(0, 1000) / 1000.0;
+    final scoreLabel = _creditScore >= 800
+        ? lang.excellent
+        : _creditScore >= 650
+            ? 'GOOD'
+            : _creditScore >= 500
+                ? 'FAIR'
+                : 'POOR';
+
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       appBar: const WatsimAppBar(title: 'Balance', showBack: true),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            GradientCard(
-              padding: const EdgeInsets.all(28),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Text(lang.totalBalance,
-                      style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                          letterSpacing: 1.5,
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 10),
-                  const Text('125,000 FCFA',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 36,
-                          fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.trending_up_rounded,
-                          color: AppColors.primaryGreen, size: 16),
-                      SizedBox(width: 4),
-                      Text(lang.growthThisMonth,
-                          style: TextStyle(
-                              color: AppColors.primaryGreen,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(children: [
-              Expanded(
-                  child: _balanceCard(
-                      'Wallet', '125,000', AppColors.primaryGreen)),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: _balanceCard(
-                      'BNPL Available', '75,000', AppColors.secondaryGreen)),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                  child: _balanceCard(
-                      'Spent (month)', '32,500', AppColors.warning)),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: _balanceCard(
-                      'Cashback', '3,200', AppColors.primaryGreen)),
-            ]),
-            const SizedBox(height: 24),
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(lang.creditScore,
-                      style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary)),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  GradientCard(
+                    padding: const EdgeInsets.all(28),
+                    child: Column(
+                      children: [
+                        Text(lang.totalBalance,
+                            style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 12,
+                                letterSpacing: 1.5,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 10),
+                        Text(WalletState.instance.balanceFormatted,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 36,
+                                fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(children: [
+                    Expanded(
+                        child: _balanceCard(
+                            'Wallet',
+                            Product._formatPriceInt(
+                                WalletState.instance.balance),
+                            AppColors.primaryGreen)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: _balanceCard(
+                            'BNPL Available',
+                            Product._formatPriceInt(
+                                WalletState.instance.availableCredit),
+                            AppColors.secondaryGreen)),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                        child: _balanceCard(
+                            'Spent (month)',
+                            Product._formatPriceInt(monthSpent),
+                            AppColors.warning)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: _balanceCard(
+                            'Cashback', '0', AppColors.primaryGreen)),
+                  ]),
+                  const SizedBox(height: 24),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(lang.creditScore,
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary)),
+                        const SizedBox(height: 16),
+                        Row(
                           children: [
-                            const Text('750',
-                                style: TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.primaryGreen)),
-                            Text(lang.excellent,
-                                style: const TextStyle(
-                                    color: AppColors.primaryGreen,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                      SizedBox(
-                        width: 80,
-                        height: 80,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CircularProgressIndicator(
-                              value: 0.75,
-                              strokeWidth: 8,
-                              backgroundColor: AppColors.divider,
-                              valueColor: const AlwaysStoppedAnimation(
-                                  AppColors.primaryGreen),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('$_creditScore',
+                                      style: const TextStyle(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.primaryGreen)),
+                                  Text(scoreLabel,
+                                      style: const TextStyle(
+                                          color: AppColors.primaryGreen,
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
                             ),
-                            const Text('75%',
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary)),
+                            SizedBox(
+                              width: 80,
+                              height: 80,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  CircularProgressIndicator(
+                                    value: scorePercent,
+                                    strokeWidth: 8,
+                                    backgroundColor: AppColors.divider,
+                                    valueColor: const AlwaysStoppedAnimation(
+                                        AppColors.primaryGreen),
+                                  ),
+                                  Text('${(scorePercent * 100).round()}%',
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textPrimary)),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 

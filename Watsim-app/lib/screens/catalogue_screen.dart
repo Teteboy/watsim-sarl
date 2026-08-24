@@ -9,6 +9,7 @@ import 'notifications_screen.dart';
 import 'messaging_screen.dart';
 import 'wallet_screen.dart';
 import '../order_state.dart';
+import '../wallet_state.dart';
 
 // ─── Product model ─────────────────────────────────────────────────────────
 class Product {
@@ -843,6 +844,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
+    // Ensure credit limit and other wallet data are current
+    WalletState.instance.syncWithBackend();
   }
 
   @override
@@ -1030,16 +1033,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          const int creditLimit = 150000;
-          final activeOrders = OrderState.instance.orders
-              .where((o) => !o.isDemo && !o.isFullyPaid)
-              .toList();
+          final int creditLimit = WalletState.instance.creditLimit;
+          final activeOrders =
+              OrderState.instance.orders.where((o) => !o.isFullyPaid).toList();
           final int usedCredit =
               activeOrders.fold(0, (sum, o) => sum + o.basePrice);
+          final int availableCredit =
+              (creditLimit - usedCredit).clamp(0, creditLimit);
           final int productPrice = product.priceValue;
 
-          // Case 1: no active product but price exceeds the max contribution
-          if (activeOrders.isEmpty && productPrice > creditLimit) {
+          // A product can be added if the total BNPL exposure stays within the user's real credit limit.
+          if (productPrice > availableCredit) {
             showDialog(
               context: context,
               builder: (_) => AlertDialog(
@@ -1050,7 +1054,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 title: Text(lang.maxContribTitle,
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontWeight: FontWeight.w700)),
-                content: Text(lang.maxContribBody,
+                content: Text(
+                    '${lang.maxContribBody}\n\n'
+                    '${lang.isFrench ? 'Crédit disponible : ' : 'Available credit: '}${Product._formatPriceInt(availableCredit)} FCFA',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         fontSize: 14, color: AppColors.textSecondary)),
@@ -1065,33 +1071,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             return;
           }
 
-          // Case 2: has active order and adding this product would exceed limit
-          if (activeOrders.isNotEmpty &&
-              usedCredit + productPrice > creditLimit) {
-            showDialog(
-              context: context,
-              builder: (_) => AlertDialog(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18)),
-                icon: const Icon(Icons.warning_amber_rounded,
-                    color: Colors.orange, size: 36),
-                title: Text(lang.activeOrderTitle,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                content: Text(lang.activeOrderBody,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 14, color: AppColors.textSecondary)),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(lang.gotIt),
-                  ),
-                ],
-              ),
-            );
-            return;
-          }
           Navigator.push(
               context,
               MaterialPageRoute(

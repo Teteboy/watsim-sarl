@@ -77,26 +77,22 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
     }
   }
 
-  Product get _product => widget.cartProducts?.isNotEmpty == true
-      ? widget.cartProducts!.first
-      : widget.product ??
-          const Product(
-            name: 'Nike Air Max Supernova',
-            price: '125,000 FCFA',
-            monthlyPrice: '',
-            icon: Icons.sports_outlined,
-            category: 'Sport',
-            cashback: 0,
-            color: Color(0xFF2A0A0A),
-            imageUrl:
-                'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80',
-            imageGradient: [Color(0xFF2A0A0A), Color(0xFF4A1515)],
-          );
+  Product get _product {
+    if (widget.cartProducts?.isNotEmpty == true) {
+      return widget.cartProducts!.first;
+    }
+    if (widget.product != null) {
+      return widget.product!;
+    }
+    throw StateError('No product or cart items provided for BNPL simulation');
+  }
 
   int get _basePrice {
     // Parse the price string from the actual product (e.g. "249,000 FCFA" → 249000)
     final digits = _product.price.replaceAll(RegExp(r'[^0-9]'), '');
-    return int.tryParse(digits) ?? 125000;
+    final price = int.tryParse(digits);
+    if (price == null) throw StateError('Product price is not available');
+    return price;
   }
 
   // Amount being financed after down payment

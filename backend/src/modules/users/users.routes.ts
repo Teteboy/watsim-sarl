@@ -8,7 +8,7 @@ import { uploadProfilePicture, resolveImageUrl } from '../../services/storage-lo
 import { recomputeScore, getScoreHistory, getScoreTips } from '../../services/credit-scoring.service';
 import { ensureUserReferralCode, getReferralStats, updateReferralCode } from '../../services/referral.service';
 import { getUserBadges, checkAndAwardBadges } from '../../services/badge.service';
-import { processWithdrawal, WithdrawalProvider } from '../../services/withdrawal.service';
+import { processWithdrawal, checkWithdrawalStatus, WithdrawalProvider } from '../../services/withdrawal.service';
 import { processTransfer, getTransferHistory } from '../../services/transfer.service';
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
@@ -99,6 +99,70 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     return { transactionId: tx.id };
   });
 
+  // ── Process a wallet withdrawal to mobile money or cash ───────────────────
+  app.post('/me/withdraw', async (req, reply) => {
+    const userId = req.authUser!.id;
+    const { amount, phoneNumber, provider } = req.body as {
+      amount: number;
+      phoneNumber: string;
+      provider: 'ORANGE_MONEY' | 'MTN_MOMO' | 'CASH';
+    };
+
+    if (!amount || amount < 1) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'amount must be >= 1' });
+    }
+    if (!phoneNumber || phoneNumber.trim().length < 8) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'phoneNumber is required' });
+    }
+    if (!provider || !['ORANGE_MONEY', 'MTN_MOMO', 'CASH'].includes(provider)) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'provider must be ORANGE_MONEY, MTN_MOMO or CASH' });
+    }
+
+    const withdrawalProvider = provider === 'ORANGE_MONEY'
+      ? 'ORANGE'
+      : provider === 'MTN_MOMO'
+        ? 'MTN'
+        : 'CASH';
+
+    const result = await processWithdrawal({
+      userId,
+      amount,
+      phoneNumber: phoneNumber.trim(),
+      provider: withdrawalProvider,
+      reference: `WD_${Date.now()}_${userId.slice(0, 8)}`,
+      metadata: { source: 'WALLET_WITHDRAW', requestedVia: 'mobile_app' },
+    });
+
+    if (!result.success) {
+      return reply.code(400).send({ error: 'WithdrawalFailed', message: result.message });
+    }
+
+    return {
+      success: true,
+      transactionId: result.withdrawalId,
+      providerRef: result.providerRef,
+      status: result.status,
+      message: result.message,
+      ussdCode: result.ussdCode,
+    };
+  });
+
+  // ── Check status of any user transaction (withdrawals, transfers, deposits) ─
+  app.get('/me/transactions/:transactionId/status', async (req, reply) => {
+    const { transactionId } = req.params as { transactionId: string };
+    const tx = await prisma.transaction.findUnique({ where: { id: transactionId } });
+    if (!tx || tx.userId !== req.authUser!.id) {
+      return reply.code(404).send({ error: 'NotFound', message: 'Transaction not found' });
+    }
+
+    if (tx.type === 'WITHDRAWAL' && tx.status === 'PENDING') {
+      const statusResult = await checkWithdrawalStatus(transactionId);
+      return { transactionId, status: statusResult.status, message: statusResult.message, amount: tx.amount };
+    }
+
+    return { transactionId, status: tx.status, amount: tx.amount };
+  });
+
   // ── Create a TRANSFER transaction (used before calling /payments/initiate) ─
   app.post('/me/transactions/transfer', async (req, reply) => {
     const { amount, provider, recipientName } = req.body as { amount: number; provider: string; recipientName: string };
@@ -159,6 +223,18 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       where: { userId: req.authUser!.id, isRead: false },
       data: { isRead: true },
     });
+    return { success: true };
+  });
+
+  // ── Delete a notification ───────────────────────────────────────────────
+  app.delete('/me/notifications/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const deleted = await prisma.userNotification.deleteMany({
+      where: { id, userId: req.authUser!.id },
+    });
+    if (deleted.count === 0) {
+      return reply.code(404).send({ error: 'NotFound', message: 'Notification not found' });
+    }
     return { success: true };
   });
 

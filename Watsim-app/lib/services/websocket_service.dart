@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../notification_state.dart';
 import 'api_service.dart';
@@ -49,10 +50,14 @@ class WebSocketService {
 
   WebSocketService._();
 
+  static const int _maxReconnectAttempts = 15;
+  static const int _maxReconnectDelaySeconds = 60;
+
   WebSocketChannel? _channel;
   bool _isConnected = false;
   StreamSubscription? _subscription;
   final Map<String, void Function(WebSocketMessage)> _listeners = {};
+  int _reconnectAttempts = 0;
 
   bool get isConnected => _isConnected;
 
@@ -70,8 +75,15 @@ class WebSocketService {
       final wsUrl = kBaseUrl.replaceFirst('http', 'ws') + '/ws?token=$token';
       print('WebSocket: Connecting to $wsUrl');
 
+      // Clean up any previous channel before reconnecting
+      await _cleanup();
+
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+
+      // Wait for the handshake to complete before marking connected
+      await _channel!.ready;
       _isConnected = true;
+      _reconnectAttempts = 0;
 
       // Listen for messages
       _subscription = _channel!.stream.listen(
@@ -89,11 +101,26 @@ class WebSocketService {
       );
 
       print('WebSocket: Connected successfully');
+    } on SocketException catch (e) {
+      print('WebSocket: Network/DNS failure - $e');
+      _isConnected = false;
+      _scheduleReconnect();
     } catch (e) {
       print('WebSocket: Failed to connect - $e');
       _isConnected = false;
       _scheduleReconnect();
     }
+  }
+
+  Future<void> _cleanup() async {
+    await _subscription?.cancel();
+    _subscription = null;
+    try {
+      await _channel?.sink.close();
+    } catch (_) {
+      // ignore close errors
+    }
+    _channel = null;
   }
 
   Future<void> _handleMessage(dynamic message) async {
@@ -284,7 +311,22 @@ class WebSocketService {
 
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 5), () {
+
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      print(
+          'WebSocket: Stopping reconnect attempts. Check network/backend URL.');
+      return;
+    }
+
+    _reconnectAttempts++;
+    var delaySeconds = 5 * (1 << (_reconnectAttempts - 1));
+    if (delaySeconds > _maxReconnectDelaySeconds) {
+      delaySeconds = _maxReconnectDelaySeconds;
+    }
+
+    print(
+        'WebSocket: Scheduling reconnect in ${delaySeconds}s (attempt $_reconnectAttempts/$_maxReconnectAttempts)');
+    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
       print('WebSocket: Attempting to reconnect...');
       connect();
     });
@@ -292,8 +334,8 @@ class WebSocketService {
 
   Future<void> disconnect() async {
     _reconnectTimer?.cancel();
-    _subscription?.cancel();
-    await _channel?.sink.close();
+    _reconnectAttempts = 0;
+    await _cleanup();
     _isConnected = false;
     print('WebSocket: Disconnected');
   }

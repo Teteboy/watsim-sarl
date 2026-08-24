@@ -213,6 +213,14 @@ class NotificationState extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> deleteNotification(String id) async {
+    try {
+      await ApiService.deleteNotification(id);
+    } catch (_) {}
+    _notifications.removeWhere((n) => n.id == id);
+    notifyListeners();
+  }
+
   /// Called when profile is updated so other screens can refresh user-related data.
   void onProfileUpdated(Map<String, dynamic> user) {
     // No-op for now; notifications don't cache user data.

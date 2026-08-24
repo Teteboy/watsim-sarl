@@ -329,6 +329,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
                           controller: _codeController,
                           autofocus: true,
                           textCapitalization: TextCapitalization.characters,
+                          cursorColor: Colors.white,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -338,17 +339,26 @@ class _ReferralScreenState extends State<ReferralScreen> {
                           decoration: InputDecoration(
                             hintText:
                                 lang.isFrench ? 'NOUVEAU CODE' : 'NEW CODE',
-                            hintStyle: const TextStyle(color: Colors.white38),
-                            border: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white30),
+                            hintStyle: const TextStyle(color: Colors.white54),
+                            filled: true,
+                            fillColor: Colors.black.withOpacity(0.35),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none,
                             ),
-                            enabledBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white30),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none,
                             ),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                  color: Colors.white, width: 1.5),
                             ),
-                            contentPadding: EdgeInsets.zero,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
                           ),
                         ),
                         if (_editError != null)

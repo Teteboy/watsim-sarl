@@ -633,16 +633,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const SizedBox(height: 16),
                   // ── Credit Score row (backend-driven) ──────────
                   Builder(builder: (ctx) {
-                    final score = (_profile?['creditScore'] ?? 750);
-                    final creditScore = (score is num) ? score.toInt() : 750;
+                    final score = (_profile?['creditScore'] ?? 0);
+                    final creditScore = (score is num) ? score.toInt() : 0;
                     final percent = (creditScore.clamp(0, 1000) / 1000) * 100;
 
                     final qualityLabel = () {
                       if (creditScore >= 800) return lang.excellent;
-                      // LanguageService doesn't define localized labels for all score bands.
                       if (creditScore >= 650) return 'GOOD';
                       if (creditScore >= 500) return 'FAIR';
-                      return 'LOW';
+                      if (creditScore > 0) return 'LOW';
+                      return '—';
                     }();
 
                     return GestureDetector(

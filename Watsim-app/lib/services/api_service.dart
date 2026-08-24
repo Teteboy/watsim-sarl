@@ -724,6 +724,14 @@ class ApiService {
     );
   }
 
+  static Future<void> deleteNotification(String id) async {
+    final res = await http.delete(
+      Uri.parse('$kApiBase/users/me/notifications/$id'),
+      headers: await _headers(),
+    );
+    _decode(res);
+  }
+
   // ── Payments ──────────────────────────────────────────────────────────
 
   /// Initiate a deposit (creates a transaction + triggers CamPay payment)
@@ -773,73 +781,50 @@ class ApiService {
     };
   }
 
-  /// Initiate a withdrawal (creates a transaction + triggers CamPay payment)
+  /// Initiate a wallet withdrawal to mobile money or cash.
   static Future<Map<String, dynamic>> initiateWithdrawal({
     required int amount,
     required String provider, // 'ORANGE_MONEY' or 'MTN_MOMO'
     required String phone,
   }) async {
-    // 1. Create a WITHDRAWAL transaction
-    final txRes = await http.post(
-      Uri.parse('$kApiBase/users/me/transactions/withdrawal'),
-      headers: await _headers(),
-      body: jsonEncode({'amount': amount, 'provider': provider}),
-    );
-    final txData = _decode(txRes);
-    final transactionId = txData['transactionId'] as String;
-
-    // 2. Initiate payment via CamPay
-    final payRes = await http.post(
-      Uri.parse('$kApiBase/payments/initiate'),
-      headers: await _headers(),
-      body: jsonEncode({
-        'transactionId': transactionId,
-        'provider': provider,
-        'phone': phone,
-      }),
-    );
-    final payData = _decode(payRes);
-    return {
-      ...payData,
-      'transactionId': transactionId,
-    };
-  }
-
-  /// Initiate a transfer (creates a transaction + triggers CamPay payment)
-  static Future<Map<String, dynamic>> initiateTransfer({
-    required int amount,
-    required String provider, // 'ORANGE_MONEY' or 'MTN_MOMO'
-    required String phone,
-    required String recipientName,
-  }) async {
-    // 1. Create a TRANSFER transaction
-    final txRes = await http.post(
-      Uri.parse('$kApiBase/users/me/transactions/transfer'),
+    final res = await http.post(
+      Uri.parse('$kApiBase/users/me/withdraw'),
       headers: await _headers(),
       body: jsonEncode({
         'amount': amount,
         'provider': provider,
-        'recipientName': recipientName,
+        'phoneNumber': phone,
       }),
     );
-    final txData = _decode(txRes);
-    final transactionId = txData['transactionId'] as String;
+    return _decode(res);
+  }
 
-    // 2. Initiate payment via CamPay
-    final payRes = await http.post(
-      Uri.parse('$kApiBase/payments/initiate'),
+  /// Initiate a wallet-to-wallet transfer to another Watsim user.
+  static Future<Map<String, dynamic>> initiateTransfer({
+    required int amount,
+    required String recipientIdentifier, // phone, email or user id
+    String? note,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$kApiBase/users/me/wallet/transfer'),
       headers: await _headers(),
       body: jsonEncode({
-        'transactionId': transactionId,
-        'provider': provider,
-        'phone': phone,
+        'amount': amount,
+        'recipientIdentifier': recipientIdentifier,
+        if (note != null && note.isNotEmpty) 'note': note,
       }),
     );
-    final payData = _decode(payRes);
-    return {
-      ...payData,
-      'transactionId': transactionId,
-    };
+    return _decode(res);
+  }
+
+  /// Poll the status of any user transaction.
+  static Future<Map<String, dynamic>> getTransactionStatus(
+      String transactionId) async {
+    final res = await http.get(
+      Uri.parse('$kApiBase/users/me/transactions/$transactionId/status'),
+      headers: await _headers(),
+    );
+    return _decode(res);
   }
 
   /// Poll payment status
