@@ -1,4 +1,5 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { Readable } from 'stream';
 
 import { authenticate } from '../../middleware/authenticate';
 
@@ -21,6 +22,29 @@ import {
 
 import { AuthError } from '../auth/auth.service';
 
+// Some clients send POST/PUT with Content-Type: application/json but no body.
+// This hook feeds an empty JSON object so Fastify does not reject the request.
+function allowEmptyJsonBody(
+  req: FastifyRequest,
+  _reply: FastifyReply,
+  payload: any,
+  done: (err?: Error | null, stream?: any) => void
+) {
+  const length = req.headers['content-length'];
+  if (
+    req.headers['content-type']?.includes('application/json') &&
+    (!length || length === '0')
+  ) {
+    const empty = new Readable({
+      read() {
+        this.push('{}');
+        this.push(null);
+      },
+    });
+    return done(null, empty);
+  }
+  done(null, payload);
+}
 
 export async function messagingRoutes(app: FastifyInstance): Promise<void> {
 
@@ -137,7 +161,7 @@ export async function messagingRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Mark conversation as read
-  app.post('/conversations/:id/read', { schema: markReadSchema }, async (req, reply) => {
+  app.post('/conversations/:id/read', { schema: markReadSchema, preParsing: [allowEmptyJsonBody] }, async (req, reply) => {
     if (!req.authUser) return reply.code(401).send({ error: 'Unauthorized' });
     const userId = req.authUser.id;
 

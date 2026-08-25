@@ -1,4 +1,5 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { Readable } from 'stream';
 import { authenticate } from '../../middleware/authenticate';
 import { getProfile, listUserPurchases, listUserTransactions, updateProfile } from './users.service';
 import { paginationSchema, updateProfileSchema } from './users.schema';
@@ -11,6 +12,30 @@ import { getUserBadges, checkAndAwardBadges } from '../../services/badge.service
 import { processWithdrawal, checkWithdrawalStatus, WithdrawalProvider } from '../../services/withdrawal.service';
 import { processTransfer, getTransferHistory } from '../../services/transfer.service';
 import { verifyPin } from '../auth/auth.service';
+
+// Some clients send PUT with Content-Type: application/json but no body.
+// This hook feeds an empty JSON object so Fastify does not reject the request.
+function allowEmptyJsonBody(
+  req: FastifyRequest,
+  _reply: FastifyReply,
+  payload: any,
+  done: (err?: Error | null, stream?: any) => void
+) {
+  const length = req.headers['content-length'];
+  if (
+    req.headers['content-type']?.includes('application/json') &&
+    (!length || length === '0')
+  ) {
+    const empty = new Readable({
+      read() {
+        this.push('{}');
+        this.push(null);
+      },
+    });
+    return done(null, empty);
+  }
+  done(null, payload);
+}
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
@@ -221,7 +246,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     return { count };
   });
 
-  app.put('/me/notifications/:id/read', async (req) => {
+  app.put('/me/notifications/:id/read', { preParsing: [allowEmptyJsonBody] }, async (req) => {
     const { id } = req.params as { id: string };
     await prisma.userNotification.updateMany({
       where: { id, userId: req.authUser!.id },
@@ -230,7 +255,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     return { success: true };
   });
 
-  app.put('/me/notifications/mark-all-read', async (req) => {
+  app.put('/me/notifications/mark-all-read', { preParsing: [allowEmptyJsonBody] }, async (req) => {
     await prisma.userNotification.updateMany({
       where: { userId: req.authUser!.id, isRead: false },
       data: { isRead: true },
