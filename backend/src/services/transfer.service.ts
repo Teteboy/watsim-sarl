@@ -1,6 +1,7 @@
 import { prisma } from '../config/db';
 import { logger } from '../config/logger';
 import { sendTransactionAlert } from './notification.service';
+import { recipientWhere } from '../utils/phone';
 
 export interface TransferRequest {
   senderId: string;
@@ -53,15 +54,10 @@ export async function processTransfer(request: TransferRequest): Promise<Transfe
     };
   }
 
-  // Find recipient by phone, email, or user ID
+  // Find recipient by phone, email, or user ID (phone is normalized to handle
+  // local/international variants, e.g. 655000001 vs +237655000001)
   const recipient = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { phone: recipientIdentifier },
-        { email: recipientIdentifier },
-        { id: recipientIdentifier },
-      ],
-    },
+    where: recipientWhere(recipientIdentifier),
     include: { wallet: true },
   });
 

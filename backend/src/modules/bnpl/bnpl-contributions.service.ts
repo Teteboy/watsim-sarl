@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { prisma } from '../../config/db';
 import { logger } from '../../config/logger';
+import { recipientWhere } from '../../utils/phone';
 
 export class BnplContributionError extends Error {
   constructor(public statusCode: number, message: string) {
@@ -94,13 +95,7 @@ export async function transferContribution(
   }
 
   const recipient = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { phone: recipientIdentifier },
-        { email: recipientIdentifier },
-        { id: recipientIdentifier },
-      ],
-    },
+    where: recipientWhere(recipientIdentifier),
     include: { wallet: true },
   });
   if (!recipient) {

@@ -850,6 +850,22 @@ class ApiService {
     return _decode(res);
   }
 
+  static String _normalizeIdentifier(String identifier) {
+    final raw = identifier.trim();
+    if (raw.contains('@')) return raw;
+    // Leave UUID-style user IDs untouched
+    if (RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+        .hasMatch(raw)) {
+      return raw;
+    }
+    final digitsOnly = raw.replaceAll(RegExp(r'[\s\-]'), '');
+    if (RegExp(r'^\+?\d+$').hasMatch(digitsOnly)) {
+      return normalizePhone(digitsOnly);
+    }
+    return raw;
+  }
+
   /// Initiate a wallet-to-wallet transfer to another Watsim user.
   static Future<Map<String, dynamic>> initiateTransfer({
     required int amount,
@@ -861,7 +877,7 @@ class ApiService {
       headers: await _headers(),
       body: jsonEncode({
         'amount': amount,
-        'recipientIdentifier': recipientIdentifier,
+        'recipientIdentifier': _normalizeIdentifier(recipientIdentifier),
         if (note != null && note.isNotEmpty) 'note': note,
       }),
     );
@@ -970,7 +986,9 @@ class ApiService {
     final res = await http.post(
       Uri.parse('$kApiBase/bnpl/purchases/$purchaseId/transfer'),
       headers: await _headers(),
-      body: jsonEncode({'recipientIdentifier': recipientIdentifier}),
+      body: jsonEncode({
+        'recipientIdentifier': _normalizeIdentifier(recipientIdentifier),
+      }),
     );
     return _decode(res);
   }

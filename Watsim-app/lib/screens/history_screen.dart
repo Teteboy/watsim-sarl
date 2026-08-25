@@ -1559,8 +1559,19 @@ class _OrderCardState extends State<_OrderCard> {
                           setSheet(() => pinError = 'Please enter your PIN.');
                           return;
                         }
-                        // The PIN is not verified locally; it is handled server-side through auth.
                         setSheet(() => pinError = null);
+                        // Verify the transaction PIN against the login PIN stored on the backend
+                        final pinValid = await ApiService.verifyTransactionPin(
+                          pinCtrl.text.trim(),
+                        );
+                        if (!pinValid) {
+                          setSheet(
+                            () => pinError = lang.isFrench
+                                ? 'PIN incorrect. Veuillez réessayer.'
+                                : 'Incorrect PIN. Please try again.',
+                          );
+                          return;
+                        }
                         try {
                           final result = await ApiService.transferContribution(
                             purchaseId: order.id!,
