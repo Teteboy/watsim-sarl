@@ -309,7 +309,10 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
             const SizedBox(height: 16),
 
             // Down Payment input (optional)
-            Text('DOWN PAYMENT (OPTIONAL)',
+            Text(
+                lang.isFrench
+                    ? 'APPORT INITIAL (OPTIONNEL)'
+                    : 'DOWN PAYMENT (OPTIONAL)',
                 style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -317,7 +320,9 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     letterSpacing: 1)),
             const SizedBox(height: 6),
             Text(
-              'Pay upfront to reduce your installment amounts',
+              lang.isFrench
+                  ? 'Payez d\'avance pour réduire vos mensualités'
+                  : 'Pay upfront to reduce your installment amounts',
               style:
                   const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
@@ -326,7 +331,7 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
               controller: _downPaymentController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                hintText: 'e.g. 50,000',
+                hintText: lang.isFrench ? 'ex. 50 000' : 'e.g. 50,000',
                 suffixText: 'FCFA',
                 suffixStyle: const TextStyle(
                     fontSize: 14,
@@ -899,7 +904,9 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Payment failed: $e'),
+                  content: Text(LanguageService().isFrench
+                      ? 'Paiement échoué : $e'
+                      : 'Payment failed: $e'),
                   backgroundColor: Colors.red.shade600,
                 ),
               );
@@ -1426,8 +1433,10 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
     final instalmentId = instalment['id'] as String? ?? '';
     if (instalmentId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Cannot pay: missing instalment ID'),
+        SnackBar(
+            content: Text(LanguageService().isFrench
+                ? 'Impossible de payer : identifiant de mensualité manquant'
+                : 'Cannot pay: missing instalment ID'),
             backgroundColor: Colors.redAccent),
       );
       return;
@@ -1459,7 +1468,10 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
       final txId = result['transaction']?['id'] as String?;
       if (mounted) {
         _showSuccess(
-            context, 'Payment initiated! Please approve on your phone.',
+            context,
+            LanguageService().isFrench
+                ? 'Paiement initié ! Veuillez approuver sur votre téléphone.'
+                : 'Payment initiated! Please approve on your phone.',
             ussdCode: result['payment']?['ussdCode'] as String?);
         if (txId != null) _pollPaymentStatus(context, txId, 'Repayment');
       }
@@ -1470,7 +1482,9 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Payment failed: ${e.message}'),
+              content: Text(LanguageService().isFrench
+                  ? 'Paiement échoué : ${e.message}'
+                  : 'Payment failed: ${e.message}'),
               backgroundColor: Colors.redAccent),
         );
       }
@@ -1478,7 +1492,9 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Payment error: $e'),
+              content: Text(LanguageService().isFrench
+                  ? 'Erreur de paiement : $e'
+                  : 'Payment error: $e'),
               backgroundColor: Colors.redAccent),
         );
       }
@@ -1504,15 +1520,18 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
               const Icon(Icons.check_circle_rounded,
                   size: 64, color: AppColors.primaryGreen),
               const SizedBox(height: 16),
-              Text('All caught up!',
+              Text(lang.isFrench ? 'Tout est à jour !' : 'All caught up!',
                   style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary)),
               const SizedBox(height: 8),
-              const Text('You have no pending instalments.',
-                  style:
-                      TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+              Text(
+                  lang.isFrench
+                      ? 'Vous n\'avez aucune mensualité en attente.'
+                      : 'You have no pending instalments.',
+                  style: const TextStyle(
+                      fontSize: 14, color: AppColors.textSecondary)),
             ],
           ),
         ),
@@ -1561,7 +1580,9 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
                             color: AppColors.primaryGreen, size: 14),
                         const SizedBox(width: 6),
                         Text(
-                            'Due on ${nextDue.day} ${_monthName(nextDue.month)} ${nextDue.year}',
+                            lang.isFrench
+                                ? 'Échéance le ${nextDue.day} ${_monthName(nextDue.month)} ${nextDue.year}'
+                                : 'Due on ${nextDue.day} ${_monthName(nextDue.month)} ${nextDue.year}',
                             style: const TextStyle(
                                 color: AppColors.primaryGreen,
                                 fontSize: 13,
@@ -1587,8 +1608,10 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
                 final amount = (inst['amount'] as num?)?.toInt() ?? o.monthly;
                 final due = DateTime.tryParse(inst['dueDate'] as String? ?? '');
                 final dueText = due != null
-                    ? 'Due ${due.day} ${_monthName(due.month)}'
-                    : 'Upcoming';
+                    ? (lang.isFrench
+                        ? 'Éch. ${due.day} ${_monthName(due.month)}'
+                        : 'Due ${due.day} ${_monthName(due.month)}')
+                    : (lang.isFrench ? 'À venir' : 'Upcoming');
                 items.add(Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: _repayItem(
@@ -1609,9 +1632,12 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
                   child:
                       CircularProgressIndicator(color: AppColors.primaryGreen)),
               const SizedBox(height: 8),
-              const Center(
-                  child: Text('Processing payment...',
-                      style: TextStyle(color: AppColors.textSecondary))),
+              Center(
+                  child: Text(
+                      lang.isFrench
+                          ? 'Traitement du paiement...'
+                          : 'Processing payment...',
+                      style: const TextStyle(color: AppColors.textSecondary))),
             ],
           ],
         ),
@@ -1727,6 +1753,7 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = LanguageProvider.of(context);
     final providerKey = _providers[_operator]['key'];
     final isWallet = providerKey == 'WALLET' || providerKey == 'REFERRAL';
     return Padding(
@@ -1750,7 +1777,7 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
                   color: Colors.grey.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2)),
             ),
-            Text('Pay Instalment',
+            Text(lang.isFrench ? 'Payer la mensualité' : 'Pay Instalment',
                 style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -1771,8 +1798,8 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
               ),
               child: Column(
                 children: [
-                  const Text('Amount to pay',
-                      style: TextStyle(
+                  Text(lang.isFrench ? 'Montant à payer' : 'Amount to pay',
+                      style: const TextStyle(
                           fontSize: 12, color: AppColors.textSecondary)),
                   const SizedBox(height: 4),
                   Text(_fmt(widget.amount),
@@ -1784,7 +1811,7 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
               ),
             ),
             const SizedBox(height: 20),
-            Text('Payment Method',
+            Text(lang.isFrench ? 'Mode de paiement' : 'Payment Method',
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -1830,8 +1857,9 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
               TextField(
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
+                decoration: InputDecoration(
+                  labelText:
+                      lang.isFrench ? 'Numéro de téléphone' : 'Phone Number',
                   hintText: '6XX XXX XXX',
                   prefixIcon: Icon(Icons.phone_android_rounded,
                       color: AppColors.primaryGreen),
@@ -1845,8 +1873,10 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
                 final phone = isWallet ? '' : _phoneCtrl.text.trim();
                 if (!isWallet && phone.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Enter phone number'),
+                    SnackBar(
+                        content: Text(lang.isFrench
+                            ? 'Entrez le numéro de téléphone'
+                            : 'Enter phone number'),
                         backgroundColor: Colors.redAccent),
                   );
                   return;
@@ -1854,8 +1884,10 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
                 Navigator.pop(context);
                 widget.onPay(provider, phone);
               },
-              child: const Text('Confirm Payment',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              child: Text(
+                  lang.isFrench ? 'Confirmer le paiement' : 'Confirm Payment',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -1872,7 +1904,9 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
     builder: (dialogContext) => AlertDialog(
       icon: const Icon(Icons.check_circle_rounded,
           color: AppColors.primaryGreen, size: 48),
-      title: const Text('Payment Initiated', textAlign: TextAlign.center),
+      title: Text(
+          LanguageService().isFrench ? 'Paiement initié' : 'Payment Initiated',
+          textAlign: TextAlign.center),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1889,7 +1923,10 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
                 ),
                 child: Column(
                   children: [
-                    const Text('Dial this USSD code to complete payment:',
+                    Text(
+                        LanguageService().isFrench
+                            ? 'Composez ce code USSD pour finaliser le paiement :'
+                            : 'Dial this USSD code to complete payment:',
                         textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                     Text(ussdCode,
@@ -1930,7 +1967,9 @@ Future<void> _pollPaymentStatus(
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$type completed! Your wallet has been updated.'),
+              content: Text(LanguageService().isFrench
+                  ? '$type terminé ! Votre portefeuille a été mis à jour.'
+                  : '$type completed! Your wallet has been updated.'),
               backgroundColor: AppColors.primaryGreen,
               duration: const Duration(seconds: 4),
             ),
@@ -1942,7 +1981,9 @@ Future<void> _pollPaymentStatus(
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$type failed. Please try again.'),
+              content: Text(LanguageService().isFrench
+                  ? '$type échoué. Veuillez réessayer.'
+                  : '$type failed. Please try again.'),
               backgroundColor: Colors.red.shade600,
             ),
           );
@@ -1956,8 +1997,10 @@ Future<void> _pollPaymentStatus(
   await WalletState.instance.syncWithBackend();
   if (finalStatus == null && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Payment status unknown. Wallet synced.'),
+      SnackBar(
+        content: Text(LanguageService().isFrench
+            ? 'Statut du paiement inconnu. Portefeuille synchronisé.'
+            : 'Payment status unknown. Wallet synced.'),
         backgroundColor: AppColors.warning,
       ),
     );
@@ -1993,15 +2036,18 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
     final raw = _controller.text.replaceAll(RegExp(r'[^0-9]'), '');
     final amount = int.tryParse(raw) ?? 0;
     if (amount < 0) {
-      setState(() => _error = 'Please enter a valid amount.');
+      setState(() => _error = LanguageService().isFrench
+          ? 'Veuillez entrer un montant valide.'
+          : 'Please enter a valid amount.');
       return;
     }
     // Allow starting BNPL with 0 — user can pay installments later
     if (amount > 0) {
       final walletBalance = WalletState.instance.balance;
       if (amount > walletBalance) {
-        setState(
-            () => _error = 'Exceeds wallet balance: ${_fmt(walletBalance)}');
+        setState(() => _error = LanguageService().isFrench
+            ? 'Dépasse le solde du portefeuille : ${_fmt(walletBalance)}'
+            : 'Exceeds wallet balance: ${_fmt(walletBalance)}');
         return;
       }
     }
@@ -2060,10 +2106,13 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
             const SizedBox(height: 6),
-            const Text(
-              'Pay any amount you\'re comfortable with. It will accumulate towards your total.',
+            Text(
+              lang.isFrench
+                  ? 'Payez le montant qui vous convient. Il s\'accumulera vers votre total.'
+                  : 'Pay any amount you\'re comfortable with. It will accumulate towards your total.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             // Accumulated funds info banner
@@ -2082,7 +2131,9 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Every payment accumulates. Transfer your balance to a new product anytime.',
+                      lang.isFrench
+                          ? 'Chaque paiement s\'accumule. Transférez votre solde vers un nouveau produit à tout moment.'
+                          : 'Every payment accumulates. Transfer your balance to a new product anytime.',
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.primaryGreen),
                     ),
@@ -2138,7 +2189,9 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '${_fmt(overpayPreview)} above the total will be refunded to your wallet.',
+                        lang.isFrench
+                            ? '${_fmt(overpayPreview)} au-dessus du total sera remboursé sur votre portefeuille.'
+                            : '${_fmt(overpayPreview)} above the total will be refunded to your wallet.',
                         style: TextStyle(
                             fontSize: 12,
                             color: Colors.amber.shade800,
@@ -2153,8 +2206,8 @@ class _PaymentAmountSheetState extends State<_PaymentAmountSheet> {
               keyboardType: TextInputType.number,
               autofocus: true,
               decoration: InputDecoration(
-                labelText: 'Amount (FCFA)',
-                hintText: 'e.g. 5,000',
+                labelText: lang.isFrench ? 'Montant (FCFA)' : 'Amount (FCFA)',
+                hintText: lang.isFrench ? 'ex. 5 000' : 'e.g. 5,000',
                 errorText: _error,
                 prefixIcon: const Icon(Icons.attach_money_rounded,
                     color: AppColors.primaryGreen),

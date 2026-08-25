@@ -411,7 +411,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Registration failed: $e'),
+          content: Text(LanguageService().isFrench
+              ? 'Inscription échouée : $e'
+              : 'Registration failed: $e'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -702,7 +704,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final msg = e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(msg.isNotEmpty ? msg : 'Login failed.'),
+          content: Text(msg.isNotEmpty
+              ? msg
+              : (LanguageService().isFrench
+                  ? 'Connexion échouée.'
+                  : 'Login failed.')),
           backgroundColor: AppColors.error,
         ),
       );
@@ -718,11 +724,15 @@ class _LoginScreenState extends State<LoginScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Two-Factor Authentication'),
+        title: Text(LanguageService().isFrench
+            ? 'Authentification à deux facteurs'
+            : 'Two-Factor Authentication'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Enter the 6-digit code sent to your phone:'),
+            Text(LanguageService().isFrench
+                ? 'Entrez le code à 6 chiffres envoyé sur votre téléphone :'
+                : 'Enter the 6-digit code sent to your phone:'),
             const SizedBox(height: 16),
             TextField(
               controller: otpController,
@@ -739,7 +749,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(LanguageService().isFrench ? 'Annuler' : 'Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -762,8 +772,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Login failed. Please try again.'),
+                    SnackBar(
+                      content: Text(LanguageService().isFrench
+                          ? 'Connexion échouée. Veuillez réessayer.'
+                          : 'Login failed. Please try again.'),
                       backgroundColor: AppColors.error,
                     ),
                   );
@@ -778,8 +790,10 @@ class _LoginScreenState extends State<LoginScreen> {
               } catch (_) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Verification failed. Please try again.'),
+                  SnackBar(
+                    content: Text(LanguageService().isFrench
+                        ? 'Vérification échouée. Veuillez réessayer.'
+                        : 'Verification failed. Please try again.'),
                     backgroundColor: AppColors.error,
                   ),
                 );
@@ -787,7 +801,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (mounted) setState(() => _loading = false);
               }
             },
-            child: const Text('Verify'),
+            child: Text(LanguageService().isFrench ? 'Vérifier' : 'Verify'),
           ),
         ],
       ),
@@ -808,8 +822,10 @@ class _LoginScreenState extends State<LoginScreen> {
           _phoneCtrl.text = user['phone'] as String;
           // Show snackbar to prompt for PIN
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Biometric verified. Please enter your PIN.'),
+            SnackBar(
+              content: Text(LanguageService().isFrench
+                  ? 'Biométrie vérifiée. Veuillez entrer votre code PIN.'
+                  : 'Biometric verified. Please enter your PIN.'),
               backgroundColor: AppColors.primaryGreen,
             ),
           );

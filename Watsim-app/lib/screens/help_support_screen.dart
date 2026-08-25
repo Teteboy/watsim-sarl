@@ -49,7 +49,8 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     }
   }
 
-  Future<void> _createTicket(String category, String subject, String description) async {
+  Future<void> _createTicket(
+      String category, String subject, String description) async {
     try {
       await ApiService.createSupportTicket(
         category: category,
@@ -70,7 +71,9 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create ticket: $e'),
+            content: Text(LanguageService().isFrench
+                ? 'Échec de la création du ticket : $e'
+                : 'Failed to create ticket: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -93,7 +96,9 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to open chat: $e'),
+            content: Text(LanguageService().isFrench
+                ? 'Échec de l\'ouverture du chat : $e'
+                : 'Failed to open chat: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -117,25 +122,43 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             children: [
               DropdownButtonFormField<String>(
                 value: selectedCategory,
-                decoration: const InputDecoration(labelText: 'Category'),
-                items: const [
-                  DropdownMenuItem(value: 'GENERAL', child: Text('General')),
-                  DropdownMenuItem(value: 'TECHNICAL', child: Text('Technical')),
-                  DropdownMenuItem(value: 'BILLING', child: Text('Billing')),
-                  DropdownMenuItem(value: 'ACCOUNT', child: Text('Account')),
-                  DropdownMenuItem(value: 'FRAUD', child: Text('Fraud')),
+                decoration: InputDecoration(
+                    labelText: lang.isFrench ? 'Catégorie' : 'Category'),
+                items: [
+                  DropdownMenuItem(
+                    value: 'GENERAL',
+                    child: Text(lang.isFrench ? 'Général' : 'General'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'TECHNICAL',
+                    child: Text(lang.isFrench ? 'Technique' : 'Technical'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'BILLING',
+                    child: Text(lang.isFrench ? 'Facturation' : 'Billing'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ACCOUNT',
+                    child: Text(lang.isFrench ? 'Compte' : 'Account'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'FRAUD',
+                    child: Text(lang.isFrench ? 'Fraude' : 'Fraud'),
+                  ),
                 ],
                 onChanged: (v) => selectedCategory = v!,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: subjectController,
-                decoration: const InputDecoration(labelText: 'Subject'),
+                decoration: InputDecoration(
+                    labelText: lang.isFrench ? 'Objet' : 'Subject'),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: InputDecoration(
+                    labelText: lang.isFrench ? 'Description' : 'Description'),
                 maxLines: 4,
               ),
             ],
@@ -144,7 +167,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(lang.isFrench ? 'Annuler' : 'Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -161,7 +184,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryGreen,
             ),
-            child: const Text('Submit'),
+            child: Text(lang.isFrench ? 'Soumettre' : 'Submit'),
           ),
         ],
       ),
@@ -192,9 +215,12 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             children: [
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              const Text(
-                'Failed to load help data',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                lang.isFrench
+                    ? 'Échec du chargement de l\'aide'
+                    : 'Failed to load help data',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -206,7 +232,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               ElevatedButton.icon(
                 onPressed: _loadData,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(lang.isFrench ? 'Réessayer' : 'Retry'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryGreen,
                   foregroundColor: Colors.white,
@@ -220,7 +246,9 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
 
     // Build FAQ from backend or fallback to local
     final faqs = _faqs.isNotEmpty
-        ? _faqs.map((f) => (f['question'] as String, f['answer'] as String)).toList()
+        ? _faqs
+            .map((f) => (f['question'] as String, f['answer'] as String))
+            .toList()
         : [
             (lang.faqQ1, lang.faqA1),
             (lang.faqQ2, lang.faqA2),
@@ -315,9 +343,8 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                           top: idx == 0
                               ? const Radius.circular(16)
                               : Radius.zero,
-                          bottom: isLast
-                              ? const Radius.circular(16)
-                              : Radius.zero,
+                          bottom:
+                              isLast ? const Radius.circular(16) : Radius.zero,
                         ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -394,7 +421,8 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                   final isLast = e.key == _tickets.length - 1;
                   final status = (ticket['status'] ?? 'OPEN').toString();
                   final priority = (ticket['priority'] ?? 'MEDIUM').toString();
-                  final subject = (ticket['subject'] ?? 'No subject').toString();
+                  final subject =
+                      (ticket['subject'] ?? 'No subject').toString();
                   final createdAt = ticket['createdAt'] != null
                       ? DateTime.parse(ticket['createdAt'].toString())
                       : null;
@@ -496,9 +524,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               child: Column(
                 children: [
                   _HoursRow(
-                      day: lang.monFri,
-                      hours: '08:00 – 20:00',
-                      active: true),
+                      day: lang.monFri, hours: '08:00 – 20:00', active: true),
                   const Divider(height: 1),
                   _HoursRow(day: lang.saturday, hours: '09:00 – 17:00'),
                   const Divider(height: 1),
@@ -532,8 +558,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
         ]),
         backgroundColor: AppColors.primaryGreen,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -601,7 +626,8 @@ class _HoursRow extends StatelessWidget {
   final String hours;
   final bool active;
 
-  const _HoursRow({required this.day, required this.hours, this.active = false});
+  const _HoursRow(
+      {required this.day, required this.hours, this.active = false});
 
   @override
   Widget build(BuildContext context) {

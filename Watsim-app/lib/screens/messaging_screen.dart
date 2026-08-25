@@ -493,7 +493,11 @@ class _NewChatSheetState extends State<_NewChatSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      final message = e is ApiException ? e.message : 'Could not start chat';
+      final message = e is ApiException
+          ? e.message
+          : (LanguageService().isFrench
+              ? 'Impossible de démarrer le chat'
+              : 'Could not start chat');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
@@ -512,7 +516,11 @@ class _NewChatSheetState extends State<_NewChatSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      final message = e is ApiException ? e.message : 'Could not open support';
+      final message = e is ApiException
+          ? e.message
+          : (LanguageService().isFrench
+              ? 'Impossible d\'ouvrir le support'
+              : 'Could not open support');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
@@ -1015,7 +1023,11 @@ class _ChatScreenState extends State<ChatScreen> {
                           fontSize: 15,
                           fontWeight: FontWeight.w600)),
                   Text(
-                    conv.isSystem ? lang.online : 'Watsim user',
+                    conv.isSystem
+                        ? lang.online
+                        : (lang.isFrench
+                            ? 'Utilisateur Watsim'
+                            : 'Watsim user'),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     style: TextStyle(
@@ -1320,6 +1332,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildEmojiPicker() {
+    final lang = LanguageProvider.of(context);
     return SizedBox(
       height: 280,
       child: EmojiPicker(
@@ -1345,10 +1358,10 @@ class _ChatScreenState extends State<ChatScreen> {
             buttonIconColor: Colors.white,
             showBackspaceButton: true,
           ),
-          searchViewConfig: const SearchViewConfig(
+          searchViewConfig: SearchViewConfig(
             backgroundColor: AppColors.offWhite,
             buttonIconColor: AppColors.primaryGreen,
-            hintText: 'Rechercher un emoji',
+            hintText: lang.isFrench ? 'Rechercher un emoji' : 'Search emoji',
           ),
         ),
       ),
@@ -1644,6 +1657,7 @@ class _AttachMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = LanguageProvider.of(context);
     return Container(
       color: const Color(0xFFECE5DD),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -1652,25 +1666,25 @@ class _AttachMenu extends StatelessWidget {
         children: [
           _AttachOption(
             icon: Icons.photo_library_rounded,
-            label: 'Gallery',
+            label: lang.isFrench ? 'Galerie' : 'Gallery',
             color: const Color(0xFF8E44AD),
             onTap: onGallery,
           ),
           _AttachOption(
             icon: Icons.camera_alt_rounded,
-            label: 'Camera',
+            label: lang.isFrench ? 'Caméra' : 'Camera',
             color: const Color(0xFFE91E63),
             onTap: onCamera,
           ),
           _AttachOption(
             icon: Icons.insert_drive_file_rounded,
-            label: 'Document',
+            label: lang.isFrench ? 'Document' : 'Document',
             color: const Color(0xFF1565C0),
             onTap: onFile,
           ),
           _AttachOption(
             icon: Icons.headset_rounded,
-            label: 'Audio',
+            label: lang.isFrench ? 'Audio' : 'Audio',
             color: const Color(0xFFE65100),
             onTap: onAudio,
           ),
@@ -1734,12 +1748,13 @@ class _DateDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = LanguageProvider.of(context);
     final now = DateTime.now();
     final diff = now.difference(dt).inDays;
     final label = diff == 0
-        ? 'Today'
+        ? (lang.isFrench ? 'Aujourd\'hui' : 'Today')
         : diff == 1
-            ? 'Yesterday'
+            ? (lang.isFrench ? 'Hier' : 'Yesterday')
             : '${dt.day}/${dt.month}/${dt.year}';
 
     return Padding(
@@ -1803,6 +1818,21 @@ class _ChatSettingsSheetState extends State<_ChatSettingsSheet> {
   String _fontSize = 'Medium';
   String _wallpaper = 'Default';
 
+  String _fontSizeDisplay(LanguageService lang) {
+    final labels = {'Small': 'Petit', 'Medium': 'Moyen', 'Large': 'Grand'};
+    return lang.isFrench ? (labels[_fontSize] ?? _fontSize) : _fontSize;
+  }
+
+  String _wallpaperDisplay(LanguageService lang) {
+    final labels = {
+      'Default': 'Par défaut',
+      'Light': 'Clair',
+      'Dark': 'Sombre',
+      'Nature': 'Nature'
+    };
+    return lang.isFrench ? (labels[_wallpaper] ?? _wallpaper) : _wallpaper;
+  }
+
   Widget _settingsTile({
     required IconData icon,
     required Color iconColor,
@@ -1863,6 +1893,7 @@ class _ChatSettingsSheetState extends State<_ChatSettingsSheet> {
 
   void _pickFontSize(BuildContext ctx) {
     final lang = LanguageProvider.of(ctx);
+    final fontLabels = {'Small': 'Petit', 'Medium': 'Moyen', 'Large': 'Grand'};
     showDialog(
       context: ctx,
       builder: (_) => SimpleDialog(
@@ -1873,7 +1904,7 @@ class _ChatSettingsSheetState extends State<_ChatSettingsSheet> {
           return RadioListTile<String>(
             value: size,
             groupValue: _fontSize,
-            title: Text(size),
+            title: Text(lang.isFrench ? (fontLabels[size] ?? size) : size),
             activeColor: AppColors.primaryGreen,
             onChanged: (v) {
               setState(() => _fontSize = v!);
@@ -1887,6 +1918,12 @@ class _ChatSettingsSheetState extends State<_ChatSettingsSheet> {
 
   void _pickWallpaper(BuildContext ctx) {
     final lang = LanguageProvider.of(ctx);
+    final wpLabels = {
+      'Default': 'Par défaut',
+      'Light': 'Clair',
+      'Dark': 'Sombre',
+      'Nature': 'Nature'
+    };
     showDialog(
       context: ctx,
       builder: (_) => SimpleDialog(
@@ -1897,7 +1934,7 @@ class _ChatSettingsSheetState extends State<_ChatSettingsSheet> {
           return RadioListTile<String>(
             value: wp,
             groupValue: _wallpaper,
-            title: Text(wp),
+            title: Text(lang.isFrench ? (wpLabels[wp] ?? wp) : wp),
             activeColor: AppColors.primaryGreen,
             onChanged: (v) {
               setState(() => _wallpaper = v!);
@@ -2070,7 +2107,7 @@ class _ChatSettingsSheetState extends State<_ChatSettingsSheet> {
                           icon: Icons.format_size_rounded,
                           iconColor: const Color(0xFF7B1FA2),
                           title: lang.fontSizeLabel,
-                          subtitle: _fontSize,
+                          subtitle: _fontSizeDisplay(lang),
                           trailing: const Icon(Icons.chevron_right_rounded,
                               color: AppColors.textMuted, size: 18),
                           onTap: () => _pickFontSize(context),
@@ -2080,7 +2117,7 @@ class _ChatSettingsSheetState extends State<_ChatSettingsSheet> {
                           icon: Icons.wallpaper_rounded,
                           iconColor: const Color(0xFFE65100),
                           title: lang.chatWallpaper,
-                          subtitle: _wallpaper,
+                          subtitle: _wallpaperDisplay(lang),
                           trailing: const Icon(Icons.chevron_right_rounded,
                               color: AppColors.textMuted, size: 18),
                           onTap: () => _pickWallpaper(context),

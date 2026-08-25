@@ -182,15 +182,15 @@ class _ReferralScreenState extends State<ReferralScreen> {
   // ── Share code ────────────────────────────────────────────────────────────
   void _shareCode(LanguageService lang) {
     final shareText = lang.isFrench
-        ? '🎉 Rejoins Watsim et profite de services financiers simples et sécurisés !\n\n'
+        ? '🎉 Rejoins Watsim et profite de services cotisation simples et sécurisés !\n\n'
             'Utilise mon code de parrainage : $_code\n\n'
-            'Tu recevras 1000 FCFA à ton premier dépôt, et je gagnerai aussi 1000 FCFA !\n'
-            'Plus, je gagne 0.6% quand tu finalises un achat BNPL.\n\n'
+            'Tu recevras 1 000 FCFA à ton premier dépôt, et je gagnerai aussi 1 000 FCFA !\n'
+            'Plus, je gagne 0.6% quand tu finalises une cotisation 💰\n\n'
             '👉 Télécharge Watsim dès maintenant !'
-        : '🎉 Join Watsim — Simple. Secure. Smart. financial services!\n\n'
+        : '🎉 Join Watsim and enjoy simple, secure savings services!\n\n'
             'Use my referral code: $_code\n\n'
-            'You will receive 1000 FCFA on your first deposit, and I will earn 1000 FCFA too!\n'
-            'Plus, I earn 0.6% when you complete a BNPL purchase.\n\n'
+            'You will receive 1,000 FCFA on your first deposit, and I will earn 1,000 FCFA too!\n'
+            'Plus, I earn 0.6% when you complete a contribution 💰\n\n'
             '👉 Download Watsim now!';
 
     Clipboard.setData(ClipboardData(text: shareText));

@@ -569,8 +569,11 @@ class _HistoryScreenState extends State<HistoryScreen>
                     },
                   )),
               ListTile(
-                title: const Text('Clear Filter',
-                    style: TextStyle(color: AppColors.primaryGreen)),
+                title: Text(
+                    LanguageService().isFrench
+                        ? 'Effacer le filtre'
+                        : 'Clear Filter',
+                    style: const TextStyle(color: AppColors.primaryGreen)),
                 trailing:
                     const Icon(Icons.clear, color: AppColors.primaryGreen),
                 onTap: () {
@@ -2387,8 +2390,10 @@ class _DeliveryPinSheetState extends State<_DeliveryPinSheet> {
 
     if (!enabled || !available) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Biometric authentication not enabled or available'),
+        SnackBar(
+          content: Text(LanguageService().isFrench
+              ? 'Authentification biométrique non activée ou indisponible'
+              : 'Biometric authentication not enabled or available'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -2868,19 +2873,25 @@ class _HistoryExchangeConfirmSheetState
                     Icons.account_balance_wallet_outlined,
                     AppColors.primaryGreen,
                     const Color(0xFFE8F5E9),
-                    "${_fmt(widget.overpayPreview)} will be refunded to your wallet after completing the order.")
+                    lang.isFrench
+                        ? "${_fmt(widget.overpayPreview)} sera remboursé sur votre portefeuille après la fin de la commande."
+                        : "${_fmt(widget.overpayPreview)} will be refunded to your wallet after completing the order.")
               else if (widget.willComplete)
                 _infoBanner(
                     Icons.check_circle_outline_rounded,
                     AppColors.primaryGreen,
                     const Color(0xFFE8F5E9),
-                    "Your accumulated funds exactly cover ${newProduct.name} — order will be marked complete.")
+                    lang.isFrench
+                        ? "Vos fonds accumulés couvrent exactement ${newProduct.name} — la commande sera marquée complète."
+                        : "Your accumulated funds exactly cover ${newProduct.name} — order will be marked complete.")
               else
                 _infoBanner(
                     Icons.info_outline_rounded,
                     const Color(0xFFF57C00),
                     const Color(0xFFFFF3E0),
-                    "You still need ${_fmt(widget.remaining)} more. Your ${order.paymentFrequency.toLowerCase()} contributions will continue on the new product."),
+                    lang.isFrench
+                        ? "Il vous manque encore ${_fmt(widget.remaining)}. Vos contributions ${order.paymentFrequency.toLowerCase()} continueront sur le nouveau produit."
+                        : "You still need ${_fmt(widget.remaining)} more. Your ${order.paymentFrequency.toLowerCase()} contributions will continue on the new product."),
 
               const SizedBox(height: 20),
               TextField(
@@ -2939,7 +2950,9 @@ class _HistoryExchangeConfirmSheetState
                       color: AppColors.textPrimary)),
               const SizedBox(height: 6),
               Text(
-                "Your accumulated funds (${_fmt(widget.accumulated)}) and ${order.paymentFrequency.toLowerCase()} payment frequency will transfer to the new product.",
+                lang.isFrench
+                    ? "Vos fonds accumulés (${_fmt(widget.accumulated)}) et la fréquence de paiement ${order.paymentFrequency.toLowerCase()} seront transférés au nouveau produit."
+                    : "Your accumulated funds (${_fmt(widget.accumulated)}) and ${order.paymentFrequency.toLowerCase()} payment frequency will transfer to the new product.",
                 style: const TextStyle(
                     fontSize: 13, color: AppColors.textSecondary, height: 1.4),
               ),
@@ -3037,14 +3050,18 @@ class _HistoryExchangeConfirmSheetState
                 child: Column(children: [
                   _summaryRow(
                       Icons.savings_outlined,
-                      "Accumulated funds transferred",
+                      lang.isFrench
+                          ? "Fonds accumulés transférés"
+                          : "Accumulated funds transferred",
                       _fmt(widget.accumulated),
                       AppColors.primaryGreen),
                   if (widget.willComplete && widget.overpayPreview > 0) ...[
                     const SizedBox(height: 8),
                     _summaryRow(
                         Icons.account_balance_wallet_outlined,
-                        "Excess refunded to wallet",
+                        lang.isFrench
+                            ? "Excédent remboursé au portefeuille"
+                            : "Excess refunded to wallet",
                         _fmt(widget.overpayPreview),
                         AppColors.primaryGreen),
                   ],
@@ -3052,13 +3069,20 @@ class _HistoryExchangeConfirmSheetState
                     const SizedBox(height: 8),
                     _summaryRow(
                         Icons.payments_outlined,
-                        "Remaining to contribute",
+                        lang.isFrench
+                            ? "Restant à cotiser"
+                            : "Remaining to contribute",
                         _fmt(widget.remaining),
                         const Color(0xFFF57C00)),
                   ],
                   const SizedBox(height: 8),
-                  _summaryRow(Icons.repeat_rounded, "Payment frequency kept",
-                      order.paymentFrequency, AppColors.textSecondary),
+                  _summaryRow(
+                      Icons.repeat_rounded,
+                      lang.isFrench
+                          ? "Fréquence de paiement conservée"
+                          : "Payment frequency kept",
+                      order.paymentFrequency,
+                      AppColors.textSecondary),
                 ]),
               ),
               const SizedBox(height: 12),
@@ -3069,19 +3093,25 @@ class _HistoryExchangeConfirmSheetState
                     Icons.verified_rounded,
                     AppColors.primaryGreen,
                     const Color(0xFFE8F5E9),
-                    "Order will be marked complete immediately. ${_fmt(widget.overpayPreview)} refunded to your wallet.")
+                    lang.isFrench
+                        ? "La commande sera marquée complète immédiatement. ${_fmt(widget.overpayPreview)} remboursé sur votre portefeuille."
+                        : "Order will be marked complete immediately. ${_fmt(widget.overpayPreview)} refunded to your wallet.")
               else if (widget.willComplete)
                 _infoBanner(
                     Icons.verified_rounded,
                     AppColors.primaryGreen,
                     const Color(0xFFE8F5E9),
-                    "Your funds exactly cover ${newProduct.name} — order will be marked complete.")
+                    lang.isFrench
+                        ? "Vos fonds couvrent exactement ${newProduct.name} — la commande sera marquée complète."
+                        : "Your funds exactly cover ${newProduct.name} — order will be marked complete.")
               else
                 _infoBanner(
                     Icons.info_outline_rounded,
                     const Color(0xFFF57C00),
                     const Color(0xFFFFF3E0),
-                    "${_fmt(widget.remaining)} left to pay. Continue your ${order.paymentFrequency.toLowerCase()} contributions — no new plan needed."),
+                    lang.isFrench
+                        ? "${_fmt(widget.remaining)} restant à payer. Continuez vos contributions ${order.paymentFrequency.toLowerCase()} — pas de nouveau plan nécessaire."
+                        : "${_fmt(widget.remaining)} left to pay. Continue your ${order.paymentFrequency.toLowerCase()} contributions — no new plan needed."),
 
               const SizedBox(height: 20),
               ElevatedButton(
@@ -3237,12 +3267,12 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
             SnackBar(
               backgroundColor: AppColors.primaryGreen,
               behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              duration: Duration(seconds: 4),
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
               content: Row(
-                children: const [
+                children: [
                   Icon(Icons.check_circle_rounded,
                       color: Colors.white, size: 22),
                   SizedBox(width: 12),
@@ -3252,7 +3282,9 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Demande de livraison reçue!',
+                          LanguageService().isFrench
+                              ? 'Demande de livraison reçue!'
+                              : 'Delivery request received!',
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
@@ -3260,7 +3292,9 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Vos informations ont été enregistrées. Vous recevrez votre produit bientôt.',
+                          LanguageService().isFrench
+                              ? 'Vos informations ont été enregistrées. Vous recevrez votre produit bientôt.'
+                              : 'Your information has been saved. You will receive your product soon.',
                           style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
@@ -3273,7 +3307,9 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
         }
       });
     } else {
-      setState(() => _pinError = 'PIN incorrect. Veuillez réessayer.');
+      setState(() => _pinError = LanguageService().isFrench
+          ? 'PIN incorrect. Veuillez réessayer.'
+          : 'Incorrect PIN. Please try again.');
     }
   }
 
@@ -3444,9 +3480,12 @@ class _HistoryDeliveryForm extends StatelessWidget {
                     color: AppColors.textPrimary)),
           ]),
           const SizedBox(height: 6),
-          const Padding(
-            padding: EdgeInsets.only(left: 54),
-            child: Text('Confirmez vos informations de livraison.',
+          Padding(
+            padding: const EdgeInsets.only(left: 54),
+            child: Text(
+                lang.isFrench
+                    ? 'Confirmez vos informations de livraison.'
+                    : 'Confirm your delivery information.',
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
           ),
           const SizedBox(height: 22),
@@ -3603,8 +3642,8 @@ class _HistoryDeliveryForm extends StatelessWidget {
             const Icon(Icons.badge_outlined,
                 size: 16, color: AppColors.primaryGreen),
             const SizedBox(width: 6),
-            const Text('PHOTO CNI',
-                style: TextStyle(
+            Text(lang.isFrench ? 'PHOTO CNI' : 'ID PHOTO',
+                style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textMuted,
@@ -3616,8 +3655,8 @@ class _HistoryDeliveryForm extends StatelessWidget {
                 color: AppColors.primaryGreen.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text('OPTIONNEL',
-                  style: TextStyle(
+              child: Text(lang.isFrench ? 'OPTIONNEL' : 'OPTIONAL',
+                  style: const TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryGreen,
@@ -3625,9 +3664,11 @@ class _HistoryDeliveryForm extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 8),
-          const Text(
-            'Joindre une photo de votre carte nationale d\'identité (recto et verso).',
-            style: TextStyle(
+          Text(
+            lang.isFrench
+                ? 'Joindre une photo de votre carte nationale d\'identité (recto et verso).'
+                : 'Attach a photo of your national ID card (front and back).',
+            style: const TextStyle(
                 fontSize: 12, color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 12),
@@ -4021,21 +4062,25 @@ class _HistoryReceiptView extends StatelessWidget {
                     color: AppColors.primaryGreen, size: 20),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Your details have been received!',
-                      style: TextStyle(
+                      lang.isFrench
+                          ? 'Vos informations ont été reçues !'
+                          : 'Your details have been received!',
+                      style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: AppColors.primaryGreen),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Thank you! Your delivery request is confirmed. You will receive your product shortly.',
-                      style: TextStyle(
+                      lang.isFrench
+                          ? 'Merci ! Votre demande de livraison est confirmée. Vous recevrez votre produit sous peu.'
+                          : 'Thank you! Your delivery request is confirmed. You will receive your product shortly.',
+                      style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
                           height: 1.5),
@@ -4076,39 +4121,62 @@ class _HistoryReceiptView extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.divider)),
           child: Column(children: [
-            _section('INFORMATIONS CLIENT', [
-              _rRow('Nom & Prénom', name),
-              _rRow('Tél', phone),
-              _rRow('Lieu résidence', neighbourhood),
-              _rRow('Lieu livraison', city),
-              if (color.isNotEmpty) _rRow('Couleur', color),
-              if (shoeSize.isNotEmpty) _rRow('Pointure', shoeSize),
+            _section(
+                lang.isFrench ? 'INFORMATIONS CLIENT' : 'CLIENT INFORMATION', [
+              _rRow(lang.isFrench ? 'Nom & Prénom' : 'Full Name', name),
+              _rRow(lang.isFrench ? 'Tél' : 'Phone', phone),
+              _rRow(lang.isFrench ? 'Lieu résidence' : 'Residence',
+                  neighbourhood),
+              _rRow(
+                  lang.isFrench ? 'Lieu livraison' : 'Delivery Location', city),
+              if (color.isNotEmpty)
+                _rRow(lang.isFrench ? 'Couleur' : 'Color', color),
+              if (shoeSize.isNotEmpty)
+                _rRow(lang.isFrench ? 'Pointure' : 'Shoe Size', shoeSize),
               _rRow('Profession', profession),
-              _rRow('CNI', cni.isNotEmpty ? cni : '—'),
-              _rRow('Photo CNI Recto',
-                  idFrontPhoto != null ? '✓ Capturé' : 'Non fourni'),
-              _rRow('Photo CNI Verso',
-                  idBackPhoto != null ? '✓ Capturé' : 'Non fourni'),
-              _rRow('Heure livraison',
+              _rRow(lang.isFrench ? 'CNI' : 'ID Number',
+                  cni.isNotEmpty ? cni : '—'),
+              _rRow(
+                  lang.isFrench ? 'Photo CNI Recto' : 'ID Photo Front',
+                  idFrontPhoto != null
+                      ? (lang.isFrench ? '✓ Capturé' : '✓ Captured')
+                      : (lang.isFrench ? 'Non fourni' : 'Not provided')),
+              _rRow(
+                  lang.isFrench ? 'Photo CNI Verso' : 'ID Photo Back',
+                  idBackPhoto != null
+                      ? (lang.isFrench ? '✓ Capturé' : '✓ Captured')
+                      : (lang.isFrench ? 'Non fourni' : 'Not provided')),
+              _rRow(lang.isFrench ? 'Heure livraison' : 'Delivery Time',
                   deliveryTime != null ? deliveryTime!.format(context) : '—'),
             ]),
             const Divider(height: 1, color: AppColors.divider),
-            _section('ORDER DETAILS', [
-              _rRow('Order #', order.orderNumber),
-              _rRow('Product', order.product.name),
-              _rRow('Category', order.product.category),
-              _rRow('Request Date', _today),
+            _section(lang.isFrench ? 'DÉTAILS COMMANDE' : 'ORDER DETAILS', [
+              _rRow(
+                  lang.isFrench ? 'Commande #' : 'Order #', order.orderNumber),
+              _rRow(lang.isFrench ? 'Produit' : 'Product', order.product.name),
+              _rRow(lang.isFrench ? 'Catégorie' : 'Category',
+                  order.product.category),
+              _rRow(lang.isFrench ? 'Date demande' : 'Request Date', _today),
             ]),
             const Divider(height: 1, color: AppColors.divider),
-            _section('PRICING BREAKDOWN', [
-              _rRow('Base Price', _fmt(order.basePrice)),
-              _rRow('Service Fee', _fmt(order.fee)),
-              _rRow('Payment Plan', order.planDurationLabel),
-              _rRow('Frequency', order.paymentFrequency),
-              _rRow('Contributions Made',
+            _section(lang.isFrench ? 'DÉTAIL DES PRIX' : 'PRICING BREAKDOWN', [
+              _rRow(lang.isFrench ? 'Prix de base' : 'Base Price',
+                  _fmt(order.basePrice)),
+              _rRow(lang.isFrench ? 'Frais de service' : 'Service Fee',
+                  _fmt(order.fee)),
+              _rRow(lang.isFrench ? 'Plan de paiement' : 'Payment Plan',
+                  order.planDurationLabel),
+              _rRow(lang.isFrench ? 'Fréquence' : 'Frequency',
+                  order.paymentFrequency),
+              _rRow(
+                  lang.isFrench
+                      ? 'Contributions effectuées'
+                      : 'Contributions Made',
                   '${order.paidInstallments.length}/${order.totalInstallments}'),
-              _rRow('Accumulated Funds', _fmt(order.accumulatedFunds)),
-              if (remaining > 0) _rRow('Remaining', _fmt(remaining)),
+              _rRow(lang.isFrench ? 'Fonds accumulés' : 'Accumulated Funds',
+                  _fmt(order.accumulatedFunds)),
+              if (remaining > 0)
+                _rRow(lang.isFrench ? 'Restant' : 'Remaining', _fmt(remaining)),
             ]),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -4907,8 +4975,11 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary)),
               const SizedBox(height: 6),
-              const Text('Enter your 4-digit PIN to confirm the withdrawal.',
-                  style: TextStyle(
+              Text(
+                  lang.isFrench
+                      ? 'Entrez votre code PIN à 4 chiffres pour confirmer le retrait.'
+                      : 'Enter your 4-digit PIN to confirm the withdrawal.',
+                  style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.textSecondary,
                       height: 1.4)),

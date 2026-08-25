@@ -52,14 +52,16 @@ class _RewardsScreenState extends State<RewardsScreen> {
         _pendingCashback = data['pendingBalance'] ?? 0;
 
         if (data['history'] != null) {
-          _allCashback = (data['history'] as List).map((h) => _CashbackEntry(
-            _getIconForType(h['type']),
-            _getColorForType(h['type']),
-            h['title'] ?? 'Unknown',
-            _formatDate(h['createdAt']),
-            '+${h['amount']} FCFA',
-            h['percentage'] ?? h['type'],
-          )).toList();
+          _allCashback = (data['history'] as List)
+              .map((h) => _CashbackEntry(
+                    _getIconForType(h['type']),
+                    _getColorForType(h['type']),
+                    h['title'] ?? 'Unknown',
+                    _formatDate(h['createdAt']),
+                    '+${h['amount']} FCFA',
+                    h['percentage'] ?? h['type'],
+                  ))
+              .toList();
         }
 
         _badges = badgesData['badges'] ?? [];
@@ -289,8 +291,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                             Text(
                               '${lang.isFrench ? 'En attente' : 'Pending'}: ${_fmt(_pendingCashback)} FCFA',
                               style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12),
+                                  color: Colors.white54, fontSize: 12),
                             ),
                           ],
                           const SizedBox(height: 8),
@@ -340,8 +341,8 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () => _showWithdrawSheet(context, lang),
-                        icon: const Icon(Icons.account_balance_rounded,
-                            size: 16),
+                        icon:
+                            const Icon(Icons.account_balance_rounded, size: 16),
                         label: Text(lang.withdrawRewards),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primaryGreen,
@@ -499,7 +500,9 @@ class _RewardsScreenState extends State<RewardsScreen> {
                   ),
                   child: Center(
                     child: Text(
-                      lang.isFrench ? 'Aucun badge pour le moment' : 'No badges yet',
+                      lang.isFrench
+                          ? 'Aucun badge pour le moment'
+                          : 'No badges yet',
                       style: const TextStyle(
                           color: AppColors.textMuted, fontSize: 14),
                     ),
@@ -570,8 +573,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryGreen)),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primaryGreen.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(4),
@@ -639,9 +641,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: earned
-                      ? color
-                      : AppColors.textMuted.withOpacity(0.5)),
+                  color: earned ? color : AppColors.textMuted.withOpacity(0.5)),
               maxLines: 2,
               overflow: TextOverflow.ellipsis),
         ],
@@ -671,9 +671,24 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
   bool _isProcessing = false;
 
   static const _methods = [
-    {'id': 'mtn', 'label': 'MTN Mobile Money', 'color': 0xFFFFCC00, 'icon': Icons.phone_android},
-    {'id': 'orange', 'label': 'Orange Money', 'color': 0xFFFF6B00, 'icon': Icons.phone_android},
-    {'id': 'cash', 'label': 'Cash Collection', 'color': 0xFF10B981, 'icon': Icons.payments},
+    {
+      'id': 'mtn',
+      'label': 'MTN Mobile Money',
+      'color': 0xFFFFCC00,
+      'icon': Icons.phone_android
+    },
+    {
+      'id': 'orange',
+      'label': 'Orange Money',
+      'color': 0xFFFF6B00,
+      'icon': Icons.phone_android
+    },
+    {
+      'id': 'cash',
+      'label': 'Cash Collection',
+      'color': 0xFF10B981,
+      'icon': Icons.payments
+    },
   ];
 
   @override
@@ -748,9 +763,11 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(lang.withdrawSuccess,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 13)),
                 Text(lang.withdrawProcessing,
-                    style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                    style:
+                        const TextStyle(fontSize: 11, color: Colors.white70)),
               ],
             ),
           ),
@@ -763,7 +780,11 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
-      _snack(lang.isFrench ? 'Échec du retrait. Réessayez.' : 'Withdrawal failed. Please retry.', AppColors.error);
+      _snack(
+          lang.isFrench
+              ? 'Échec du retrait. Réessayez.'
+              : 'Withdrawal failed. Please retry.',
+          AppColors.error);
     }
   }
 
@@ -821,7 +842,8 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
                     color: AppColors.primaryGreen.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.account_balance_rounded, color: AppColors.primaryGreen, size: 20),
+                  child: const Icon(Icons.account_balance_rounded,
+                      color: AppColors.primaryGreen, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -829,9 +851,13 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(lang.withdrawTitle,
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                          style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary)),
                       Text(lang.withdrawSubtitle,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
@@ -845,15 +871,20 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
               decoration: BoxDecoration(
                 color: AppColors.primaryGreen.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
+                border:
+                    Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.stars_rounded, color: AppColors.warning, size: 18),
+                  const Icon(Icons.stars_rounded,
+                      color: AppColors.warning, size: 18),
                   const SizedBox(width: 8),
                   Text(
                     '${lang.availableCashback}: ${_fmt(widget.availableBalance)} FCFA',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryGreen),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primaryGreen),
                   ),
                 ],
               ),
@@ -870,18 +901,27 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 16),
+                  const Icon(Icons.info_outline_rounded,
+                      color: AppColors.warning, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(lang.rewardsOnlyNote,
-                        style: const TextStyle(fontSize: 11, color: AppColors.warning, fontWeight: FontWeight.w500, height: 1.5)),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.warning,
+                            fontWeight: FontWeight.w500,
+                            height: 1.5)),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
             // Method label
-            Text(lang.withdrawMethod, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(lang.withdrawMethod,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
             const SizedBox(height: 10),
             // Method cards
             Row(
@@ -890,7 +930,14 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
                 final id = m['id'] as String;
                 final selected = _selectedMethod == id;
                 final color = Color(m['color'] as int);
-                final label = m['label'] as String;
+                final methodLabels = lang.isFrench
+                    ? [
+                        'MTN Mobile Money',
+                        'Orange Money',
+                        'Collecte en espèces'
+                      ]
+                    : ['MTN Mobile Money', 'Orange Money', 'Cash Collection'];
+                final label = methodLabels[i];
                 return Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(right: i < 2 ? 8.0 : 0),
@@ -898,9 +945,12 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
                       onTap: () => setState(() => _selectedMethod = id),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 6),
                         decoration: BoxDecoration(
-                          color: selected ? color.withOpacity(0.1) : const Color(0xFFF8F8F8),
+                          color: selected
+                              ? color.withOpacity(0.1)
+                              : const Color(0xFFF8F8F8),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: selected ? color : const Color(0xFFE8F2F1),
@@ -939,7 +989,9 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
                                 style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
-                                    color: selected ? color : AppColors.textSecondary),
+                                    color: selected
+                                        ? color
+                                        : AppColors.textSecondary),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 4),
@@ -962,7 +1014,11 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
             ),
             const SizedBox(height: 20),
             // Phone number
-            Text(lang.mobileNumber, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(lang.mobileNumber,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
             const SizedBox(height: 8),
             TextField(
               controller: _phoneCtrl,
@@ -970,9 +1026,13 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               decoration: InputDecoration(
                 hintText: lang.enterPhoneNumber,
-                prefixIcon: const Icon(Icons.phone_rounded, color: AppColors.primaryGreen, size: 20),
+                prefixIcon: const Icon(Icons.phone_rounded,
+                    color: AppColors.primaryGreen, size: 20),
                 prefixText: '+237 ',
-                prefixStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                prefixStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -981,17 +1041,25 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(lang.withdrawAmount, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Text(lang.withdrawAmount,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary)),
                 GestureDetector(
                   onTap: _setAll,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.primaryGreen.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(lang.withdrawAll,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryGreen)),
                   ),
                 ),
               ],
@@ -1003,9 +1071,13 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               decoration: const InputDecoration(
                 hintText: '0',
-                prefixIcon: Icon(Icons.account_balance_wallet_outlined, color: AppColors.primaryGreen, size: 20),
+                prefixIcon: Icon(Icons.account_balance_wallet_outlined,
+                    color: AppColors.primaryGreen, size: 20),
                 suffixText: 'FCFA',
-                suffixStyle: TextStyle(fontSize: 14, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                suffixStyle: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -1024,8 +1096,14 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(lang.processingFee, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                        Text(lang.free, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
+                        Text(lang.processingFee,
+                            style: const TextStyle(
+                                fontSize: 12, color: AppColors.textSecondary)),
+                        Text(lang.free,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryGreen)),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -1034,8 +1112,16 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(lang.youWillReceive, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                        Text('${_fmt(amt)} FCFA', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primaryGreen)),
+                        Text(lang.youWillReceive,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary)),
+                        Text('${_fmt(amt)} FCFA',
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primaryGreen)),
                       ],
                     ),
                   ],
@@ -1048,13 +1134,17 @@ class _WithdrawBottomSheetState extends State<_WithdrawBottomSheet> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isProcessing ? null : () => _submit(lang),
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16)),
                 child: _isProcessing
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(lang.confirmWithdraw, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Text(lang.confirmWithdraw,
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700)),
               ),
             ),
           ],
@@ -1069,5 +1159,6 @@ class _CashbackEntry {
   final IconData icon;
   final Color color;
   final String title, date, amount, tag;
-  const _CashbackEntry(this.icon, this.color, this.title, this.date, this.amount, this.tag);
+  const _CashbackEntry(
+      this.icon, this.color, this.title, this.date, this.amount, this.tag);
 }

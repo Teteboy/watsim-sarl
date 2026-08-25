@@ -59,7 +59,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
       if (mounted) {
         setState(() {
-          _fingerprintEnabled = biometricEnabled && biometricType == 'Fingerprint';
+          _fingerprintEnabled =
+              biometricEnabled && biometricType == 'Fingerprint';
           _faceIdEnabled = biometricEnabled && biometricType == 'Face ID';
           _fingerprintAvailable = fingerprintAvail;
           _faceIdAvailable = faceIdAvail;
@@ -89,7 +90,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
         irisEnabled: key == 'irisEnabled' ? value : null,
         twoFAEnabled: key == 'twoFAEnabled' ? value : null,
         loginAlertsEnabled: key == 'loginAlertsEnabled' ? value : null,
-        transactionAlertsEnabled: key == 'transactionAlertsEnabled' ? value : null,
+        transactionAlertsEnabled:
+            key == 'transactionAlertsEnabled' ? value : null,
       );
     } catch (e) {
       if (mounted) {
@@ -122,8 +124,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
         // Authentication failed, don't enable
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Biometric verification failed. Please try again.'),
+            SnackBar(
+              content: Text(LanguageService().isFrench
+                  ? 'Vérification biométrique échouée. Veuillez réessayer.'
+                  : 'Biometric verification failed. Please try again.'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -144,8 +148,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) =>
-              _BiometricScanDialog(label: label, icon: icon, color: color, success: true),
+          builder: (_) => _BiometricScanDialog(
+              label: label, icon: icon, color: color, success: true),
         );
       }
     } else {
@@ -263,7 +267,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
               const SizedBox(height: 16),
               Text(
                 'Failed to load security settings',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -360,25 +365,25 @@ class _SecurityScreenState extends State<SecurityScreen> {
               biometricsAvailable: _biometricsAvailable,
               onFingerprintChanged: _fingerprintAvailable
                   ? (_) => _handleBiometricToggle(
-                      context,
-                      'Fingerprint',
-                      Icons.fingerprint_rounded,
-                      AppColors.deepTeal,
-                      _fingerprintEnabled,
-                      (v) => setState(() => _fingerprintEnabled = v),
-                      'fingerprintEnabled',
-                    )
+                        context,
+                        'Fingerprint',
+                        Icons.fingerprint_rounded,
+                        AppColors.deepTeal,
+                        _fingerprintEnabled,
+                        (v) => setState(() => _fingerprintEnabled = v),
+                        'fingerprintEnabled',
+                      )
                   : null,
               onFaceIdChanged: _faceIdAvailable
                   ? (_) => _handleBiometricToggle(
-                      context,
-                      'Face ID',
-                      Icons.face_retouching_natural_rounded,
-                      AppColors.secondaryGreen,
-                      _faceIdEnabled,
-                      (v) => setState(() => _faceIdEnabled = v),
-                      'faceIdEnabled',
-                    )
+                        context,
+                        'Face ID',
+                        Icons.face_retouching_natural_rounded,
+                        AppColors.secondaryGreen,
+                        _faceIdEnabled,
+                        (v) => setState(() => _faceIdEnabled = v),
+                        'faceIdEnabled',
+                      )
                   : null,
               onIrisChanged: null, // Iris not implemented yet
             ),
@@ -682,9 +687,7 @@ class _BiometricsCard extends StatelessWidget {
                         ),
                       if (fingerprintAvailable && faceIdAvailable)
                         const Divider(
-                            height: 1,
-                            color: Color(0xFFE8F2F1),
-                            indent: 58),
+                            height: 1, color: Color(0xFFE8F2F1), indent: 58),
                       if (faceIdAvailable)
                         _biometricRow(
                           icon: Icons.face_retouching_natural_rounded,
@@ -736,9 +739,7 @@ class _BiometricsCard extends StatelessWidget {
           Switch(
             value: value,
             activeColor: AppColors.primaryGreen,
-            onChanged: onChanged != null
-                ? (v) => onChanged(v)
-                : null,
+            onChanged: onChanged != null ? (v) => onChanged(v) : null,
           ),
         ],
       ),
@@ -777,8 +778,8 @@ class _BiometricScanDialogState extends State<_BiometricScanDialog>
         vsync: this, duration: const Duration(milliseconds: 900))
       ..repeat(reverse: true);
 
-    _pulse = Tween<double>(begin: 0.85, end: 1.1).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _pulse = Tween<double>(begin: 0.85, end: 1.1)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     // If success is pre-set, show it immediately
     if (widget.success == true) {
@@ -833,8 +834,7 @@ class _BiometricScanDialogState extends State<_BiometricScanDialog>
                         ? AppColors.primaryGreen.withOpacity(0.2)
                         : widget.color.withOpacity(0.15),
                     border: Border.all(
-                      color:
-                          _success ? AppColors.primaryGreen : widget.color,
+                      color: _success ? AppColors.primaryGreen : widget.color,
                       width: 2.5,
                     ),
                   ),
@@ -929,8 +929,8 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
           ]),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -1074,7 +1074,8 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
               Container(
                 color: Colors.black54,
                 child: const Center(
-                  child: CircularProgressIndicator(color: AppColors.primaryGreen),
+                  child:
+                      CircularProgressIndicator(color: AppColors.primaryGreen),
                 ),
               ),
           ],
@@ -1106,8 +1107,8 @@ class _FreezeSimulationDialogState extends State<_FreezeSimulationDialog>
         vsync: this, duration: const Duration(milliseconds: 900))
       ..repeat(reverse: true);
 
-    _pulse = Tween<double>(begin: 0.88, end: 1.08).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _pulse = Tween<double>(begin: 0.88, end: 1.08)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     Future.delayed(const Duration(milliseconds: 2800), () {
       if (mounted) {
@@ -1179,7 +1180,8 @@ class _FreezeSimulationDialogState extends State<_FreezeSimulationDialog>
                   ? 'Your account has been frozen.\nContact support to unfreeze.'
                   : 'Please wait while we secure your account',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white60, fontSize: 13, height: 1.5),
+              style: const TextStyle(
+                  color: Colors.white60, fontSize: 13, height: 1.5),
             ),
             if (!_done) ...[
               const SizedBox(height: 20),
@@ -1192,8 +1194,7 @@ class _FreezeSimulationDialogState extends State<_FreezeSimulationDialog>
                     value: v,
                     minHeight: 4,
                     backgroundColor: Colors.white12,
-                    valueColor:
-                        const AlwaysStoppedAnimation(AppColors.error),
+                    valueColor: const AlwaysStoppedAnimation(AppColors.error),
                   ),
                 ),
               ),

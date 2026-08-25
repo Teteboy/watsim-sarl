@@ -267,11 +267,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               Navigator.pop(ctx);
             },
             icon: const Icon(Icons.copy, size: 18),
-            label: const Text('Copy'),
+            label: Text(LanguageService().isFrench ? 'Copier' : 'Copy'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
+            child: Text(LanguageService().isFrench ? 'Fermer' : 'Close'),
           ),
         ],
       ),

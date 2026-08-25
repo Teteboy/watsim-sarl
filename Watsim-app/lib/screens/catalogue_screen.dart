@@ -881,8 +881,8 @@ class _ProductImage extends StatelessWidget {
 
           // Stock badge backed by backend product.stock
           Positioned(
-            top: 8,
-            left: 8,
+            bottom: 8,
+            right: 8,
             child: ProductStockBadge(stock: product.stock, fontSize: 9),
           ),
         ],
@@ -1059,16 +1059,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Column(
                       children: [
                         if (product.merchantName != null)
-                          _feature(Icons.store_outlined,
-                              'Vendeur: ${product.merchantName}'),
+                          _feature(
+                              Icons.store_outlined,
+                              lang.isFrench
+                                  ? 'Vendeur: ${product.merchantName}'
+                                  : 'Seller: ${product.merchantName}'),
                         if (product.stock != null)
-                          _feature(Icons.inventory_2_outlined,
-                              'Stock: ${product.stock} disponibles'),
+                          _feature(
+                              Icons.inventory_2_outlined,
+                              lang.isFrench
+                                  ? 'Stock: ${product.stock} disponibles'
+                                  : 'Stock: ${product.stock} available'),
                         _feature(Icons.check_circle_rounded, lang.freeDelivery),
                         _feature(Icons.shield_rounded, lang.warranty12),
                         if (product.bnplEligible == true)
                           _feature(
-                              Icons.credit_score_outlined, 'BNPL éligible'),
+                              Icons.credit_score_outlined,
+                              lang.isFrench
+                                  ? 'BNPL éligible'
+                                  : 'BNPL eligible'),
                       ],
                     ),
                   ),

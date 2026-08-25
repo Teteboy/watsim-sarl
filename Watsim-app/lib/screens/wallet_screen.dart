@@ -27,7 +27,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
   static const _filters = ['All', 'Deposits', 'Withdrawals', 'BNPL'];
   static const _statusFilters = ['All', 'Pending', 'Completed'];
-  static const _statusFilterLabels = ['All', 'Pending', 'Completed'];
+  // Status filter keys (internal; labels come from lang)
   static const _previewCount = 4;
 
   @override
@@ -135,28 +135,45 @@ class _WalletScreenState extends State<WalletScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final txDay = DateTime(dt.year, dt.month, dt.day);
     final diff = today.difference(txDay).inDays;
+    final fr = LanguageService().isFrench;
     if (diff == 0) {
       final h = dt.hour.toString().padLeft(2, '0');
       final m = dt.minute.toString().padLeft(2, '0');
-      return 'Today, $h:$m';
+      return fr ? 'Aujourd\'hui, $h:$m' : 'Today, $h:$m';
     } else if (diff == 1) {
-      return 'Yesterday';
+      return fr ? 'Hier' : 'Yesterday';
     }
-    const months = [
-      '',
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
+    final months = fr
+        ? [
+            '',
+            'Jan',
+            'Fév',
+            'Mar',
+            'Avr',
+            'Mai',
+            'Juin',
+            'Juil',
+            'Août',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Déc'
+          ]
+        : [
+            '',
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec'
+          ];
     return '${months[dt.month]} ${dt.day}, ${dt.year}';
   }
 
@@ -173,6 +190,9 @@ class _WalletScreenState extends State<WalletScreen> {
       lang.filterBNPL
     ];
     final filterKeys = ['All', 'Deposits', 'Withdrawals', 'BNPL'];
+    final statusFilterLabels = lang.isFrench
+        ? ['Tout', 'En attente', 'Terminé']
+        : ['All', 'Pending', 'Completed'];
 
     return Scaffold(
       backgroundColor: AppColors.offWhite,
@@ -218,16 +238,16 @@ class _WalletScreenState extends State<WalletScreen> {
           children: [
             Text(
                 _loadingProfile
-                    ? 'Hello'
-                    : '${(_profile?['fullName'] ?? _profile?['name'] ?? 'Guest')}',
+                    ? (lang.isFrench ? 'Bonjour' : 'Hello')
+                    : '${(_profile?['fullName'] ?? _profile?['name'] ?? (lang.isFrench ? 'Invité' : 'Guest'))}',
                 style: const TextStyle(
                     color: AppColors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w600)),
             Text(
                 _loadingProfile
-                    ? 'Loading...'
-                    : '${(_profile?['phone'] ?? _profile?['email'] ?? '@guest')}',
+                    ? (lang.isFrench ? 'Chargement...' : 'Loading...')
+                    : '${(_profile?['phone'] ?? _profile?['email'] ?? (lang.isFrench ? '@invité' : '@guest'))}',
                 style: const TextStyle(
                     color: Colors.white54,
                     fontSize: 12,
@@ -339,7 +359,10 @@ class _WalletScreenState extends State<WalletScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Add from Wallet',
+                        Text(
+                            lang.isFrench
+                                ? 'Recharger depuis le portefeuille'
+                                : 'Add from Wallet',
                             style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
@@ -445,7 +468,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 scrollDirection: Axis.horizontal,
                 children: List.generate(_statusFilters.length, (idx) {
                   final key = _statusFilters[idx];
-                  final label = _statusFilterLabels[idx];
+                  final label = statusFilterLabels[idx];
                   final sel = key == _statusFilter;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -526,7 +549,9 @@ class _WalletScreenState extends State<WalletScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    'Show ${filtered.length - _previewCount} more',
+                                    lang.isFrench
+                                        ? 'Afficher ${filtered.length - _previewCount} de plus'
+                                        : 'Show ${filtered.length - _previewCount} more',
                                     style: const TextStyle(
                                         color: AppColors.primaryGreen,
                                         fontSize: 13,
@@ -607,7 +632,9 @@ class _WalletScreenState extends State<WalletScreen> {
           const SizedBox(height: 16),
           Text(
             isFiltered
-                ? 'No transactions match your filters'
+                ? (lang.isFrench
+                    ? 'Aucune transaction ne correspond à vos filtres'
+                    : 'No transactions match your filters')
                 : lang.noTransactionsYet,
             style: const TextStyle(
                 fontSize: 15,
@@ -617,8 +644,12 @@ class _WalletScreenState extends State<WalletScreen> {
           const SizedBox(height: 8),
           Text(
             isFiltered
-                ? 'Try a different filter to see your history.'
-                : 'Make your deposit now so you can\nsee your history here.',
+                ? (lang.isFrench
+                    ? 'Essayez un autre filtre pour voir votre historique.'
+                    : 'Try a different filter to see your history.')
+                : (lang.isFrench
+                    ? 'Effectuez un dépôt maintenant pour voir\nvotre historique ici.'
+                    : 'Make your deposit now so you can\nsee your history here.'),
             textAlign: TextAlign.center,
             style: const TextStyle(
                 fontSize: 13, color: AppColors.textSecondary, height: 1.5),

@@ -309,11 +309,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   String _relativeTime(DateTime dt, LanguageService lang) {
     final diff = DateTime.now().difference(dt);
+    final m = diff.inMinutes;
+    final h = diff.inHours;
+    final d = diff.inDays;
     if (diff.inSeconds < 60) return lang.justNow;
-    if (diff.inMinutes < 60) return '${diff.inMinutes}${lang.minutesAgo} ago';
-    if (diff.inHours < 24) return '${diff.inHours}${lang.hoursAgo} ago';
-    if (diff.inDays == 1) return lang.yesterday;
-    return '${diff.inDays}${lang.daysAgo} ago';
+    if (m < 60) {
+      return lang.isFrench ? 'il y a $m min' : '$m${lang.minutesAgo} ago';
+    }
+    if (h < 24) {
+      return lang.isFrench ? 'il y a $h h' : '$h${lang.hoursAgo} ago';
+    }
+    if (d == 1) return lang.yesterday;
+    return lang.isFrench ? 'il y a $d jours' : '$d${lang.daysAgo} ago';
   }
 
   Widget _emptyState(LanguageService lang) {

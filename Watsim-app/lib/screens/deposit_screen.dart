@@ -88,8 +88,9 @@ class _DepositScreenState extends State<DepositScreen> {
     if (_amount < 1) return;
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
-      setState(
-          () => _payError = 'Please enter your mobile money phone number.');
+      setState(() => _payError = LanguageProvider.of(context).isFrench
+          ? 'Veuillez entrer votre numéro mobile money.'
+          : 'Please enter your mobile money phone number.');
       return;
     }
     final providerKey = _operator == 0 ? 'ORANGE_MONEY' : 'MTN_MOMO';
@@ -112,8 +113,11 @@ class _DepositScreenState extends State<DepositScreen> {
       if (mounted) {
         debugPrint(
             'DEPOSIT: Showing success dialog, ussdCode=${result['ussdCode']} txId=$txId');
-        _showSuccess(context,
-            'Demande de dépôt envoyée !\nVeuillez approuver sur votre téléphone.',
+        _showSuccess(
+            context,
+            LanguageProvider.of(context).isFrench
+                ? 'Demande de dépôt envoyée !\nVeuillez approuver sur votre téléphone.'
+                : 'Deposit request sent!\nPlease approve on your phone.',
             ussdCode: result['ussdCode'] as String?);
         // Start polling for payment status
         if (txId != null) {
@@ -133,7 +137,9 @@ class _DepositScreenState extends State<DepositScreen> {
       debugPrint('DEPOSIT: Stack = $st');
       setState(() {
         _paying = false;
-        _payError = 'Le dépôt a échoué. Vérifiez votre connexion.';
+        _payError = LanguageProvider.of(context).isFrench
+            ? 'Le dépôt a échoué. Vérifiez votre connexion.'
+            : 'Deposit failed. Check your connection.';
       });
     }
   }
@@ -199,8 +205,12 @@ class _DepositScreenState extends State<DepositScreen> {
         const Icon(Icons.check_circle_rounded, color: Colors.white),
         const SizedBox(width: 10),
         Text(collectedAmount != _cashRequestedAmount
-            ? 'Dépôt terminé — montant mis à jour. Vérifiez vos messages.'
-            : 'Dépôt en espèces confirmé ! Portefeuille crédité.'),
+            ? (LanguageService().isFrench
+                ? 'Dépôt terminé — montant mis à jour. Vérifiez vos messages.'
+                : 'Deposit complete — amount updated. Check your messages.')
+            : (LanguageService().isFrench
+                ? 'Dépôt en espèces confirmé ! Portefeuille crédité.'
+                : 'Cash deposit confirmed! Wallet credited.')),
       ]),
       backgroundColor: AppColors.primaryGreen,
       behavior: SnackBarBehavior.floating,
@@ -259,7 +269,9 @@ class _DepositScreenState extends State<DepositScreen> {
               ]),
               const SizedBox(height: 20),
               Text(
-                'Entrez le montant réel remis au bureau :',
+                lang.isFrench
+                    ? 'Entrez le montant réel remis au bureau :'
+                    : 'Enter the actual amount handed in at the office:',
                 style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),
@@ -314,7 +326,8 @@ class _DepositScreenState extends State<DepositScreen> {
     if (_cashPending) {
       return Scaffold(
         backgroundColor: AppColors.offWhite,
-        appBar: const WatsimAppBar(title: 'Dépôt', showBack: true),
+        appBar: WatsimAppBar(
+            title: lang.isFrench ? 'Dépôt' : 'Deposit', showBack: true),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -335,16 +348,18 @@ class _DepositScreenState extends State<DepositScreen> {
                     size: 48, color: Color(0xFFFFC107)),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Dépôt en attente',
-                style: TextStyle(
+              Text(
+                lang.isFrench ? 'Dépôt en attente' : 'Deposit Pending',
+                style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary),
               ),
               const SizedBox(height: 8),
               Text(
-                'Votre demande a été reçue. Un agent Watsim est en route pour collecter votre argent.',
+                lang.isFrench
+                    ? 'Votre demande a été reçue. Un agent Watsim est en route pour collecter votre argent.'
+                    : 'Your request has been received. A Watsim agent is on the way to collect your money.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: 14, color: AppColors.textSecondary, height: 1.5),
@@ -355,20 +370,26 @@ class _DepositScreenState extends State<DepositScreen> {
                   children: [
                     _pendingRow(
                         Icons.currency_franc_rounded,
-                        'Montant demandé',
+                        lang.isFrench ? 'Montant demandé' : 'Requested Amount',
                         '${_formatAmount(_cashRequestedAmount)} FCFA',
                         const Color(0xFF00A86B)),
                     const Divider(height: 24),
                     _pendingRow(
                         Icons.person_pin_circle_rounded,
-                        'Méthode de collecte',
-                        'Visite d\'un agent Watsim',
+                        lang.isFrench
+                            ? 'Méthode de collecte'
+                            : 'Collection Method',
+                        lang.isFrench
+                            ? 'Visite d\'un agent Watsim'
+                            : 'Watsim agent visit',
                         AppColors.primaryGreen),
                     const Divider(height: 24),
                     _pendingRow(
                         Icons.schedule_rounded,
-                        'Statut',
-                        'En attente — collecte en cours',
+                        lang.isFrench ? 'Statut' : 'Status',
+                        lang.isFrench
+                            ? 'En attente — collecte en cours'
+                            : 'Pending — collection in progress',
                         const Color(0xFFFFC107)),
                   ],
                 ),
@@ -389,7 +410,9 @@ class _DepositScreenState extends State<DepositScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Une fois que l\'agent Watsim aura remis votre argent au bureau, votre portefeuille sera crédité automatiquement et vous serez notifié.',
+                        lang.isFrench
+                            ? 'Une fois que l\'agent Watsim aura remis votre argent au bureau, votre portefeuille sera crédité automatiquement et vous serez notifié.'
+                            : 'Once the Watsim agent delivers your money to the office, your wallet will be credited automatically and you will be notified.',
                         style: TextStyle(
                             fontSize: 13,
                             color: AppColors.primaryGreen,
@@ -449,15 +472,16 @@ class _DepositScreenState extends State<DepositScreen> {
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       resizeToAvoidBottomInset: true,
-      appBar: const WatsimAppBar(title: 'Dépôt', showBack: true),
+      appBar: WatsimAppBar(
+          title: lang.isFrench ? 'Dépôt' : 'Deposit', showBack: true),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
             20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Ajouter de l'argent",
-                style: TextStyle(
+            Text(lang.isFrench ? "Ajouter de l'argent" : "Add Money",
+                style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
@@ -474,11 +498,25 @@ class _DepositScreenState extends State<DepositScreen> {
                     letterSpacing: 1)),
             const SizedBox(height: 10),
             ...List.generate(_operators.length, (i) {
+              final opSubs = lang.isFrench
+                  ? [
+                      'Frais : 0% • Instantané',
+                      'Frais : 0% • Instantané',
+                      'Frais : 0% • Collecté par un agent Watsim'
+                    ]
+                  : [
+                      'Fee: 0% • Instant',
+                      'Fee: 0% • Instant',
+                      'Fee: 0% • Collected by a Watsim agent'
+                    ];
+              final opNames = lang.isFrench
+                  ? ['Orange Money', 'MTN MoMo', 'Payer en espèces']
+                  : ['Orange Money', 'MTN MoMo', 'Pay in Cash'];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: OperatorCard(
-                  name: _operators[i]['name'] as String,
-                  subtitle: _operators[i]['sub'] as String,
+                  name: opNames[i],
+                  subtitle: opSubs[i],
                   color: Color(_operators[i]['color'] as int),
                   selected: _operator == i,
                   onTap: () => setState(() => _operator = i),
@@ -513,12 +551,25 @@ class _DepositScreenState extends State<DepositScreen> {
                     ]),
                     const SizedBox(height: 10),
                     _cashStep(
-                        '1', 'Soumettez votre demande de dépôt ci-dessous'),
+                        '1',
+                        lang.isFrench
+                            ? 'Soumettez votre demande de dépôt ci-dessous'
+                            : 'Submit your deposit request below'),
                     _cashStep(
-                        '2', 'Un agent Watsim vient collecter votre argent'),
-                    _cashStep('3', 'L\'argent est déposé à notre bureau'),
-                    _cashStep('4',
-                        'Une fois collecté, le bureau confirme la réception et votre portefeuille est crédité.'),
+                        '2',
+                        lang.isFrench
+                            ? 'Un agent Watsim vient collecter votre argent'
+                            : 'A Watsim agent comes to collect your money'),
+                    _cashStep(
+                        '3',
+                        lang.isFrench
+                            ? 'L\'argent est déposé à notre bureau'
+                            : 'The money is deposited at our office'),
+                    _cashStep(
+                        '4',
+                        lang.isFrench
+                            ? 'Une fois collecté, le bureau confirme la réception et votre portefeuille est crédité.'
+                            : 'Once collected, the office confirms receipt and your wallet is credited.'),
                   ],
                 ),
               ),
@@ -572,18 +623,29 @@ class _DepositScreenState extends State<DepositScreen> {
                           fontWeight: FontWeight.w700,
                           color: AppColors.primaryGreen)),
                   const SizedBox(height: 12),
-                  _summaryRow('Montant', '${_formatAmount(_amount)} FCFA'),
+                  _summaryRow(lang.isFrench ? 'Montant' : 'Amount',
+                      '${_formatAmount(_amount)} FCFA'),
                   const SizedBox(height: 8),
-                  _summaryRow('Frais de dépôt', 'Gratuit (0 FCFA)',
+                  _summaryRow(lang.isFrench ? 'Frais de dépôt' : 'Deposit Fee',
+                      lang.isFrench ? 'Gratuit (0 FCFA)' : 'Free (0 FCFA)',
                       highlight: true),
                   if (_isCashSelected) ...[
                     const SizedBox(height: 8),
-                    _summaryRow('Collecte', 'Par un agent Watsim'),
+                    _summaryRow(
+                        lang.isFrench ? 'Collecte' : 'Collection',
+                        lang.isFrench
+                            ? 'Par un agent Watsim'
+                            : 'By a Watsim agent'),
                     const SizedBox(height: 8),
-                    _summaryRow('Crédit', 'Après réception au bureau'),
+                    _summaryRow(
+                        lang.isFrench ? 'Crédit' : 'Credit',
+                        lang.isFrench
+                            ? 'Après réception au bureau'
+                            : 'After receipt at office'),
                   ],
                   const Divider(height: 20),
-                  _summaryRow('Total à payer', '${_formatAmount(_amount)} FCFA',
+                  _summaryRow(lang.isFrench ? 'Total à payer' : 'Total to Pay',
+                      '${_formatAmount(_amount)} FCFA',
                       bold: true),
                 ],
               ),
@@ -595,8 +657,10 @@ class _DepositScreenState extends State<DepositScreen> {
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: 'Votre numéro de mobile money',
-                  hintText: 'ex. 6XXXXXXXX',
+                  labelText: lang.isFrench
+                      ? 'Votre numéro de mobile money'
+                      : 'Your mobile money number',
+                  hintText: lang.isFrench ? 'ex. 6XXXXXXXX' : 'e.g. 6XXXXXXXX',
                   prefixIcon: const Icon(Icons.phone_android_rounded,
                       color: AppColors.primaryGreen),
                   errorText: _payError,
@@ -624,14 +688,18 @@ class _DepositScreenState extends State<DepositScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2.5, color: Colors.white))
                   : Text(_isCashSelected
-                      ? 'Demander la collecte en espèces'
+                      ? (lang.isFrench
+                          ? 'Demander la collecte en espèces'
+                          : 'Request Cash Collection')
                       : lang.depositBtn),
             ),
             const SizedBox(height: 12),
-            const Text(
-              "En appuyant sur Déposer, vous acceptez nos conditions de services financiers.",
+            Text(
+              lang.isFrench
+                  ? "En appuyant sur Déposer, vous acceptez nos conditions de services financiers."
+                  : "By tapping Deposit, you agree to our financial services terms.",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
           ],
         ),
@@ -734,7 +802,9 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
     builder: (dialogContext) => AlertDialog(
       icon: const Icon(Icons.check_circle_rounded,
           color: AppColors.primaryGreen, size: 48),
-      title: const Text('Payment Initiated', textAlign: TextAlign.center),
+      title: Text(
+          LanguageService().isFrench ? 'Paiement initié' : 'Payment Initiated',
+          textAlign: TextAlign.center),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -751,7 +821,10 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
                 ),
                 child: Column(
                   children: [
-                    const Text('Dial this USSD code to complete payment:',
+                    Text(
+                        LanguageService().isFrench
+                            ? 'Composez ce code USSD pour finaliser le paiement :'
+                            : 'Dial this USSD code to complete payment:',
                         textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                     Text(ussdCode,
@@ -802,7 +875,9 @@ Future<void> _pollPaymentStatus(
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$type completed! Your wallet has been updated.'),
+              content: Text(LanguageService().isFrench
+                  ? '$type terminé ! Votre portefeuille a été mis à jour.'
+                  : '$type completed! Your wallet has been updated.'),
               backgroundColor: AppColors.primaryGreen,
               duration: const Duration(seconds: 4),
             ),
@@ -814,7 +889,9 @@ Future<void> _pollPaymentStatus(
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$type failed. Please try again.'),
+              content: Text(LanguageService().isFrench
+                  ? '$type échoué. Veuillez réessayer.'
+                  : '$type failed. Please try again.'),
               backgroundColor: Colors.red.shade600,
             ),
           );
@@ -829,8 +906,10 @@ Future<void> _pollPaymentStatus(
   await WalletState.instance.syncWithBackend();
   if (finalStatus == null && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Payment status unknown. Wallet synced.'),
+      SnackBar(
+        content: Text(LanguageService().isFrench
+            ? 'Statut du paiement inconnu. Portefeuille synchronisé.'
+            : 'Payment status unknown. Wallet synced.'),
         backgroundColor: AppColors.warning,
       ),
     );
@@ -900,14 +979,17 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
     if (_amount < 1) return;
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
-      setState(
-          () => _payError = 'Please enter your mobile money phone number.');
+      setState(() => _payError = LanguageProvider.of(context).isFrench
+          ? 'Veuillez entrer votre numéro mobile money.'
+          : 'Please enter your mobile money phone number.');
       return;
     }
 
     // PIN confirmation before processing
-    final confirmed =
-        await showPinConfirmDialog(context, title: 'Confirmer le retrait');
+    final confirmed = await showPinConfirmDialog(context,
+        title: LanguageProvider.of(context).isFrench
+            ? 'Confirmer le retrait'
+            : 'Confirm Withdrawal');
     if (!confirmed || !mounted) return;
 
     final providerKey = _operator == 0
@@ -932,8 +1014,12 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
         _showSuccess(
             context,
             providerKey == 'CASH'
-                ? 'Cash withdrawal request submitted!\nVisit an agent with ID and reference.'
-                : 'Withdrawal request sent!\nPlease approve on your phone.',
+                ? (LanguageProvider.of(context).isFrench
+                    ? 'Demande de retrait soumise !\nRendez-vous en agence avec votre pièce d\'identité.'
+                    : 'Cash withdrawal request submitted!\nVisit an agent with ID and reference.')
+                : (LanguageProvider.of(context).isFrench
+                    ? 'Demande de retrait envoyée !\nVeuillez approuver sur votre téléphone.'
+                    : 'Withdrawal request sent!\nPlease approve on your phone.'),
             ussdCode: result['ussdCode'] as String?);
         if (txId != null && providerKey != 'CASH') {
           _pollPaymentStatus(context, txId, 'Withdrawal',
@@ -948,7 +1034,9 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
     } catch (e) {
       setState(() {
         _paying = false;
-        _payError = 'Withdrawal failed. Check your connection.';
+        _payError = LanguageProvider.of(context).isFrench
+            ? 'Retrait échoué. Vérifiez votre connexion.'
+            : 'Withdrawal failed. Check your connection';
       });
     }
   }
@@ -970,15 +1058,16 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       resizeToAvoidBottomInset: true,
-      appBar: const WatsimAppBar(title: 'Withdraw', showBack: true),
+      appBar: WatsimAppBar(
+          title: lang.isFrench ? 'Retrait' : 'Withdraw', showBack: true),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
             20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Withdraw Money",
-                style: TextStyle(
+            Text(lang.isFrench ? 'Retirer de l\'argent' : 'Withdraw Money',
+                style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
@@ -1132,7 +1221,7 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
                               strokeWidth: 2, color: Colors.white),
                         ),
                         const SizedBox(width: 8),
-                        Text('Processing...'),
+                        Text(lang.isFrench ? 'Traitement...' : 'Processing...'),
                       ],
                     )
                   : Text(lang.withdrawBtn),
@@ -1222,8 +1311,10 @@ class _TransferScreenState extends State<TransferScreen> {
     }
 
     // PIN confirmation before processing transfer
-    final confirmed =
-        await showPinConfirmDialog(context, title: 'Confirmer le transfert');
+    final confirmed = await showPinConfirmDialog(context,
+        title: LanguageProvider.of(context).isFrench
+            ? 'Confirmer le transfert'
+            : 'Confirm Transfer');
     if (!confirmed || !mounted) return;
 
     setState(() {
@@ -1241,8 +1332,11 @@ class _TransferScreenState extends State<TransferScreen> {
       setState(() => _paying = false);
       await WalletState.instance.syncWithBackend();
       if (mounted) {
-        _showSuccess(context,
-            'Transfer sent to $recipientName!\nThe recipient will receive the funds instantly.');
+        _showSuccess(
+            context,
+            LanguageProvider.of(context).isFrench
+                ? 'Transfert envoyé à $recipientName !\nLe destinataire recevra les fonds instantanément.'
+                : 'Transfer sent to $recipientName!\nThe recipient will receive the funds instantly.');
       }
     } on ApiException catch (e) {
       setState(() {
@@ -1252,7 +1346,9 @@ class _TransferScreenState extends State<TransferScreen> {
     } catch (e) {
       setState(() {
         _paying = false;
-        _payError = 'Transfer failed. Check your connection.';
+        _payError = LanguageProvider.of(context).isFrench
+            ? 'Transfert échoué. Vérifiez votre connexion.'
+            : 'Transfer failed. Check your connection.';
       });
     }
   }
@@ -1297,7 +1393,8 @@ class _TransferScreenState extends State<TransferScreen> {
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       resizeToAvoidBottomInset: true,
-      appBar: const WatsimAppBar(title: 'Transfer', showBack: true),
+      appBar: WatsimAppBar(
+          title: lang.isFrench ? 'Transfert' : 'Transfer', showBack: true),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
             20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
@@ -1438,7 +1535,7 @@ class _TransferScreenState extends State<TransferScreen> {
                               strokeWidth: 2, color: Colors.white),
                         ),
                         const SizedBox(width: 8),
-                        Text('Processing...'),
+                        Text(lang.isFrench ? 'Traitement...' : 'Processing...'),
                       ],
                     )
                   : Text(lang.transferBtn),

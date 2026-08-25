@@ -49,8 +49,8 @@ class AboutScreen extends StatelessWidget {
                           fontSize: 13, color: AppColors.textSecondary)),
                   const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 5),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                     decoration: BoxDecoration(
                       color: AppColors.primaryGreen.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -166,11 +166,17 @@ class AboutScreen extends StatelessWidget {
                 children: [
                   _InfoRow(label: lang.buildNumber, value: '100'),
                   const Divider(height: 1),
-                  _InfoRow(label: lang.releaseDate, value: 'January 2025'),
+                  _InfoRow(
+                      label: lang.releaseDate,
+                      value: lang.isFrench ? 'Janvier 2025' : 'January 2025'),
                   const Divider(height: 1),
-                  _InfoRow(label: lang.platform, value: 'iOS & Android'),
+                  _InfoRow(
+                      label: lang.platform,
+                      value:
+                          lang.isFrench ? 'iOS et Android' : 'iOS & Android'),
                   const Divider(height: 1),
-                  _InfoRow(label: lang.developedBy, value: 'Watsim Technologies'),
+                  _InfoRow(
+                      label: lang.developedBy, value: 'Watsim Technologies'),
                 ],
               ),
             ),
@@ -180,8 +186,7 @@ class AboutScreen extends StatelessWidget {
             Text(
               lang.copyright,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.textMuted),
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             const SizedBox(height: 32),
           ],
@@ -242,8 +247,7 @@ class _FeatureRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
         width: 38,
         height: 38,
@@ -259,8 +263,7 @@ class _FeatureRow extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary)),
       subtitle: Text(subtitle,
-          style: const TextStyle(
-              fontSize: 12, color: AppColors.textSecondary)),
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
     );
   }
 }
@@ -271,14 +274,12 @@ class _LegalRow extends StatelessWidget {
   final String title;
   final VoidCallback? onTap;
 
-  const _LegalRow(
-      {required this.icon, required this.title, this.onTap});
+  const _LegalRow({required this.icon, required this.title, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       leading: Container(
         width: 38,
         height: 38,

@@ -36,13 +36,18 @@ class _AppLockScreenState extends State<AppLockScreen> {
       final user = await AuthService.getUser();
       final phone = user?['phone']?.toString();
       if (phone == null || phone.isEmpty) {
-        throw ApiException(0, 'Session expirée. Veuillez vous reconnecter.');
+        throw ApiException(
+            0,
+            LanguageService().isFrench
+                ? 'Session expirée. Veuillez vous reconnecter.'
+                : 'Session expired. Please log in again.');
       }
 
       final result = await ApiService.loginWithPin(phone: phone, pin: pin);
       if (result['requires2FA'] == true) {
-        setState(
-            () => _error = 'L\'authentification à deux facteurs est requise.');
+        setState(() => _error = LanguageService().isFrench
+            ? 'L\'authentification à deux facteurs est requise.'
+            : 'Two-factor authentication is required.');
         return;
       }
 
@@ -50,7 +55,9 @@ class _AppLockScreenState extends State<AppLockScreen> {
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = 'Une erreur est survenue. Réessayez.');
+      setState(() => _error = LanguageService().isFrench
+          ? 'Une erreur est survenue. Réessayez.'
+          : 'An error occurred. Try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -86,7 +93,9 @@ class _AppLockScreenState extends State<AppLockScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                'Application verrouillée',
+                lang.isFrench
+                    ? 'Application verrouillée'
+                    : 'Application Locked',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
@@ -96,7 +105,9 @@ class _AppLockScreenState extends State<AppLockScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Entrez votre code PIN pour continuer',
+                lang.isFrench
+                    ? 'Entrez votre code PIN pour continuer'
+                    : 'Enter your PIN to continue',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textMuted,
@@ -148,7 +159,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Déverrouiller'),
+                      : Text(lang.isFrench ? 'Déverrouiller' : 'Unlock'),
                 ),
               ),
               const SizedBox(height: 16),

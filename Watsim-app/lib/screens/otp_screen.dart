@@ -85,8 +85,10 @@ class _OtpScreenState extends State<OtpScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('OTP verification failed. Try again.'),
+        SnackBar(
+          content: Text(LanguageService().isFrench
+              ? 'Vérification OTP échouée. Réessayez.'
+              : 'OTP verification failed. Try again.'),
           backgroundColor: AppColors.error,
         ),
       );

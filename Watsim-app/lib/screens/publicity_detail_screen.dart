@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/language_service.dart';
 import '../theme/app_theme.dart';
 
 class PublicityDetailScreen extends StatelessWidget {
@@ -36,6 +37,7 @@ class PublicityDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = LanguageProvider.of(context);
     return Scaffold(
       backgroundColor: AppColors.primaryDark,
       body: CustomScrollView(
@@ -72,9 +74,9 @@ class PublicityDetailScreen extends StatelessWidget {
                       color: AppColors.primaryGreen.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      'PUBLICITÉ',
-                      style: TextStyle(
+                    child: Text(
+                      lang.isFrench ? 'PUBLICITÉ' : 'ADVERTISEMENT',
+                      style: const TextStyle(
                         color: AppColors.primaryGreen,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -102,7 +104,7 @@ class PublicityDetailScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'par $_merchant',
+                          '${lang.isFrench ? 'par' : 'by'} $_merchant',
                           style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 16,
