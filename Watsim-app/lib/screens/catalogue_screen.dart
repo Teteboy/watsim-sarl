@@ -146,12 +146,17 @@ class _CatalogueScreenState extends State<CatalogueScreen>
   String _category = 'All';
   String _searchQuery = '';
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   // Category names come from the backend categories endpoint
   List<String> _categoryKeys = ['All'];
 
-  // Products loaded from backend only
+  // Paginated product loading
   List<Product> _backendProducts = [];
   bool _loadingProducts = true;
+  bool _loadingMore = false;
+  int _currentPage = 1;
+  int _totalPages = 1;
+  static const _pageSize = 20;
 
   List<Product> get _allProducts => _backendProducts;
 
@@ -160,6 +165,7 @@ class _CatalogueScreenState extends State<CatalogueScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     NotificationState.instance.addListener(_rebuild);
+    _scrollController.addListener(_onScroll);
     _loadProducts();
   }
 
@@ -170,13 +176,26 @@ class _CatalogueScreenState extends State<CatalogueScreen>
     }
   }
 
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        !_loadingMore &&
+        _currentPage < _totalPages) {
+      _loadMoreProducts();
+    }
+  }
+
   Future<void> _loadProducts() async {
-    // Load products and categories independently; categories must always
-    // be built even if the product fetch fails.
-    List<dynamic> raw = [];
+    setState(() {
+      _loadingProducts = true;
+      _currentPage = 1;
+    });
+
     List<dynamic> categories = [];
+    Map<String, dynamic> result = {};
     try {
-      raw = await ApiService.fetchProducts(limit: 50);
+      result =
+          await ApiService.fetchProductsPaginated(page: 1, limit: _pageSize);
     } catch (e, s) {
       debugPrint('Products fetch failed: $e\n$s');
     }
@@ -188,10 +207,14 @@ class _CatalogueScreenState extends State<CatalogueScreen>
 
     if (!mounted) return;
 
-    final loaded = raw
+    final items = (result['items'] as List<dynamic>? ?? []);
+    final pagination = result['pagination'] as Map<String, dynamic>? ?? {};
+    final loaded = items
         .whereType<Map<String, dynamic>>()
         .map((j) => Product.fromJson(j))
         .toList();
+
+    _totalPages = (pagination['totalPages'] as num?)?.toInt() ?? 1;
 
     final cats = <String>{'All'};
 
@@ -216,10 +239,37 @@ class _CatalogueScreenState extends State<CatalogueScreen>
     });
   }
 
+  Future<void> _loadMoreProducts() async {
+    if (_loadingMore || _currentPage >= _totalPages) return;
+    setState(() => _loadingMore = true);
+
+    final nextPage = _currentPage + 1;
+    try {
+      final result = await ApiService.fetchProductsPaginated(
+          page: nextPage, limit: _pageSize);
+      final items = (result['items'] as List<dynamic>? ?? []);
+      final loaded = items
+          .whereType<Map<String, dynamic>>()
+          .map((j) => Product.fromJson(j))
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _backendProducts.addAll(loaded);
+        _currentPage = nextPage;
+        _loadingMore = false;
+      });
+    } catch (e) {
+      debugPrint('Load more products failed: $e');
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
+    _scrollController.dispose();
     NotificationState.instance.removeListener(_rebuild);
     super.dispose();
   }
@@ -475,6 +525,7 @@ class _CatalogueScreenState extends State<CatalogueScreen>
                         color: AppColors.primaryGreen,
                         onRefresh: _loadProducts,
                         child: GridView.builder(
+                          controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
@@ -483,13 +534,26 @@ class _CatalogueScreenState extends State<CatalogueScreen>
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                           ),
-                          itemCount: results.length,
-                          itemBuilder: (_, i) => _ProductCard(
-                            product: results[i],
-                            exchangeMode: widget.exchangeMode,
-                            onSelectForExchange:
-                                widget.onProductSelectedForExchange,
-                          ),
+                          itemCount: results.length + (_loadingMore ? 2 : 0),
+                          itemBuilder: (_, i) {
+                            if (i >= results.length) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.primaryGreen,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              );
+                            }
+                            return _ProductCard(
+                              product: results[i],
+                              exchangeMode: widget.exchangeMode,
+                              onSelectForExchange:
+                                  widget.onProductSelectedForExchange,
+                            );
+                          },
                         ),
                       ),
           ),

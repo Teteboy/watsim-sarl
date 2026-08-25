@@ -1,5 +1,6 @@
 // ─── Global Wallet State ───────────────────────────────────────────────────
 // Singleton holding balance + full transaction history.
+import 'package:flutter/foundation.dart';
 import 'services/api_service.dart';
 
 enum TxType { deposit, withdrawal, bnpl, transfer }
@@ -35,7 +36,7 @@ class WalletTransaction {
   bool get isFinalized => !isPending && !isFailed;
 }
 
-class WalletState {
+class WalletState extends ChangeNotifier {
   WalletState._();
   static final WalletState instance = WalletState._();
 
@@ -344,10 +345,5 @@ class WalletState {
   }
 
   // ── Listeners ─────────────────────────────────────────────────────────────
-  final List<void Function()> _listeners = [];
-  void addListener(void Function() l) => _listeners.add(l);
-  void removeListener(void Function() l) => _listeners.remove(l);
-  void _notify() {
-    for (final l in _listeners) l();
-  }
+  void _notify() => notifyListeners();
 }

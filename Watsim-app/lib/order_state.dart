@@ -1,5 +1,6 @@
 // ─── Global Order State ─────────────────────────────────────────────────────
 // In-memory singleton that stores confirmed BNPL orders.
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'screens/catalogue_screen.dart';
 import 'services/api_service.dart';
@@ -351,7 +352,7 @@ class ConfirmedOrder {
   }
 }
 
-class OrderState {
+class OrderState extends ChangeNotifier {
   OrderState._();
   static final OrderState instance = OrderState._();
 
@@ -561,12 +562,5 @@ class OrderState {
   }
 
   // Simple listener list
-  final List<void Function()> _listeners = [];
-  void addListener(void Function() l) => _listeners.add(l);
-  void removeListener(void Function() l) => _listeners.remove(l);
-  void _notify() {
-    for (final l in _listeners) {
-      l();
-    }
-  }
+  void _notify() => notifyListeners();
 }

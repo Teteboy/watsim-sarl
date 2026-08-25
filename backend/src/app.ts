@@ -22,6 +22,7 @@ import { publicityRoutes } from './modules/publicities/publicities.routes';
 import { messagingRoutes } from './modules/messaging/messaging.routes';
 import { securityRoutes } from './modules/users/security.routes';
 import { supportRoutes } from './modules/users/support.routes';
+import { deliveryRoutes } from './modules/delivery/delivery.routes';
 import { WebSocketService } from './services/websocket.service';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -106,6 +107,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(adminRoutes, { prefix: `${prefix}/admin` });
   await app.register(accountingRoutes, { prefix: `${prefix}/admin/accounting` });
   await app.register(publicityRoutes, { prefix: `${prefix}/admin/publicities` });
+  await app.register(deliveryRoutes, { prefix: `${prefix}/delivery` });
   
   // Public publicity routes (no auth required)
   app.get(`${prefix}/publicities/active`, async (req, reply) => {

@@ -3,11 +3,13 @@ import { getRedis } from '../config/redis';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { processRepaymentJob } from './repayment.job';
+import { processReminderJob } from './reminder.job';
 import { processScoreUpdateJob } from './score-update.job';
 import { processKycVerifyJob } from './kyc-verify.job';
 
 export const QUEUE_NAMES = {
   REPAYMENT: 'repayment',
+  REMINDER: 'reminder',
   SCORE_UPDATE: 'score-update',
   KYC_VERIFY: 'kyc-verify',
 } as const;
@@ -61,6 +63,7 @@ export async function startWorkers(): Promise<void> {
   workers.push(new Worker(QUEUE_NAMES.SCORE_UPDATE, async (job) => processScoreUpdateJob(job.data as { userId: string }), { connection }));
   workers.push(new Worker(QUEUE_NAMES.KYC_VERIFY, async (job) => processKycVerifyJob(job.data as { docId: string }), { connection }));
   workers.push(new Worker(QUEUE_NAMES.REPAYMENT, async () => processRepaymentJob(), { connection }));
+  workers.push(new Worker(QUEUE_NAMES.REMINDER, async () => processReminderJob(), { connection }));
 
   workers.forEach((w) => {
     w.on('failed', (job, err) => logger.error({ queue: w.name, jobId: job?.id, err }, 'Job failed'));
@@ -75,7 +78,16 @@ export async function startWorkers(): Promise<void> {
     { repeat: { pattern: '0 6 * * *', tz: 'Africa/Douala' }, jobId: 'daily-repayment-scan' },
   );
 
+  // Daily payment reminder: cron 0 8 * * * Africa/Douala — sends SMS 24h before due
+  const reminderQueue = makeQueue(QUEUE_NAMES.REMINDER)!;
+  await reminderQueue.add(
+    'daily-reminder',
+    {},
+    { repeat: { pattern: '0 8 * * *', tz: 'Africa/Douala' }, jobId: 'daily-payment-reminder' },
+  );
+
   events.push(new QueueEvents(QUEUE_NAMES.REPAYMENT, { connection: getBullConnection() }));
+  events.push(new QueueEvents(QUEUE_NAMES.REMINDER, { connection: getBullConnection() }));
   logger.info('BullMQ workers started');
 }
 

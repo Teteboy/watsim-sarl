@@ -1,8 +1,9 @@
 // ─── Global Cart State ─────────────────────────────────────────────────────
 // Simple in-memory singleton cart that persists across screens.
+import 'package:flutter/foundation.dart';
 import 'screens/catalogue_screen.dart';
 
-class CartState {
+class CartState extends ChangeNotifier {
   CartState._();
   static final CartState instance = CartState._();
 
@@ -32,12 +33,5 @@ class CartState {
   }
 
   // Simple listener list for rebuilds
-  final List<void Function()> _listeners = [];
-  void addListener(void Function() l) => _listeners.add(l);
-  void removeListener(void Function() l) => _listeners.remove(l);
-  void _notify() {
-    for (final l in _listeners) {
-      l();
-    }
-  }
+  void _notify() => notifyListeners();
 }

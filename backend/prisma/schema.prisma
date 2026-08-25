@@ -109,6 +109,7 @@ model User {
   sessions         UserSession[]
   securitySettings UserSecuritySettings?
   supportTickets   SupportTicket[]
+  deliveryRequests DeliveryRequest[]
 }
 
 model Wallet {
@@ -230,13 +231,14 @@ model BnplPurchase {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id])
-  merchant     Merchant      @relation(fields: [merchantId], references: [id])
-  product      Product       @relation(fields: [productId], references: [id])
-  instalments  Instalment[]
-  transactions Transaction[]
-  disputes     Dispute[]
-  referrals    Referral[]
+  user             User              @relation(fields: [userId], references: [id])
+  merchant         Merchant          @relation(fields: [merchantId], references: [id])
+  product          Product           @relation(fields: [productId], references: [id])
+  instalments      Instalment[]
+  transactions     Transaction[]
+  disputes         Dispute[]
+  referrals        Referral[]
+  deliveryRequests DeliveryRequest[]
 
   @@index([userId])
   @@index([merchantId])
@@ -742,4 +744,33 @@ model TicketMessage {
 
   @@index([ticketId])
   @@index([createdAt])
+}
+
+model DeliveryRequest {
+  id               String   @id @default(uuid())
+  purchaseId       String
+  userId           String
+  lastName         String   // Nom
+  firstName        String   // Prénom
+  phone            String   // Tel
+  residence        String   // Lieu résidence
+  deliveryLocation String   // Lieu livraison
+  color            String?  // Couleur
+  shoeSize         String?  // Pointure
+  profession       String   // Profession
+  cni              String   // CNI number
+  idFrontPhoto     String?  // CNI front photo URL
+  idBackPhoto      String?  // CNI back photo URL
+  deliveryTime     String?  // Preferred delivery time
+  status           String   @default("PENDING") // PENDING | PROCESSING | SHIPPED | DELIVERED | CANCELLED
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  purchase BnplPurchase @relation(fields: [purchaseId], references: [id])
+  user     User         @relation(fields: [userId], references: [id])
+
+  @@index([purchaseId])
+  @@index([userId])
+  @@index([status])
 }

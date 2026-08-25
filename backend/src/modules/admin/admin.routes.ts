@@ -11,6 +11,7 @@ import { enqueueScoreUpdate } from '../../jobs/queue';
 import { prisma } from '../../config/db';
 import { TransactionType, TransactionStatus } from '@prisma/client';
 import { initiateCashDepositPayment } from '../payments/payments.service';
+import { listAllDeliveryRequests, updateDeliveryStatus, getDeliveryRequestById, DeliveryError } from '../delivery/delivery.service';
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
@@ -716,5 +717,31 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
       status: 'FAILED',
       message: 'Cash withdrawal rejected. Amount will be returned to user\'s balance.',
     };
+  });
+
+  // ── Delivery Management ──────────────────────────────────────────────────
+  app.get('/delivery-requests', async (req) => {
+    const q = req.query as { page?: number; limit?: number; status?: string };
+    return listAllDeliveryRequests({ page: q.page ?? 1, limit: q.limit ?? 20, status: q.status });
+  });
+
+  app.get('/delivery-requests/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const delivery = await getDeliveryRequestById(id);
+    if (!delivery) return reply.code(404).send({ error: 'NotFound' });
+    return delivery;
+  });
+
+  app.patch('/delivery-requests/:id/status', async (req, reply) => {
+    try {
+      const { id } = req.params as { id: string };
+      const { status, notes } = req.body as { status: string; notes?: string };
+      if (!status) return reply.code(400).send({ error: 'ValidationError', message: 'status is required' });
+      const updated = await updateDeliveryStatus(id, status, notes);
+      return updated;
+    } catch (e) {
+      if (e instanceof DeliveryError) return reply.code(e.statusCode).send({ error: 'DeliveryError', message: e.message });
+      throw e;
+    }
   });
 }

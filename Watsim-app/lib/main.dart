@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/catalogue_screen.dart';
@@ -17,6 +18,7 @@ import 'notification_state.dart';
 import 'profile_state.dart';
 import 'wallet_state.dart';
 import 'order_state.dart';
+import 'cart_state.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -122,14 +124,25 @@ class _WatsimAppState extends State<WatsimApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return LanguageProvider(
-      service: LanguageService(),
-      child: MaterialApp(
-        navigatorKey: _navigatorKey,
-        title: 'Watsim',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        home: const SplashScreen(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<WalletState>.value(value: WalletState.instance),
+        ChangeNotifierProvider<OrderState>.value(value: OrderState.instance),
+        ChangeNotifierProvider<NotificationState>.value(
+            value: NotificationState.instance),
+        ChangeNotifierProvider<ProfileState>.value(
+            value: ProfileState.instance),
+        ChangeNotifierProvider<CartState>.value(value: CartState.instance),
+      ],
+      child: LanguageProvider(
+        service: LanguageService(),
+        child: MaterialApp(
+          navigatorKey: _navigatorKey,
+          title: 'Watsim',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          home: const SplashScreen(),
+        ),
       ),
     );
   }

@@ -636,6 +636,43 @@ class ApiService {
     return _decodeList(res);
   }
 
+  /// Fetch products with pagination metadata.
+  /// Returns { 'items': [...], 'pagination': { page, limit, total, totalPages } }
+  static Future<Map<String, dynamic>> fetchProductsPaginated({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String? categoryId,
+  }) async {
+    final params = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (categoryId != null) 'categoryId': categoryId,
+    };
+    final uri =
+        Uri.parse('$kApiBase/products').replace(queryParameters: params);
+    final res = await http.get(uri);
+    final decoded = jsonDecode(res.body);
+    if (decoded is Map<String, dynamic>) return decoded;
+    // Fallback: wrap list in pagination envelope
+    if (decoded is List) {
+      return {
+        'items': decoded,
+        'pagination': {
+          'page': page,
+          'limit': limit,
+          'total': decoded.length,
+          'totalPages': 1
+        }
+      };
+    }
+    return {
+      'items': [],
+      'pagination': {'page': page, 'limit': limit, 'total': 0, 'totalPages': 0}
+    };
+  }
+
   /// “Exclusive offers” = backend-driven best offers (best price)
   static Future<List<dynamic>> fetchBestOffers({int limit = 8}) async {
     final uri = Uri.parse('$kApiBase/products/best-offers')
@@ -1620,5 +1657,58 @@ class ApiService {
       headers: await _headers(),
     );
     return res.statusCode < 400;
+  }
+
+  // ── Delivery ────────────────────────────────────────────────────────────
+
+  /// Submit a delivery request for a BNPL purchase
+  static Future<Map<String, dynamic>> submitDeliveryRequest({
+    required String purchaseId,
+    required String lastName,
+    required String firstName,
+    required String phone,
+    required String residence,
+    required String deliveryLocation,
+    String? color,
+    String? shoeSize,
+    required String profession,
+    required String cni,
+    String? idFrontPhoto,
+    String? idBackPhoto,
+    String? deliveryTime,
+  }) async {
+    final body = <String, dynamic>{
+      'purchaseId': purchaseId,
+      'lastName': lastName,
+      'firstName': firstName,
+      'phone': phone,
+      'residence': residence,
+      'deliveryLocation': deliveryLocation,
+      'profession': profession,
+      'cni': cni,
+    };
+    if (color != null && color.isNotEmpty) body['color'] = color;
+    if (shoeSize != null && shoeSize.isNotEmpty) body['shoeSize'] = shoeSize;
+    if (idFrontPhoto != null) body['idFrontPhoto'] = idFrontPhoto;
+    if (idBackPhoto != null) body['idBackPhoto'] = idBackPhoto;
+    if (deliveryTime != null) body['deliveryTime'] = deliveryTime;
+
+    final res = await http.post(
+      Uri.parse('$kApiBase/delivery'),
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
+    return _decode(res);
+  }
+
+  /// Get user's delivery requests
+  static Future<List<dynamic>> getDeliveryRequests() async {
+    final res = await http.get(
+      Uri.parse('$kApiBase/delivery'),
+      headers: await _headers(),
+    );
+    final data = _decode(res);
+    if (data is List) return data;
+    return [];
   }
 }

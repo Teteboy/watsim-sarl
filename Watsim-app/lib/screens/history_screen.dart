@@ -3204,8 +3204,29 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
     setState(() => _step = 'pin');
   }
 
-  void _confirmPin() {
+  void _confirmPin() async {
     if (_pinCtrl.text == _validPin) {
+      // Submit delivery request to backend
+      try {
+        await ApiService.submitDeliveryRequest(
+          purchaseId: widget.order.id ?? '',
+          lastName: _lastNameCtrl.text.trim(),
+          firstName: _firstNameCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+          residence: _residenceCtrl.text.trim(),
+          deliveryLocation: _deliveryLocationCtrl.text.trim(),
+          color: _colorCtrl.text.trim(),
+          shoeSize: _shoeSizeCtrl.text.trim(),
+          profession: _professionCtrl.text.trim(),
+          cni: _cniCtrl.text.trim(),
+          idFrontPhoto: _idFrontPhoto,
+          idBackPhoto: _idBackPhoto,
+          deliveryTime: _deliveryTime?.format(context),
+        );
+      } catch (_) {
+        // Even if API fails, proceed to receipt (data was entered)
+      }
+
       // Do NOT remove the order — delivery requested keeps it in history
       widget.onDeliveryConfirmed?.call();
       setState(() => _step = 'receipt');
@@ -3231,7 +3252,7 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Delivery request received!',
+                          'Demande de livraison reçue!',
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
@@ -3239,7 +3260,7 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Your details have been received. You will receive your product shortly.',
+                          'Vos informations ont été enregistrées. Vous recevrez votre produit bientôt.',
                           style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
@@ -3252,7 +3273,7 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
         }
       });
     } else {
-      setState(() => _pinError = 'Incorrect PIN. Please try again.');
+      setState(() => _pinError = 'PIN incorrect. Veuillez réessayer.');
     }
   }
 
