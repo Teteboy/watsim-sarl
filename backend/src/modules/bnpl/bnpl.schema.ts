@@ -19,7 +19,7 @@ export const purchaseSchema = {
       productId: { type: 'string' },
       instalmentCount: { type: 'integer', minimum: 1, maximum: 60 },
       frequency: { type: 'string', enum: ['daily', 'weekly', 'monthly'], default: 'monthly' },
-      paymentProvider: { type: 'string', enum: ['ORANGE_MONEY', 'MTN_MOMO', 'WALLET'] },
+      paymentProvider: { type: 'string', enum: ['ORANGE_MONEY', 'MTN_MOMO', 'WALLET', 'REFERRAL'] },
       phone: { type: 'string' },
       downPayment: { type: 'integer', minimum: 0, default: 0 },
     },
@@ -32,7 +32,7 @@ export const repaySchema = {
     required: ['instalmentId', 'paymentProvider', 'phone'],
     properties: {
       instalmentId: { type: 'string' },
-      paymentProvider: { type: 'string', enum: ['ORANGE_MONEY', 'MTN_MOMO', 'WALLET'] },
+      paymentProvider: { type: 'string', enum: ['ORANGE_MONEY', 'MTN_MOMO', 'WALLET', 'REFERRAL'] },
       phone: { type: 'string' },
     },
   },

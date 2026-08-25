@@ -1,4 +1,4 @@
-export type Provider = 'ORANGE_MONEY' | 'MTN_MOMO' | 'WALLET';
+export type Provider = 'ORANGE_MONEY' | 'MTN_MOMO' | 'WALLET' | 'REFERRAL';
 
 export interface InitiateParams {
   amount: number;

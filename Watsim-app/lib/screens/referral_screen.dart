@@ -62,7 +62,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
               .map((r) => ReferralItem(
                     name: r['referredName'] ?? 'Unknown',
                     status: r['status'] ?? 'PENDING',
-                    firstReward: r['firstRewardAmount'] ?? 500,
+                    firstReward: r['firstRewardAmount'] ?? 1000,
                     firstRewardPaid: r['firstRewardPaid'] ?? false,
                     secondReward: r['secondRewardAmount'] ?? 0,
                     secondRewardPaid: r['secondRewardPaid'] ?? false,
@@ -184,12 +184,12 @@ class _ReferralScreenState extends State<ReferralScreen> {
     final shareText = lang.isFrench
         ? '🎉 Rejoins Watsim et profite de services financiers simples et sécurisés !\n\n'
             'Utilise mon code de parrainage : $_code\n\n'
-            'Tu recevras 500 FCFA à ton premier dépôt, et je gagnerai aussi 500 FCFA !\n'
+            'Tu recevras 1000 FCFA à ton premier dépôt, et je gagnerai aussi 1000 FCFA !\n'
             'Plus, je gagne 0.6% quand tu finalises un achat BNPL.\n\n'
             '👉 Télécharge Watsim dès maintenant !'
         : '🎉 Join Watsim — Simple. Secure. Smart. financial services!\n\n'
             'Use my referral code: $_code\n\n'
-            'You will receive 500 FCFA on your first deposit, and I will earn 500 FCFA too!\n'
+            'You will receive 1000 FCFA on your first deposit, and I will earn 1000 FCFA too!\n'
             'Plus, I earn 0.6% when you complete a BNPL purchase.\n\n'
             '👉 Download Watsim now!';
 
@@ -275,7 +275,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Earn 500 FCFA when your friend makes their first deposit, and 0.6% when they complete a BNPL purchase!',
+                  'Earn 1000 FCFA when your friend makes their first deposit, and 0.6% when they complete a BNPL purchase!',
                   style: TextStyle(
                       color: Colors.white.withOpacity(0.75), fontSize: 14),
                 ),
@@ -815,7 +815,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
                 const SizedBox(height: 14),
                 _step('1', 'Share your referral code with friends'),
                 _step('2', 'Friend signs up using your code'),
-                _step('3', 'You both earn 500 FCFA on their first deposit'),
+                _step('3', 'You both earn 1000 FCFA on their first deposit'),
                 _step('4', 'You earn 0.6% when they complete a BNPL purchase'),
               ],
             ),

@@ -869,13 +869,22 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
             return;
           }
 
+          // Use referral funds when available, otherwise fall back to wallet.
+          int referralBalance = 0;
+          try {
+            final rewards = await ApiService.fetchRewardsSummary();
+            referralBalance =
+                (rewards['availableBalance'] as num?)?.toInt() ?? 0;
+          } catch (_) {}
+
           // Create BNPL purchase on backend with user's chosen amount as downPayment
           String? backendPurchaseId;
           try {
             final result = await ApiService.requestBnpl(
               productId: product.id!,
               instalmentCount: months,
-              paymentProvider: 'WALLET',
+              paymentProvider:
+                  referralBalance >= actualAmount ? 'REFERRAL' : 'WALLET',
               phone: '',
               downPayment: actualAmount,
               frequency: paymentFrequency.toLowerCase(),

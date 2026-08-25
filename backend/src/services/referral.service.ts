@@ -3,7 +3,7 @@ import { logger } from '../config/logger';
 import { notifyUser } from './notification.service';
 import crypto from 'crypto';
 
-const FIRST_REWARD_AMOUNT = 500;
+const FIRST_REWARD_AMOUNT = 1000;
 const SECOND_REWARD_PERCENTAGE = 0.006; // 0.6%
 
 export function generateReferralCode(): string {

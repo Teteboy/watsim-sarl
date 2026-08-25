@@ -35,7 +35,7 @@ export async function initiatePayment(input: {
   phone: string;
   userId: string;
 }) {
-  if (input.provider === 'WALLET') {
+  if (input.provider === 'WALLET' || input.provider === 'REFERRAL') {
     return processWalletPayment(input.userId, input.transactionId, input.amount);
   }
   const adapter = getAdapter(input.provider);
@@ -150,7 +150,7 @@ export async function handleProviderResult(transactionId: string, status: 'COMPL
 async function applyTransactionEffects(tx: import('@prisma/client').Prisma.TransactionClient, transactionId: string) {
   const t = await tx.transaction.findUnique({ where: { id: transactionId } });
   if (!t) return;
-  const isWallet = t.provider === 'WALLET';
+  const isWallet = t.provider === 'WALLET' || t.provider === 'REFERRAL';
   if (t.type === 'REPAYMENT' && t.metadata && typeof t.metadata === 'object') {
     const meta = t.metadata as { instalmentId?: string; partialPayment?: boolean };
     if (meta.instalmentId) {

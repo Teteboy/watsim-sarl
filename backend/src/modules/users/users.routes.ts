@@ -398,7 +398,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
           : `BNPL Cashback - Purchase`,
         amount: t.amount,
         type: meta.rewardType === 'FIRST' ? 'REFERRAL_FIRST' : 'REFERRAL_SECOND',
-        percentage: meta.rewardType === 'FIRST' ? '500 FCFA' : '0.6%',
+        percentage: meta.rewardType === 'FIRST' ? '1000 FCFA' : '0.6%',
         createdAt: t.createdAt,
       };
     });
@@ -415,6 +415,8 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // POST /users/me/rewards/withdraw - Withdraw rewards to mobile money
+  // The user requests the gross amount; 50% is kept as a platform fee and the
+  // remaining 50% is sent to their mobile money account.
   app.post('/me/rewards/withdraw', async (req, reply) => {
     const userId = req.authUser!.id;
     const { amount, phoneNumber, method } = req.body as {
@@ -424,8 +426,8 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     };
 
     // Validate inputs
-    if (!amount || amount < 500) {
-      return reply.code(400).send({ error: 'InvalidAmount', message: 'Minimum withdrawal is 500 FCFA' });
+    if (!amount || amount < 1000) {
+      return reply.code(400).send({ error: 'InvalidAmount', message: 'Minimum withdrawal is 1000 FCFA' });
     }
     if (!phoneNumber || phoneNumber.length < 9) {
       return reply.code(400).send({ error: 'InvalidPhone', message: 'Valid phone number required' });
@@ -433,6 +435,10 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     if (!['mtn', 'orange', 'wave'].includes(method)) {
       return reply.code(400).send({ error: 'InvalidMethod', message: 'Method must be mtn, orange, or wave' });
     }
+
+    // 50% platform fee: the user receives half of the requested amount.
+    const netAmount = Math.floor(amount / 2);
+    const feeAmount = amount - netAmount;
 
     // Check actual wallet balance — rewards are deposited into the main wallet on conversion
     const wallet = await prisma.wallet.findUnique({ where: { userId } });
@@ -443,10 +449,10 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    // processWithdrawal handles wallet deduction + transaction record atomically
+    // processWithdrawal handles wallet deduction + transaction record atomically for the net amount
     const withdrawalResult = await processWithdrawal({
       userId,
-      amount,
+      amount: netAmount,
       phoneNumber,
       provider: method.toUpperCase() as WithdrawalProvider,
       reference: `REWARDS_WD_${Date.now()}`,
@@ -455,6 +461,8 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         phoneNumber,
         method,
         requestedAt: new Date().toISOString(),
+        grossAmount: amount,
+        feeAmount,
       },
     });
 
@@ -465,6 +473,29 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
+    // Record the 50% platform fee and deduct it from the wallet
+    await prisma.$transaction(async (tx) => {
+      await tx.wallet.update({
+        where: { userId },
+        data: { balance: { decrement: feeAmount } },
+      });
+      await tx.transaction.create({
+        data: {
+          userId,
+          type: 'WITHDRAWAL',
+          amount: feeAmount,
+          status: 'COMPLETED',
+          provider: 'WALLET',
+          providerRef: `REWARDS_FEE_${Date.now()}`,
+          metadata: {
+            source: 'REWARDS_WITHDRAWAL_FEE',
+            originalWithdrawalId: withdrawalResult.withdrawalId,
+            grossAmount: amount,
+          } as never,
+        },
+      });
+    });
+
     // Award badges if withdrawal successful
     await checkAndAwardBadges(userId);
 
@@ -473,8 +504,10 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       withdrawalId: withdrawalResult.withdrawalId,
       method,
       phoneNumber,
+      netAmount,
+      feeAmount,
       status: withdrawalResult.status,
-      message: 'Withdrawal request submitted and is being processed',
+      message: `Withdrawal request submitted. You will receive ${netAmount} FCFA (50% platform fee applied).`,
     };
   });
 

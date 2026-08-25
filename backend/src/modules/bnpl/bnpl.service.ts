@@ -46,7 +46,7 @@ export async function createPurchase(userId: string, input: {
   productId: string;
   instalmentCount: InstalmentCount;
   frequency?: PaymentFrequency;
-  paymentProvider: 'ORANGE_MONEY' | 'MTN_MOMO' | 'WALLET';
+  paymentProvider: 'ORANGE_MONEY' | 'MTN_MOMO' | 'WALLET' | 'REFERRAL';
   phone: string;
   downPayment?: number;
 }) {
@@ -170,7 +170,7 @@ export async function getPurchase(userId: string, purchaseId: string) {
 
 export async function repayInstalment(userId: string, input: {
   instalmentId: string;
-  paymentProvider: 'ORANGE_MONEY' | 'MTN_MOMO' | 'WALLET';
+  paymentProvider: 'ORANGE_MONEY' | 'MTN_MOMO' | 'WALLET' | 'REFERRAL';
   phone: string;
   amount?: number; // Optional - for partial payments
 }) {
