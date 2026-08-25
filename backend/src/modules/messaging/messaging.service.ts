@@ -1,5 +1,6 @@
 import { prisma } from '../../config/db';
 import { AuthError } from '../auth/auth.service';
+import { phoneVariants } from '../../utils/phone';
 
 export interface ConversationWithMeta {
   id: string;
@@ -267,19 +268,16 @@ export async function markMessagesReadByIds(messageIds: string[], userId: string
   });
 }
 
-function normalizePhone(phone: string): string {
-  // minimal normalization: trim spaces; backend stores raw-ish phone in User.phone
-  return phone.trim();
-}
-
 export async function resolveUserIdsByPhones(phones: string[]): Promise<string[]> {
-  const cleaned = Array.from(new Set(phones.map(normalizePhone).filter(Boolean)));
-  if (cleaned.length === 0) return [];
+  const variants = Array.from(
+    new Set(phones.flatMap((p) => phoneVariants(p)))
+  ).filter(Boolean);
+  if (variants.length === 0) return [];
 
   const users = await prisma.user.findMany({
-    where: { phone: { in: cleaned } },
+    where: { phone: { in: variants } },
     select: { id: true },
-    take: cleaned.length,
+    take: variants.length,
   });
 
   return users.map((u) => u.id);
