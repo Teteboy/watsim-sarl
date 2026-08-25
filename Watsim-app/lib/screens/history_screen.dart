@@ -12,6 +12,7 @@ import 'deposit_screen.dart';
 import 'catalogue_screen.dart';
 import '../services/api_service.dart';
 import '../widgets/transaction_detail_sheet.dart';
+import '../widgets/pin_confirm_dialog.dart';
 
 class HistoryScreen extends StatefulWidget {
   final int initialTab;
@@ -1766,6 +1767,12 @@ class _OrderCardState extends State<_OrderCard> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () async {
+                  final confirmed = await showPinConfirmDialog(
+                    context,
+                    title: lang.confirmWithdrawal,
+                  );
+                  if (!confirmed) return;
+
                   if (order.id == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(

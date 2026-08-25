@@ -2633,17 +2633,6 @@ class _WatSimTransferSheet extends StatefulWidget {
 }
 
 class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
-  // Demo whitelist – phone numbers with a verified WatSim account
-  static const _verifiedNumbers = {
-    '655000001',
-    '655000002',
-    '677000001',
-    '699000001',
-    '620000001',
-    '690000001',
-  };
-  static const _validPin = '1234';
-
   // 0 = phone entry  |  1 = PIN confirm  |  2 = success
   int _step = 0;
 
@@ -2651,7 +2640,7 @@ class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
   final _pinCtrl = TextEditingController();
   String? _phoneError;
   String? _pinError;
-  bool _unverified = false;
+  bool _busy = false;
 
   int get _accumulated => widget.sourceOrder.totalAmountPaid;
   int get _deduction => (_accumulated * 0.20).round();
@@ -2667,28 +2656,69 @@ class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
     super.dispose();
   }
 
-  void _confirmTransfer() {
-    if (_pinCtrl.text != _validPin) {
-      setState(() => _pinError = 'Incorrect PIN. Please try again.');
+  Future<void> _confirmTransfer() async {
+    final lang = LanguageProvider.of(context);
+    if (_pinCtrl.text.trim().isEmpty) {
+      setState(() => _pinError = lang.isFrench
+          ? 'Veuillez entrer votre PIN.'
+          : 'Please enter your PIN.');
       return;
     }
-    // Record outgoing transfer (deduct from wallet)
-    WalletState.instance.deduct(
-      _accumulated,
-      reason: 'Transfer to ${_phoneCtrl.text.trim()}',
-      type: TxType.transfer,
-      tag: 'SENT',
-    );
-    // Remove this order
-    OrderState.instance.removeOrder(widget.sourceOrder.orderNumber);
-    // Fire notification
-    NotificationState.instance.onProductTransferApplied(
-      fromProduct: widget.sourceOrder.product.name,
-      toProduct: _phoneCtrl.text.trim(),
-      transferred: _netAmount,
-      completed: false,
-    );
-    setState(() => _step = 2);
+    if (widget.sourceOrder.id == null) {
+      setState(() => _pinError = 'Order is not linked to a backend purchase.');
+      return;
+    }
+    setState(() {
+      _pinError = null;
+      _busy = true;
+    });
+
+    // Verify the transaction PIN against the backend login PIN
+    final pinValid =
+        await ApiService.verifyTransactionPin(_pinCtrl.text.trim());
+    if (!pinValid) {
+      if (mounted) {
+        setState(() {
+          _pinError = lang.isFrench
+              ? 'PIN incorrect. Veuillez réessayer.'
+              : 'Incorrect PIN. Please try again.';
+          _busy = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final result = await ApiService.transferContribution(
+        purchaseId: widget.sourceOrder.id!,
+        recipientIdentifier: _phoneCtrl.text.trim(),
+      );
+      await WalletState.instance.syncWithBackend();
+      OrderState.instance.removeOrder(widget.sourceOrder.orderNumber);
+      NotificationState.instance.onProductTransferApplied(
+        fromProduct: widget.sourceOrder.product.name,
+        toProduct: _phoneCtrl.text.trim(),
+        transferred: (result['net'] as num?)?.toInt() ?? _netAmount,
+        completed: false,
+      );
+      if (mounted) setState(() => _step = 2);
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _pinError = e.message;
+          _busy = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _pinError = lang.isFrench
+              ? 'Échec du transfert. Réessayez.'
+              : 'Transfer failed. Please try again.';
+          _busy = false;
+        });
+      }
+    }
   }
 
   @override
@@ -2837,60 +2867,21 @@ class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
                       borderRadius: BorderRadius.circular(12)),
                 ),
                 onChanged: (_) {
-                  if (_phoneError != null || _unverified) {
-                    setState(() {
-                      _phoneError = null;
-                      _unverified = false;
-                    });
+                  if (_phoneError != null) {
+                    setState(() => _phoneError = null);
                   }
                 },
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Demo verified numbers: 655000001 · 677000001 · 699000001',
-                style: TextStyle(
+              Text(
+                lang.isFrench
+                    ? 'Le destinataire doit avoir un compte WatSim actif.'
+                    : 'Recipient must have an active WatSim account.',
+                style: const TextStyle(
                     fontSize: 11,
                     color: AppColors.textMuted,
                     fontStyle: FontStyle.italic),
               ),
-              if (_unverified) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFEBEE),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFEF9A9A)),
-                  ),
-                  child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.warning_amber_rounded,
-                            color: Color(0xFFE53935), size: 22),
-                        SizedBox(width: 10),
-                        Expanded(
-                            child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(lang.noWatsimAccount,
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFFB71C1C))),
-                            SizedBox(height: 4),
-                            Text(
-                              'This number does not have a verified WatSim account. '
-                              'Check the number or ask the recipient to register on WatSim.',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFFE53935),
-                                  height: 1.4),
-                            ),
-                          ],
-                        )),
-                      ]),
-                ),
-              ],
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -2917,15 +2908,7 @@ class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
                           () => _phoneError = 'Enter a valid phone number.');
                       return;
                     }
-                    if (!_verifiedNumbers.contains(phone)) {
-                      setState(() {
-                        _phoneError = null;
-                        _unverified = true;
-                      });
-                      return;
-                    }
                     setState(() {
-                      _unverified = false;
                       _phoneError = null;
                       _step = 1;
                     });
@@ -3065,21 +3048,27 @@ class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
               },
             ),
             const SizedBox(height: 6),
-            Text(lang.demoPIN,
-                style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textMuted,
-                    fontStyle: FontStyle.italic)),
+            Text(
+              lang.isFrench
+                  ? 'Votre PIN de connexion est requis.'
+                  : 'Your login PIN is required.',
+              style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                  fontStyle: FontStyle.italic),
+            ),
             const SizedBox(height: 20),
 
             Row(children: [
               Expanded(
                   child: OutlinedButton(
-                onPressed: () => setState(() {
-                  _step = 0;
-                  _pinCtrl.clear();
-                  _pinError = null;
-                }),
+                onPressed: _busy
+                    ? null
+                    : () => setState(() {
+                          _step = 0;
+                          _pinCtrl.clear();
+                          _pinError = null;
+                        }),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 50),
                   side: const BorderSide(color: AppColors.divider),
@@ -3092,14 +3081,23 @@ class _WatSimTransferSheetState extends State<_WatSimTransferSheet> {
               const SizedBox(width: 12),
               Expanded(
                   child: ElevatedButton(
-                onPressed: _confirmTransfer,
+                onPressed: _busy ? null : _confirmTransfer,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(0, 50),
                   backgroundColor: const Color(0xFF607D8B),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                 ),
-                child: Text(lang.confirmTransfer),
+                child: _busy
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(lang.confirmTransfer),
               )),
             ]),
           ],
@@ -3211,10 +3209,10 @@ class _WithdrawSheet extends StatefulWidget {
 class _WithdrawSheetState extends State<_WithdrawSheet> {
   bool _showPin = false;
   bool _done = false;
+  bool _busy = false;
   final _pinCtrl = TextEditingController();
   String? _pinError;
 
-  static const _validPin = '1234';
   static const double _chargeRate = 0.30;
 
   int get _accumulated => widget.order.totalAmountPaid;
@@ -3228,20 +3226,67 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
     return '$k,$r FCFA';
   }
 
-  void _confirm() {
-    if (_pinCtrl.text != _validPin) {
-      setState(() => _pinError = 'Incorrect PIN. Please try again.');
+  Future<void> _confirm() async {
+    final lang = LanguageProvider.of(context);
+    if (_pinCtrl.text.trim().isEmpty) {
+      setState(() => _pinError = lang.isFrench
+          ? 'Veuillez entrer votre PIN.'
+          : 'Please enter your PIN.');
       return;
     }
-    WalletState.instance.topUp(_netAmount,
-        operator: 'Withdrawal from ${widget.order.product.name}');
-    NotificationState.instance.addGenericNotification(
-      'Withdrawal Processed',
-      '${_fmt(_netAmount)} credited to your wallet after 30% charge (${_fmt(_charge)}) on ${widget.order.product.name}.',
-    );
-    // Remove the order from the order screen after successful withdrawal
-    OrderState.instance.removeOrder(widget.order.orderNumber);
-    setState(() => _done = true);
+    if (widget.order.id == null) {
+      setState(() => _pinError = 'Order is not linked to a backend purchase.');
+      return;
+    }
+    setState(() {
+      _pinError = null;
+      _busy = true;
+    });
+
+    // Verify the transaction PIN against the backend login PIN
+    final pinValid =
+        await ApiService.verifyTransactionPin(_pinCtrl.text.trim());
+    if (!pinValid) {
+      if (mounted) {
+        setState(() {
+          _pinError = lang.isFrench
+              ? 'PIN incorrect. Veuillez réessayer.'
+              : 'Incorrect PIN. Please try again.';
+          _busy = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final result = await ApiService.withdrawContribution(
+        purchaseId: widget.order.id!,
+      );
+      await WalletState.instance.syncWithBackend();
+      OrderState.instance.removeOrder(widget.order.orderNumber);
+      final net = (result['refund'] as num?)?.toInt() ?? _netAmount;
+      NotificationState.instance.addGenericNotification(
+        'Withdrawal Processed',
+        '${_fmt(net)} credited to your wallet after 30% charge (${_fmt(_charge)}) on ${widget.order.product.name}.',
+      );
+      if (mounted) setState(() => _done = true);
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _pinError = e.message;
+          _busy = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _pinError = lang.isFrench
+              ? 'Échec du retrait. Réessayez.'
+              : 'Withdrawal failed. Please try again.';
+          _busy = false;
+        });
+      }
+    }
   }
 
   @override
@@ -3320,11 +3365,13 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary)),
               const SizedBox(height: 6),
-              const Text('Enter your 4-digit PIN to confirm the withdrawal.',
-                  style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                      height: 1.4)),
+              Text(
+                lang.isFrench
+                    ? 'Entrez votre PIN de connexion à 4 chiffres pour confirmer le retrait.'
+                    : 'Enter your 4-digit login PIN to confirm the withdrawal.',
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+              ),
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -3360,20 +3407,26 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                 },
               ),
               const SizedBox(height: 6),
-              Text(lang.demoPIN,
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textMuted,
-                      fontStyle: FontStyle.italic)),
+              Text(
+                lang.isFrench
+                    ? 'Votre PIN de connexion est requis.'
+                    : 'Your login PIN is required.',
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                    fontStyle: FontStyle.italic),
+              ),
               const SizedBox(height: 20),
               Row(children: [
                 Expanded(
                     child: OutlinedButton(
-                  onPressed: () => setState(() {
-                    _showPin = false;
-                    _pinCtrl.clear();
-                    _pinError = null;
-                  }),
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() {
+                            _showPin = false;
+                            _pinCtrl.clear();
+                            _pinError = null;
+                          }),
                   style: OutlinedButton.styleFrom(
                       minimumSize: const Size(0, 50),
                       side: const BorderSide(color: AppColors.divider),
@@ -3385,11 +3438,20 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                     child: ElevatedButton(
-                  onPressed: _confirm,
+                  onPressed: _busy ? null : _confirm,
                   style: ElevatedButton.styleFrom(
                       minimumSize: const Size(0, 50),
                       backgroundColor: const Color(0xFFF57C00)),
-                  child: Text(lang.confirmWithdrawal),
+                  child: _busy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(lang.confirmWithdrawal),
                 )),
               ]),
             ] else ...[
