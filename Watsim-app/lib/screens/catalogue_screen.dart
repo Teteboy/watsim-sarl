@@ -8,8 +8,6 @@ import '../notification_state.dart';
 import 'notifications_screen.dart';
 import 'messaging_screen.dart';
 import 'wallet_screen.dart';
-import '../order_state.dart';
-import '../wallet_state.dart';
 
 // ─── Product model ─────────────────────────────────────────────────────────
 class Product {
@@ -1106,44 +1104,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          final int creditLimit = WalletState.instance.creditLimit;
-          final activeOrders =
-              OrderState.instance.orders.where((o) => !o.isFullyPaid).toList();
-          final int usedCredit =
-              activeOrders.fold(0, (sum, o) => sum + o.basePrice);
-          final int availableCredit =
-              (creditLimit - usedCredit).clamp(0, creditLimit);
-          final int productPrice = product.priceValue;
-
-          // A product can be added if the total BNPL exposure stays within the user's real credit limit.
-          if (productPrice > availableCredit) {
-            showDialog(
-              context: context,
-              builder: (_) => AlertDialog(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18)),
-                icon: const Icon(Icons.price_change_rounded,
-                    color: Colors.orange, size: 36),
-                title: Text(lang.maxContribTitle,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                content: Text(
-                    '${lang.maxContribBody}\n\n'
-                    '${lang.isFrench ? 'Crédit disponible : ' : 'Available credit: '}${Product._formatPriceInt(availableCredit)} FCFA',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 14, color: AppColors.textSecondary)),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(lang.chooseAnotherProduct),
-                  ),
-                ],
-              ),
-            );
-            return;
-          }
-
           Navigator.push(
               context,
               MaterialPageRoute(
