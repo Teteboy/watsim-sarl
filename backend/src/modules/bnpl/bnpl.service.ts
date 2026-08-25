@@ -5,6 +5,10 @@ import { enqueueScoreUpdate } from '../../jobs/queue';
 import { recordBnplPurchase } from '../accounting/accounting.hooks';
 import { logger } from '../../config/logger';
 
+// Feature flag for credit-limit checks. Disabled by default while the scoring
+// system is being finalised; set to `true` to re-enable the checks later.
+const BNPL_CREDIT_CHECK_ENABLED = false;
+
 export class BnplError extends Error {
   constructor(public statusCode: number, message: string) {
     super(message);
@@ -59,7 +63,8 @@ export async function createPurchase(userId: string, input: {
   const existingPurchases = await prisma.bnplPurchase.count({ where: { userId } });
   const isFirstPurchase = existingPurchases === 0;
   // Allow first purchase regardless of credit limit; enforce limit on subsequent purchases
-  if (!isFirstPurchase && product.price > user.creditLimit) {
+  // (currently gated by the feature flag while the scoring system is being finalised).
+  if (BNPL_CREDIT_CHECK_ENABLED && !isFirstPurchase && product.price > user.creditLimit) {
     throw new BnplError(403, `Amount exceeds credit limit (${user.creditLimit} XAF)`);
   }
 
