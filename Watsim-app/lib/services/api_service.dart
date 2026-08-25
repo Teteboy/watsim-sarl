@@ -734,6 +734,20 @@ class ApiService {
 
   // ── Payments ──────────────────────────────────────────────────────────
 
+  /// Create a cash deposit transaction (admin approval required).
+  /// This does not trigger a mobile money payment; it just records the
+  /// request so the admin dashboard can list and approve it.
+  static Future<Map<String, dynamic>> requestCashDeposit({
+    required int amount,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$kApiBase/users/me/transactions/deposit'),
+      headers: await _headers(),
+      body: jsonEncode({'amount': amount, 'provider': 'CASH'}),
+    );
+    return _decode(res);
+  }
+
   /// Initiate a deposit (creates a transaction + triggers CamPay payment)
   static Future<Map<String, dynamic>> initiateDeposit({
     required int amount,

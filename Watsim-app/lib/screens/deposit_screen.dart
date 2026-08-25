@@ -150,13 +150,21 @@ class _DepositScreenState extends State<DepositScreen> {
 
   // ── Cash deposit flow ─────────────────────────────────────────────────
 
-  void _submitCashDeposit() {
+  Future<void> _submitCashDeposit() async {
     setState(() {
       _cashPending = true;
       _cashRequestedAmount = _amount;
     });
-    WalletState.instance.cashDepositPending(_amount);
-    NotificationState.instance.onCashDepositPending(_amount);
+    try {
+      await ApiService.requestCashDeposit(amount: _amount);
+      WalletState.instance.cashDepositPending(_amount);
+      NotificationState.instance.onCashDepositPending(_amount);
+    } on ApiException catch (e) {
+      setState(() => _cashPending = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red),
+      );
+    }
   }
 
   /// Simulates the office confirming receipt — in production this is triggered

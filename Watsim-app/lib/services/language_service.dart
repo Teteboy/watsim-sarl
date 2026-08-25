@@ -326,7 +326,7 @@ class LanguageService extends ChangeNotifier {
       _isFrench ? 'Pas encore de compte ?  ' : 'No account yet?  ';
   String get register => _isFrench ? 'S\'inscrire' : 'Register';
   String get securedByWatsim =>
-      _isFrench ? 'SÉCURISÉ PAR WATSIM PAY' : 'SECURED BY WATSIM PAY';
+      _isFrench ? 'SÉCURISÉ PAR WATSIM' : 'SECURED BY WATSIM';
 
   // ── Fingerprint scan sheet ──────────────────────────────────────────────
   String get scanVerified => _isFrench ? 'Vérifié !' : 'Verified!';
