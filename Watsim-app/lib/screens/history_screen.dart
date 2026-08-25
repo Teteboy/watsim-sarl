@@ -3142,12 +3142,16 @@ class _HistoryDeliverySheet extends StatefulWidget {
 }
 
 class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
-  final _nameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _neighbourhoodCtrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController(); // Nom
+  final _firstNameCtrl = TextEditingController(); // Prénom
+  final _phoneCtrl = TextEditingController(); // Tel
+  final _residenceCtrl = TextEditingController(); // Lieu résidence
+  final _deliveryLocationCtrl = TextEditingController(); // Lieu livraison
+  final _colorCtrl = TextEditingController(); // Couleur
+  final _shoeSizeCtrl = TextEditingController(); // Pointure
+  final _professionCtrl = TextEditingController(); // Profession
+  final _cniCtrl = TextEditingController(); // CNI
   final _pinCtrl = TextEditingController();
-  final _professionCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   // ID card photos (optional) — stored as mock file paths for demo
@@ -3164,22 +3168,27 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _firstNameCtrl.dispose();
     _phoneCtrl.dispose();
-    _neighbourhoodCtrl.dispose();
-    _cityCtrl.dispose();
-    _pinCtrl.dispose();
+    _residenceCtrl.dispose();
+    _deliveryLocationCtrl.dispose();
+    _colorCtrl.dispose();
+    _shoeSizeCtrl.dispose();
     _professionCtrl.dispose();
+    _cniCtrl.dispose();
+    _pinCtrl.dispose();
     super.dispose();
   }
 
   bool get _allFilled =>
-      _nameCtrl.text.trim().isNotEmpty &&
+      _lastNameCtrl.text.trim().isNotEmpty &&
+      _firstNameCtrl.text.trim().isNotEmpty &&
       _phoneCtrl.text.trim().isNotEmpty &&
-      _neighbourhoodCtrl.text.trim().isNotEmpty &&
-      _cityCtrl.text.trim().isNotEmpty &&
+      _residenceCtrl.text.trim().isNotEmpty &&
+      _deliveryLocationCtrl.text.trim().isNotEmpty &&
       _professionCtrl.text.trim().isNotEmpty &&
-      _deliveryTime != null;
+      _cniCtrl.text.trim().isNotEmpty;
 
   void _submitForm() {
     final lang = LanguageProvider.of(context);
@@ -3260,20 +3269,25 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
         child: _step == 'receipt'
             ? _HistoryReceiptView(
                 order: widget.order,
-                name: _nameCtrl.text.trim(),
+                name:
+                    '${_firstNameCtrl.text.trim()} ${_lastNameCtrl.text.trim()}',
                 phone: _phoneCtrl.text.trim(),
                 profession: _professionCtrl.text.trim(),
                 idFrontPhoto: _idFrontPhoto,
                 idBackPhoto: _idBackPhoto,
-                neighbourhood: _neighbourhoodCtrl.text.trim(),
-                city: _cityCtrl.text.trim(),
+                neighbourhood: _residenceCtrl.text.trim(),
+                city: _deliveryLocationCtrl.text.trim(),
                 deliveryTime: _deliveryTime,
+                color: _colorCtrl.text.trim(),
+                shoeSize: _shoeSizeCtrl.text.trim(),
+                cni: _cniCtrl.text.trim(),
               )
             : _step == 'pin'
                 ? _HistoryDeliveryPinStep(
                     pinCtrl: _pinCtrl,
                     pinError: _pinError,
-                    name: _nameCtrl.text.trim(),
+                    name:
+                        '${_firstNameCtrl.text.trim()} ${_lastNameCtrl.text.trim()}',
                     phone: _phoneCtrl.text.trim(),
                     productName: widget.order.product.name,
                     onConfirm: _confirmPin,
@@ -3288,17 +3302,21 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
                   )
                 : _HistoryDeliveryForm(
                     formKey: _formKey,
-                    nameCtrl: _nameCtrl,
+                    lastNameCtrl: _lastNameCtrl,
+                    firstNameCtrl: _firstNameCtrl,
                     phoneCtrl: _phoneCtrl,
+                    residenceCtrl: _residenceCtrl,
+                    deliveryLocationCtrl: _deliveryLocationCtrl,
+                    colorCtrl: _colorCtrl,
+                    shoeSizeCtrl: _shoeSizeCtrl,
                     professionCtrl: _professionCtrl,
+                    cniCtrl: _cniCtrl,
                     idFrontPhoto: _idFrontPhoto,
                     idBackPhoto: _idBackPhoto,
                     onIdFrontCapture: () =>
                         setState(() => _idFrontPhoto = 'front_captured'),
                     onIdBackCapture: () =>
                         setState(() => _idBackPhoto = 'back_captured'),
-                    neighbourhoodCtrl: _neighbourhoodCtrl,
-                    cityCtrl: _cityCtrl,
                     deliveryTime: _deliveryTime,
                     allFilled: _allFilled,
                     onFieldChanged: () => setState(() {}),
@@ -3330,11 +3348,15 @@ class _HistoryDeliverySheetState extends State<_HistoryDeliverySheet> {
 // ── Delivery form ──────────────────────────────────────────────────────────
 class _HistoryDeliveryForm extends StatelessWidget {
   final GlobalKey<FormState> formKey;
-  final TextEditingController nameCtrl,
+  final TextEditingController lastNameCtrl,
+      firstNameCtrl,
       phoneCtrl,
+      residenceCtrl,
+      deliveryLocationCtrl,
+      colorCtrl,
+      shoeSizeCtrl,
       professionCtrl,
-      neighbourhoodCtrl,
-      cityCtrl;
+      cniCtrl;
   final String? idFrontPhoto;
   final String? idBackPhoto;
   final VoidCallback onIdFrontCapture;
@@ -3346,15 +3368,19 @@ class _HistoryDeliveryForm extends StatelessWidget {
 
   const _HistoryDeliveryForm({
     required this.formKey,
-    required this.nameCtrl,
+    required this.lastNameCtrl,
+    required this.firstNameCtrl,
     required this.phoneCtrl,
+    required this.residenceCtrl,
+    required this.deliveryLocationCtrl,
+    required this.colorCtrl,
+    required this.shoeSizeCtrl,
     required this.professionCtrl,
+    required this.cniCtrl,
     required this.idFrontPhoto,
     required this.idBackPhoto,
     required this.onIdFrontCapture,
     required this.onIdBackCapture,
-    required this.neighbourhoodCtrl,
-    required this.cityCtrl,
     required this.deliveryTime,
     required this.allFilled,
     required this.onFieldChanged,
@@ -3399,42 +3425,120 @@ class _HistoryDeliveryForm extends StatelessWidget {
           const SizedBox(height: 6),
           const Padding(
             padding: EdgeInsets.only(left: 54),
-            child: Text('Confirm your identity and delivery details.',
+            child: Text('Confirmez vos informations de livraison.',
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
           ),
           const SizedBox(height: 22),
 
-          // Full Name
-          _fieldLabel('FULL NAME'),
+          // Nom (Last Name)
+          _fieldLabel('NOM'),
           const SizedBox(height: 6),
           TextFormField(
-            controller: nameCtrl,
+            controller: lastNameCtrl,
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => onFieldChanged(),
             decoration: const InputDecoration(
-                labelText: 'Full name',
-                hintText: 'e.g. Jean-Paul Mbarga',
+                labelText: 'Nom',
+                hintText: 'e.g. Mbarga',
                 prefixIcon: Icon(Icons.person_outline_rounded)),
             validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Name is required' : null,
+                v == null || v.trim().isEmpty ? 'Le nom est requis' : null,
           ),
           const SizedBox(height: 14),
 
-          // Phone Number
-          _fieldLabel('PHONE NUMBER'),
+          // Prénom (First Name)
+          _fieldLabel('PRÉNOM'),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: firstNameCtrl,
+            textCapitalization: TextCapitalization.words,
+            onChanged: (_) => onFieldChanged(),
+            decoration: const InputDecoration(
+                labelText: 'Prénom',
+                hintText: 'e.g. Jean-Paul',
+                prefixIcon: Icon(Icons.person_outline_rounded)),
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Le prénom est requis' : null,
+          ),
+          const SizedBox(height: 14),
+
+          // Tel (Phone Number)
+          _fieldLabel('TEL'),
           const SizedBox(height: 6),
           TextFormField(
             controller: phoneCtrl,
             keyboardType: TextInputType.phone,
             onChanged: (_) => onFieldChanged(),
             decoration: const InputDecoration(
-              labelText: 'Phone number',
+              labelText: 'Téléphone',
               hintText: 'e.g. +237 6XX XXX XXX',
               prefixIcon: Icon(Icons.phone_outlined),
             ),
             validator: (v) => v == null || v.trim().isEmpty
-                ? 'Phone number is required'
+                ? 'Le numéro de téléphone est requis'
                 : null,
+          ),
+          const SizedBox(height: 14),
+
+          // Lieu résidence
+          _fieldLabel('LIEU RÉSIDENCE'),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: residenceCtrl,
+            onChanged: (_) => onFieldChanged(),
+            decoration: const InputDecoration(
+                labelText: 'Lieu de résidence',
+                hintText: 'e.g. Bastos, Yaoundé',
+                prefixIcon: Icon(Icons.home_outlined)),
+            validator: (v) => v == null || v.trim().isEmpty
+                ? 'Le lieu de résidence est requis'
+                : null,
+          ),
+          const SizedBox(height: 14),
+
+          // Lieu livraison
+          _fieldLabel('LIEU LIVRAISON'),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: deliveryLocationCtrl,
+            onChanged: (_) => onFieldChanged(),
+            decoration: const InputDecoration(
+                labelText: 'Lieu de livraison',
+                hintText: 'e.g. Carrefour Nlongkak',
+                prefixIcon: Icon(Icons.location_on_outlined)),
+            validator: (v) => v == null || v.trim().isEmpty
+                ? 'Le lieu de livraison est requis'
+                : null,
+          ),
+          const SizedBox(height: 14),
+
+          // Couleur
+          _fieldLabel('COULEUR'),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: colorCtrl,
+            textCapitalization: TextCapitalization.words,
+            onChanged: (_) => onFieldChanged(),
+            decoration: const InputDecoration(
+              labelText: 'Couleur souhaitée',
+              hintText: 'e.g. Noir, Blanc, Rouge…',
+              prefixIcon: Icon(Icons.color_lens_outlined),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Pointure
+          _fieldLabel('POINTURE'),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: shoeSizeCtrl,
+            keyboardType: TextInputType.number,
+            onChanged: (_) => onFieldChanged(),
+            decoration: const InputDecoration(
+              labelText: 'Pointure',
+              hintText: 'e.g. 42, 38…',
+              prefixIcon: Icon(Icons.straighten_outlined),
+            ),
           ),
           const SizedBox(height: 14),
 
@@ -3446,12 +3550,30 @@ class _HistoryDeliveryForm extends StatelessWidget {
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => onFieldChanged(),
             decoration: const InputDecoration(
-              labelText: 'Your profession',
-              hintText: 'e.g. Engineer, Teacher, Trader…',
+              labelText: 'Profession',
+              hintText: 'e.g. Ingénieur, Enseignant, Commerçant…',
               prefixIcon: Icon(Icons.work_outline_rounded),
             ),
-            validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Profession is required' : null,
+            validator: (v) => v == null || v.trim().isEmpty
+                ? 'La profession est requise'
+                : null,
+          ),
+          const SizedBox(height: 14),
+
+          // CNI
+          _fieldLabel('CNI'),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: cniCtrl,
+            onChanged: (_) => onFieldChanged(),
+            decoration: const InputDecoration(
+              labelText: 'Numéro CNI',
+              hintText: 'e.g. 123456789',
+              prefixIcon: Icon(Icons.badge_outlined),
+            ),
+            validator: (v) => v == null || v.trim().isEmpty
+                ? 'Le numéro CNI est requis'
+                : null,
           ),
           const SizedBox(height: 18),
 
@@ -3460,7 +3582,7 @@ class _HistoryDeliveryForm extends StatelessWidget {
             const Icon(Icons.badge_outlined,
                 size: 16, color: AppColors.primaryGreen),
             const SizedBox(width: 6),
-            const Text('ID CARD PHOTOS',
+            const Text('PHOTO CNI',
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -3473,7 +3595,7 @@ class _HistoryDeliveryForm extends StatelessWidget {
                 color: AppColors.primaryGreen.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text('OPTIONAL',
+              child: const Text('OPTIONNEL',
                   style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
@@ -3483,7 +3605,7 @@ class _HistoryDeliveryForm extends StatelessWidget {
           ]),
           const SizedBox(height: 8),
           const Text(
-            'Attach a photo of your national ID card (front and back). This helps us verify your identity faster.',
+            'Joindre une photo de votre carte nationale d\'identité (recto et verso).',
             style: TextStyle(
                 fontSize: 12, color: AppColors.textSecondary, height: 1.4),
           ),
@@ -3522,8 +3644,8 @@ class _HistoryDeliveryForm extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         idFrontPhoto != null
-                            ? 'Front captured ✓'
-                            : 'Tap to capture\nFRONT side',
+                            ? 'Recto capturé ✓'
+                            : 'Capturer\nRECTO',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
@@ -3573,8 +3695,8 @@ class _HistoryDeliveryForm extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         idBackPhoto != null
-                            ? 'Back captured ✓'
-                            : 'Tap to capture\nBACK side',
+                            ? 'Verso capturé ✓'
+                            : 'Capturer\nVERSO',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
@@ -3593,39 +3715,8 @@ class _HistoryDeliveryForm extends StatelessWidget {
           ]),
           const SizedBox(height: 14),
 
-          // Neighbourhood
-          _fieldLabel('NEIGHBOURHOOD'),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: neighbourhoodCtrl,
-            onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-                labelText: 'Neighbourhood',
-                hintText: 'e.g. Bastos, Nlongkak…',
-                prefixIcon: Icon(Icons.location_city_outlined)),
-            validator: (v) => v == null || v.trim().isEmpty
-                ? 'Neighbourhood is required'
-                : null,
-          ),
-          const SizedBox(height: 14),
-
-          // City
-          _fieldLabel('CITY'),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: cityCtrl,
-            onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-                labelText: 'City',
-                hintText: 'e.g. Yaoundé, Douala…',
-                prefixIcon: Icon(Icons.location_on_outlined)),
-            validator: (v) =>
-                v == null || v.trim().isEmpty ? 'City is required' : null,
-          ),
-          const SizedBox(height: 14),
-
           // Delivery Time
-          _fieldLabel('DELIVERY TIME'),
+          _fieldLabel('HEURE DE LIVRAISON'),
           const SizedBox(height: 6),
           GestureDetector(
             onTap: onDeliveryTimePick,
@@ -3648,8 +3739,8 @@ class _HistoryDeliveryForm extends StatelessWidget {
                 Expanded(
                     child: Text(
                   deliveryTime != null
-                      ? 'Delivery at ${deliveryTime!.format(context)}'
-                      : 'Select delivery time',
+                      ? 'Livraison à ${deliveryTime!.format(context)}'
+                      : 'Sélectionner l\'heure de livraison',
                   style: TextStyle(
                       fontSize: 14,
                       color: deliveryTime != null
@@ -3816,6 +3907,9 @@ class _HistoryReceiptView extends StatelessWidget {
   final String? idFrontPhoto;
   final String? idBackPhoto;
   final TimeOfDay? deliveryTime;
+  final String color;
+  final String shoeSize;
+  final String cni;
 
   const _HistoryReceiptView(
       {required this.order,
@@ -3826,7 +3920,10 @@ class _HistoryReceiptView extends StatelessWidget {
       required this.idBackPhoto,
       required this.neighbourhood,
       required this.city,
-      required this.deliveryTime});
+      required this.deliveryTime,
+      this.color = '',
+      this.shoeSize = '',
+      this.cni = ''});
 
   String _fmt(int v) {
     final k = v ~/ 1000;
@@ -3958,17 +4055,20 @@ class _HistoryReceiptView extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.divider)),
           child: Column(children: [
-            _section('CUSTOMER DETAILS', [
-              _rRow('Full Name', name),
-              _rRow('Phone', phone),
+            _section('INFORMATIONS CLIENT', [
+              _rRow('Nom & Prénom', name),
+              _rRow('Tél', phone),
+              _rRow('Lieu résidence', neighbourhood),
+              _rRow('Lieu livraison', city),
+              if (color.isNotEmpty) _rRow('Couleur', color),
+              if (shoeSize.isNotEmpty) _rRow('Pointure', shoeSize),
               _rRow('Profession', profession),
-              _rRow('ID Front',
-                  idFrontPhoto != null ? '✓ Photo captured' : 'Not provided'),
-              _rRow('ID Back',
-                  idBackPhoto != null ? '✓ Photo captured' : 'Not provided'),
-              _rRow('Neighbourhood', neighbourhood),
-              _rRow('City', city),
-              _rRow('Delivery Time',
+              _rRow('CNI', cni.isNotEmpty ? cni : '—'),
+              _rRow('Photo CNI Recto',
+                  idFrontPhoto != null ? '✓ Capturé' : 'Non fourni'),
+              _rRow('Photo CNI Verso',
+                  idBackPhoto != null ? '✓ Capturé' : 'Non fourni'),
+              _rRow('Heure livraison',
                   deliveryTime != null ? deliveryTime!.format(context) : '—'),
             ]),
             const Divider(height: 1, color: AppColors.divider),

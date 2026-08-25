@@ -1710,6 +1710,7 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
     {'key': 'ORANGE_MONEY', 'name': 'Orange Money', 'color': 0xFFFF6600},
     {'key': 'MTN_MOMO', 'name': 'MTN MoMo', 'color': 0xFFFFCC00},
     {'key': 'WALLET', 'name': 'Watsim Wallet', 'color': 0xFF00A86B},
+    {'key': 'REFERRAL', 'name': 'Referral Balance', 'color': 0xFF8E24AA},
   ];
 
   String _fmt(int v) {
@@ -1726,7 +1727,8 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final isWallet = _providers[_operator]['key'] == 'WALLET';
+    final providerKey = _providers[_operator]['key'];
+    final isWallet = providerKey == 'WALLET' || providerKey == 'REFERRAL';
     return Padding(
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
