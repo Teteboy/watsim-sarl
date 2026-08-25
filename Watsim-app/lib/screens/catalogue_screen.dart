@@ -8,6 +8,8 @@ import '../notification_state.dart';
 import 'notifications_screen.dart';
 import 'messaging_screen.dart';
 import 'wallet_screen.dart';
+import '../order_state.dart';
+import '../wallet_state.dart';
 
 // ─── Product model ─────────────────────────────────────────────────────────
 class Product {

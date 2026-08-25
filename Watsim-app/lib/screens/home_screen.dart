@@ -192,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             merchantName: (p['merchant']
                 as Map<String, dynamic>?)?['businessName'] as String?,
             stock: (p['stock'] as num?)?.toInt(),
+            bnplEligible: p['bnplEligible'] as bool? ?? true,
           );
         }).toList();
 
@@ -1354,7 +1355,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => BnplSimulatorScreen(product: product),
+          builder: (_) => ProductDetailScreen(product: product),
         ),
       ),
       child: Container(
