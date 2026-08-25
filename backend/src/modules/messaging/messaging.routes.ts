@@ -13,6 +13,8 @@ import {
   getConversationMessages,
   sendMessage,
   markConversationRead,
+  markMessagesDelivered,
+  markMessagesReadByIds,
   getOrCreateSupportConversation,
   resolveUserIdsByPhones,
 } from './messaging.service';
@@ -142,6 +144,25 @@ export async function messagingRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
 
     await markConversationRead(id, userId);
+    return { success: true };
+  });
+
+  // Mark messages in a conversation as DELIVERED (recipient opened chat list)
+  app.post('/conversations/:id/delivered', async (req, reply) => {
+    if (!req.authUser) return reply.code(401).send({ error: 'Unauthorized' });
+    const { id } = req.params as { id: string };
+    await markMessagesDelivered(id, req.authUser.id);
+    return { success: true };
+  });
+
+  // Mark specific messages as READ by IDs
+  app.post('/conversations/:id/read-messages', async (req, reply) => {
+    if (!req.authUser) return reply.code(401).send({ error: 'Unauthorized' });
+    const { messageIds } = req.body as { messageIds?: string[] };
+    if (!messageIds || messageIds.length === 0) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'messageIds required' });
+    }
+    await markMessagesReadByIds(messageIds, req.authUser.id);
     return { success: true };
   });
 

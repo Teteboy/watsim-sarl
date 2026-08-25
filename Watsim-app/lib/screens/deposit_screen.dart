@@ -3,6 +3,7 @@ import '../services/language_service.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import '../widgets/pin_confirm_dialog.dart';
 import '../wallet_state.dart';
 import '../notification_state.dart';
 
@@ -903,6 +904,12 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
           () => _payError = 'Please enter your mobile money phone number.');
       return;
     }
+
+    // PIN confirmation before processing
+    final confirmed =
+        await showPinConfirmDialog(context, title: 'Confirmer le retrait');
+    if (!confirmed || !mounted) return;
+
     final providerKey = _operator == 0
         ? 'ORANGE_MONEY'
         : _operator == 1
@@ -1213,6 +1220,12 @@ class _TransferScreenState extends State<TransferScreen> {
           : 'Please enter recipient phone number or email');
       return;
     }
+
+    // PIN confirmation before processing transfer
+    final confirmed =
+        await showPinConfirmDialog(context, title: 'Confirmer le transfert');
+    if (!confirmed || !mounted) return;
+
     setState(() {
       _paying = true;
       _payError = null;

@@ -73,9 +73,11 @@ class _MessagingScreenState extends State<MessagingScreen> {
               messages.add(AppMessage(
                 id: last['id']?.toString() ?? '${id}_last',
                 conversationId: id,
+                senderId: senderId.isNotEmpty ? senderId : null,
                 text: (last['text'] ?? last['body'] ?? '').toString(),
                 isMe: senderId.isNotEmpty && senderId == currentUserId,
                 timestamp: ts,
+                status: (last['status'] as String?) ?? 'SENT',
               ));
             }
             final isSupport = title.toLowerCase().contains('watsim support');
@@ -94,6 +96,13 @@ class _MessagingScreenState extends State<MessagingScreen> {
 
       // Add backend conversations to global state so ChatScreen can resolve them.
       NotificationState.instance.syncConversations(mapped);
+
+      // Mark messages as DELIVERED for all conversations with unread messages
+      for (final conv in mapped) {
+        if (conv.unreadCount > 0) {
+          ApiService.markMessagesDelivered(conv.id);
+        }
+      }
 
       if (!mounted) return;
       setState(() {
@@ -653,6 +662,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initConversation() async {
+    // Mark messages as delivered first, then as read (user is viewing)
+    await ApiService.markMessagesDelivered(widget.convId);
     await ApiService.markConversationRead(widget.convId);
     NotificationState.instance.markConversationRead(widget.convId);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -695,6 +706,8 @@ class _ChatScreenState extends State<ChatScreen> {
           _backendMessages.addAll(newMessages);
           _backendMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         });
+        // Mark new incoming messages as delivered then read
+        _markMessagesDeliveredAndRead(widget.convId, newMessages);
       }
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
@@ -743,10 +756,12 @@ class _ChatScreenState extends State<ChatScreen> {
         return AppMessage(
           id: (e['id'] ?? '').toString(),
           conversationId: targetConvId,
+          senderId: senderId.isNotEmpty ? senderId : null,
           text: text,
           timestamp: ts,
           isMe: isMe,
           attachment: attachment,
+          status: (e['status'] as String?) ?? 'SENT',
         );
       }).toList();
 
@@ -755,6 +770,9 @@ class _ChatScreenState extends State<ChatScreen> {
           _backendMessages = mapped;
           _loadingMessages = false;
         });
+
+        // Mark incoming messages as delivered, then mark read since user is viewing
+        _markMessagesDeliveredAndRead(targetConvId, mapped);
       }
 
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -793,6 +811,30 @@ class _ChatScreenState extends State<ChatScreen> {
       fileSize: e['fileSize'] is int ? e['fileSize'] as int : null,
       mimeType: (e['mimeType'] ?? e['mime_type'])?.toString(),
     );
+  }
+
+  /// Mark incoming (non-me) messages as delivered then read since user is viewing the chat
+  void _markMessagesDeliveredAndRead(String convId, List<AppMessage> messages) {
+    // Collect unread message IDs from other users
+    final unreadIds = messages
+        .where((m) => !m.isMe && m.status != 'READ')
+        .map((m) => m.id)
+        .where((id) => id.isNotEmpty)
+        .toList();
+
+    if (unreadIds.isEmpty) return;
+
+    // Mark as delivered first, then as read
+    ApiService.markMessagesDelivered(convId).then((_) {
+      ApiService.markConversationRead(convId);
+    });
+
+    // Update local state immediately for responsiveness
+    for (final m in messages) {
+      if (!m.isMe && m.status != 'READ') {
+        m.status = 'READ';
+      }
+    }
   }
 
   Future<void> _send() async {
@@ -1401,8 +1443,7 @@ class _MessageBubble extends StatelessWidget {
                     ),
                     if (isMe) ...[
                       const SizedBox(width: 3),
-                      const Icon(Icons.done_all_rounded,
-                          size: 14, color: Color(0xFF53BDEB)),
+                      _statusIcon(message.status),
                     ],
                   ],
                 ),
@@ -1412,6 +1453,23 @@ class _MessageBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Returns the appropriate tick icon based on message delivery status.
+  /// SENT = single grey tick, DELIVERED = double grey ticks, READ = double blue ticks.
+  Widget _statusIcon(String status) {
+    switch (status) {
+      case 'READ':
+        return const Icon(Icons.done_all_rounded,
+            size: 14, color: Color(0xFF53BDEB));
+      case 'DELIVERED':
+        return const Icon(Icons.done_all_rounded,
+            size: 14, color: AppColors.textMuted);
+      case 'SENT':
+      default:
+        return const Icon(Icons.done_rounded,
+            size: 14, color: AppColors.textMuted);
+    }
   }
 
   String _time(DateTime dt) {

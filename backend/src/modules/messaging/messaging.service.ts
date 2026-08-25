@@ -154,6 +154,7 @@ export async function getConversationMessages(
     text: m.text,
     attachmentUrl: m.attachmentUrl,
     attachmentType: m.attachmentType,
+    status: m.status,
     createdAt: m.createdAt.toISOString(),
     isMe: m.senderId === userId,
   }));
@@ -203,6 +204,7 @@ export async function sendMessage(
     text: msg.text,
     attachmentUrl: msg.attachmentUrl,
     attachmentType: msg.attachmentType,
+    status: msg.status,
     createdAt: msg.createdAt.toISOString(),
     isMe: true,
   };
@@ -217,6 +219,51 @@ export async function markConversationRead(conversationId: string, userId: strin
   await prisma.conversationParticipant.update({
     where: { conversationId_userId: { conversationId, userId } },
     data: { lastReadAt: new Date() },
+  });
+
+  // Mark all messages from other users as READ
+  await prisma.message.updateMany({
+    where: {
+      conversationId,
+      senderId: { not: userId },
+      status: { in: ['SENT', 'DELIVERED'] },
+    },
+    data: { status: 'READ' },
+  });
+}
+
+/**
+ * Mark all messages in a conversation as DELIVERED for a recipient.
+ * Called when the recipient opens the app / receives push.
+ */
+export async function markMessagesDelivered(conversationId: string, userId: string) {
+  const membership = await prisma.conversationParticipant.findUnique({
+    where: { conversationId_userId: { conversationId, userId } },
+  });
+  if (!membership) return;
+
+  // Only upgrade SENT → DELIVERED (don't downgrade READ)
+  await prisma.message.updateMany({
+    where: {
+      conversationId,
+      senderId: { not: userId },
+      status: 'SENT',
+    },
+    data: { status: 'DELIVERED' },
+  });
+}
+
+/**
+ * Mark specific messages as READ by IDs.
+ */
+export async function markMessagesReadByIds(messageIds: string[], userId: string) {
+  await prisma.message.updateMany({
+    where: {
+      id: { in: messageIds },
+      senderId: { not: userId },
+      status: { in: ['SENT', 'DELIVERED'] },
+    },
+    data: { status: 'READ' },
   });
 }
 

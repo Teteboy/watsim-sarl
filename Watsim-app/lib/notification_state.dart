@@ -49,18 +49,24 @@ class AppNotification {
 class AppMessage {
   final String id;
   final String conversationId;
+  final String? senderId;
   final String text;
   final bool isMe;
   final DateTime timestamp;
   final MessageAttachment? attachment;
 
-  const AppMessage({
+  /// Message delivery status: 'SENT', 'DELIVERED', or 'READ'
+  String status;
+
+  AppMessage({
     required this.id,
     required this.conversationId,
+    this.senderId,
     required this.text,
     required this.isMe,
     required this.timestamp,
     this.attachment,
+    this.status = 'SENT',
   });
 }
 

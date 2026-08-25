@@ -10,6 +10,7 @@ import { ensureUserReferralCode, getReferralStats, updateReferralCode } from '..
 import { getUserBadges, checkAndAwardBadges } from '../../services/badge.service';
 import { processWithdrawal, checkWithdrawalStatus, WithdrawalProvider } from '../../services/withdrawal.service';
 import { processTransfer, getTransferHistory } from '../../services/transfer.service';
+import { verifyPin } from '../auth/auth.service';
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
@@ -39,6 +40,17 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   app.get('/me/purchases', async (req) => {
     const purchases = await listUserPurchases(req.authUser!.id);
     return { items: purchases };
+  });
+
+  // ── PIN Verification (for confirming transfers/withdrawals) ────────────
+  app.post('/me/verify-pin', async (req, reply) => {
+    const { pin } = req.body as { pin?: string };
+    if (!pin) return reply.code(400).send({ error: 'ValidationError', message: 'PIN is required' });
+    const user = await prisma.user.findUnique({ where: { id: req.authUser!.id } });
+    if (!user || !user.pinHash) return reply.code(400).send({ error: 'PinNotSet', message: 'PIN not configured' });
+    const valid = await verifyPin(pin, user.pinHash);
+    if (!valid) return reply.code(401).send({ error: 'InvalidPin', message: 'Incorrect PIN' });
+    return { verified: true };
   });
 
   // ── Statistics ──────────────────────────────────────────────────────────

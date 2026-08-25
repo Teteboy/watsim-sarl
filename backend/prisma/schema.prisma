@@ -539,6 +539,7 @@ model Message {
   text           String?   @db.Text
   attachmentUrl  String?
   attachmentType String?   // image | file | audio
+  status         String    @default("SENT") // SENT | DELIVERED | READ
   createdAt      DateTime  @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

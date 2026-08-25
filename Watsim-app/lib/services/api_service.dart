@@ -987,6 +987,21 @@ class ApiService {
     return _decode(res);
   }
 
+  /// Verify PIN for transaction confirmation (transfers/withdrawals)
+  static Future<bool> verifyTransactionPin(String pin) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$kApiBase/users/me/verify-pin'),
+        headers: await _headers(),
+        body: jsonEncode({'pin': pin}),
+      );
+      if (res.statusCode < 400) return true;
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Change PIN with current PIN verification
   static Future<Map<String, dynamic>> changePin({
     required String currentPin,
@@ -1090,6 +1105,29 @@ class ApiService {
         Uri.parse('$kApiBase/messages/conversations/$convId/read'),
         headers: await _headers(),
         body: jsonEncode({}),
+      );
+    } catch (_) {}
+  }
+
+  /// Mark messages in a conversation as DELIVERED
+  static Future<void> markMessagesDelivered(String convId) async {
+    try {
+      await http.post(
+        Uri.parse('$kApiBase/messages/conversations/$convId/delivered'),
+        headers: await _headers(),
+        body: jsonEncode({}),
+      );
+    } catch (_) {}
+  }
+
+  /// Mark specific messages as READ by their IDs
+  static Future<void> markMessagesReadByIds(
+      String convId, List<String> messageIds) async {
+    try {
+      await http.post(
+        Uri.parse('$kApiBase/messages/conversations/$convId/read-messages'),
+        headers: await _headers(),
+        body: jsonEncode({'messageIds': messageIds}),
       );
     } catch (_) {}
   }
@@ -1707,8 +1745,6 @@ class ApiService {
       Uri.parse('$kApiBase/delivery'),
       headers: await _headers(),
     );
-    final data = _decode(res);
-    if (data is List) return data;
-    return [];
+    return _decodeList(res);
   }
 }
