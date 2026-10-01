@@ -26,7 +26,7 @@
     "strictPropertyInitialization": false,
     "noImplicitThis": false,
     "useUnknownInCatchVariables": false,
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": false,
     "noUncheckedSideEffectImports": false,

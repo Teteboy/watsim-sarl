@@ -19,7 +19,6 @@ class _SecurityScreenState extends State<SecurityScreen> {
   bool _fingerprintEnabled = false;
   bool _faceIdEnabled = false;
   bool _irisEnabled = false;
-  bool _twoFAEnabled = true;
 
   // ── Privacy toggles ────────────────────────────────────────────────────
   bool _loginAlerts = true;
@@ -66,7 +65,6 @@ class _SecurityScreenState extends State<SecurityScreen> {
           _faceIdAvailable = faceIdAvail;
           _biometricsAvailable = canCheckBiometrics && isDeviceSupported;
           _irisEnabled = settings['irisEnabled'] ?? false;
-          _twoFAEnabled = settings['twoFAEnabled'] ?? true;
           _loginAlerts = settings['loginAlertsEnabled'] ?? true;
           _transactionAlerts = settings['transactionAlertsEnabled'] ?? true;
           _loading = false;
@@ -88,7 +86,6 @@ class _SecurityScreenState extends State<SecurityScreen> {
         fingerprintEnabled: key == 'fingerprintEnabled' ? value : null,
         faceIdEnabled: key == 'faceIdEnabled' ? value : null,
         irisEnabled: key == 'irisEnabled' ? value : null,
-        twoFAEnabled: key == 'twoFAEnabled' ? value : null,
         loginAlertsEnabled: key == 'loginAlertsEnabled' ? value : null,
         transactionAlertsEnabled:
             key == 'transactionAlertsEnabled' ? value : null,
@@ -388,22 +385,6 @@ class _SecurityScreenState extends State<SecurityScreen> {
               onIrisChanged: null, // Iris not implemented yet
             ),
 
-            const SizedBox(height: 10),
-            _securityCard(
-              context,
-              icon: Icons.smartphone_rounded,
-              color: AppColors.secondaryGreen,
-              title: lang.twoFA,
-              subtitle: lang.twoFASubtitle,
-              trailing: Switch(
-                value: _twoFAEnabled,
-                activeColor: AppColors.primaryGreen,
-                onChanged: (v) {
-                  setState(() => _twoFAEnabled = v);
-                  _updateSetting('twoFAEnabled', v);
-                },
-              ),
-            ),
             const SizedBox(height: 20),
 
             // ── Privacy ────────────────────────────────────────────────

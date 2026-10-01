@@ -43,13 +43,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                 : 'Session expired. Please log in again.');
       }
 
-      final result = await ApiService.loginWithPin(phone: phone, pin: pin);
-      if (result['requires2FA'] == true) {
-        setState(() => _error = LanguageService().isFrench
-            ? 'L\'authentification à deux facteurs est requise.'
-            : 'Two-factor authentication is required.');
-        return;
-      }
+      await ApiService.loginWithPin(phone: phone, pin: pin);
 
       await AppLockManager().unlock();
     } on ApiException catch (e) {

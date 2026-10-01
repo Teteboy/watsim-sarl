@@ -676,7 +676,6 @@ model UserSecuritySettings {
   fingerprintEnabled   Boolean @default(false)
   faceIdEnabled          Boolean @default(false)
   irisEnabled            Boolean @default(false)
-  twoFAEnabled           Boolean @default(true)
   loginAlertsEnabled     Boolean @default(true)
   transactionAlertsEnabled Boolean @default(true)
   accountFrozen          Boolean @default(false)

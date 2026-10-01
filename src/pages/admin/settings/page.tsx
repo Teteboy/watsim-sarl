@@ -64,7 +64,7 @@ export default function AdminSettingsPage() {
     walletEnabled: true,
     kycRequired: true,
     biometricEnabled: true,
-    smsOtp: true,
+    smsNotif: true,
     emailNotif: true,
     pushNotif: true,
     fraudDetection: true,
@@ -97,7 +97,7 @@ export default function AdminSettingsPage() {
           walletEnabled: settings.wallet_enabled === 'true' || settings.wallet_enabled === undefined ? prev.walletEnabled : settings.wallet_enabled === 'true',
           kycRequired: settings.kyc_required !== 'false',
           biometricEnabled: settings.biometric_enabled !== 'false',
-          smsOtp: settings.sms_otp !== 'false',
+          smsNotif: settings.sms_notif !== 'false',
           emailNotif: settings.email_notif !== 'false',
           pushNotif: settings.push_notif !== 'false',
           fraudDetection: settings.fraud_detection !== 'false',
@@ -262,7 +262,6 @@ export default function AdminSettingsPage() {
                   {[
                     { key: 'kycRequired' as const, label: 'KYC obligatoire', desc: 'Exiger la vérification d\u0027identité pour accéder au BNPL' },
                     { key: 'biometricEnabled' as const, label: 'Authentification biométrique', desc: 'Permettre la connexion par empreinte digitale / Face ID' },
-                    { key: 'smsOtp' as const, label: 'OTP par SMS', desc: 'Envoyer un code de vérification par SMS lors de la connexion' },
                     { key: 'fraudDetection' as const, label: 'Détection de fraude IA', desc: 'Activer le microservice IA de détection de fraude en temps réel' },
                     { key: 'autoBlock' as const, label: 'Blocage automatique', desc: 'Bloquer automatiquement les comptes suspects détectés par l\u0027IA' },
                   ].map((item) => (
@@ -285,7 +284,7 @@ export default function AdminSettingsPage() {
                   {[
                     { key: 'emailNotif' as const, label: 'Notifications Email', desc: 'Envoyer des emails transactionnels et alertes aux utilisateurs' },
                     { key: 'pushNotif' as const, label: 'Notifications Push (Firebase)', desc: 'Envoyer des notifications push via Firebase Cloud Messaging' },
-                    { key: 'smsOtp' as const, label: 'SMS Transactionnels', desc: 'Envoyer des SMS pour les transactions importantes et rappels' },
+                    { key: 'smsNotif' as const, label: 'SMS Transactionnels', desc: 'Envoyer des SMS pour les transactions importantes et rappels' },
                   ].map((item) => (
                     <div key={item.key} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid #F0F7F0' }}>
                       <div>

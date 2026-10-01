@@ -1,6 +1,6 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
-// import helmet from '@fastify/helmet'; // Tempor arily disabled due to version mismatch
+import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import websocket from '@fastify/websocket';
@@ -38,13 +38,13 @@ export async function buildApp(): Promise<FastifyInstance> {
     bodyLimit: 10 * 1024 * 1024,
   });
 
-  // await app.register(helmet, { contentSecurityPolicy: false }); // Temporarily disabled due to version mismatch
+  await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, {
     origin: env.NODE_ENV === 'production' ? [env.FRONTEND_URL] : true,
     credentials: true,
   });
   await app.register(jwt, {
-    secret: { private: env.JWT_ACCESS_SECRET, public: env.JWT_ACCESS_SECRET },
+    secret: env.JWT_ACCESS_SECRET,
     sign: { expiresIn: env.JWT_ACCESS_EXPIRY },
   });
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
@@ -72,8 +72,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     };
   });
 
-  // SMS balance check (dev/admin utility)
-  app.get('/sms-balance', async (_req, reply) => {
+  // SMS balance check (admin utility — requires authenticated admin)
+  app.get('/sms-balance', { preHandler: [authenticate] }, async (req, reply) => {
+    if (req.authUser?.role !== 'ADMIN') {
+      return reply.code(403).send({ error: 'Forbidden', message: 'Admin access required' });
+    }
     try {
       const { checkSmsBalance } = await import('./services/orange-sms.service');
       const data = await checkSmsBalance();

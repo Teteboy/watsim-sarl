@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/feature/AdminLayout';
 import Toast, { useToast } from '@/components/base/Toast';
-import { accountingApi, type JournalEntryRow, type TrialBalanceRow } from '@/lib/api';
+import { accountingApi, adminApi, type JournalEntryRow, type TrialBalanceRow } from '@/lib/api';
 
 type Tab = 'trial' | 'journal' | 'income' | 'balance' | 'payouts';
 
@@ -76,7 +76,7 @@ export default function AdminAccountingPage() {
       loadJournal(1);
     }
     if (tab === 'payouts' && payoutRequests.length === 0) {
-      accountingApi.listPayoutRequests({ limit: 50 }).then(res => {
+      adminApi.listPayoutRequests({ limit: 50 }).then(res => {
         setPayoutRequests(res.items || []);
       }).catch(() => {});
     }
@@ -268,9 +268,9 @@ export default function AdminAccountingPage() {
                     <>
                       <button 
                         onClick={async () => {
-                          await accountingApi.updatePayoutStatus(p.id, 'PAID');
+                          await adminApi.updatePayoutStatus(p.id, 'PAID');
                           addToast('success', 'Virement effectué', 'Le paiement a été enregistré dans le journal.');
-                          const res = await accountingApi.listPayoutRequests({ limit: 50 });
+                          const res = await adminApi.listPayoutRequests({ limit: 50 });
                           setPayoutRequests(res.items || []);
                         }} 
                         className="text-xs px-3 py-1 rounded bg-[#22C55E] text-black hover:bg-[#16A34A]"
@@ -281,9 +281,9 @@ export default function AdminAccountingPage() {
                       <button 
                         onClick={async () => {
                           const note = prompt('Raison du refus (optionnel) :') || '';
-                          await accountingApi.updatePayoutStatus(p.id, 'REJECTED', note);
+                          await adminApi.updatePayoutStatus(p.id, 'REJECTED', note);
                           addToast('warning', 'Demande refusée', 'Le commerçant a été notifié.');
-                          const res = await accountingApi.listPayoutRequests({ limit: 50 });
+                          const res = await adminApi.listPayoutRequests({ limit: 50 });
                           setPayoutRequests(res.items || []);
                         }} 
                         className="text-xs px-3 py-1 rounded bg-[#EF4444] text-white hover:bg-[#DC2626]"

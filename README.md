@@ -14,10 +14,14 @@
 
 ## Technologies Utilisées
 
-- **Frontend** : React + TypeScript + Tailwind CSS + Vite
-- **Backend** : Supabase (Auth + Database + Edge Functions)
+- **Frontend (web)** : React 19 + TypeScript + Tailwind CSS + Vite
+- **Mobile app** : Flutter (`Watsim-app/`) — Android & iOS
+- **Backend** : Fastify + Prisma + PostgreSQL + Redis (BullMQ) — `backend/`
+- **Paiements** : MTN MoMo, Orange Money, Campay
 - **Icons** : FontAwesome + Remix Icon
 - **Charts** : Recharts
+
+> Authentification : connexion par téléphone + PIN (mobile) ou email + mot de passe (web/admin). Aucune étape OTP — la réinitialisation du PIN passe par le support (reset via panneau admin).
 
 ## Installation et Démarrage
 

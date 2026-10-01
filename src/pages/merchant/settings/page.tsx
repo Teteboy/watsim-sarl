@@ -45,7 +45,6 @@ export default function MerchantSettingsPage() {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
-    twoFactor: true,
     loginAlerts: true,
   });
 
@@ -476,7 +475,6 @@ export default function MerchantSettingsPage() {
               <div className="rounded-2xl p-6 space-y-3" style={{ background: '#FFFFFF', border: '1px solid #E8F2F1' }}>
                 <h3 className="font-semibold text-lg" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Sécurité du compte</h3>
                 {[
-                  { key: 'twoFactor', label: 'Authentification à deux facteurs', desc: 'Sécurisez votre compte avec un code OTP par SMS' },
                   { key: 'loginAlerts', label: 'Alertes de connexion', desc: 'Recevoir une notification à chaque connexion' },
                 ].map(item => (
                   <div key={item.key} className="flex items-center justify-between p-4 rounded-xl" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>

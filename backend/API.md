@@ -14,12 +14,15 @@ curl http://localhost:3001/health
 
 ## Auth
 
-### Register
+### Register (mobile — phone + PIN, no OTP)
 ```bash
 curl -X POST $BASE/auth/register \
   -H 'Content-Type: application/json' \
-  -d '{"email":"jane@watsim.cm","phone":"+237699000111","password":"Passw0rd!","fullName":"Jane Doe"}'
+  -d '{"phone":"+237699000111","pin":"1234","fullName":"Jane Doe","referralCode":"WATSIM-123"}'
 ```
+`fullName` and `referralCode` are optional. Creates the account, sets the PIN, and returns `user + accessToken + refreshToken` (201). 409 if the phone is already registered.
+
+> Note: PIN reset for a forgotten PIN is a support flow — an admin sets a new PIN via `POST /admin/users/:id/reset-pin` after verifying identity. Self-service OTP reset was removed.
 
 ### Login
 ```bash
@@ -56,14 +59,6 @@ curl -X POST $BASE/auth/set-pin \
   -d '{"pin":"5678"}'
 ```
 Call after login or during onboarding to set the mobile PIN. Requires valid JWT.
-
-### Register with initial PIN (optional)
-```bash
-curl -X POST $BASE/auth/register \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"jane@watsim.cm","phone":"+237699000111","password":"Passw0rd!","fullName":"Jane Doe","initialPin":"1234"}'
-```
-If initialPin provided, user can immediately login with phone+pin.
 
 ### KYC document upload
 Multipart: `type` (NATIONAL_ID | PASSPORT | DRIVERS_LICENSE), `file` (ID image), optional `selfie` (face photo).

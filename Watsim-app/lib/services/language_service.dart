@@ -296,6 +296,7 @@ class LanguageService extends ChangeNotifier {
       _isFrench ? 'Renseignez vos informations' : 'Fill in your information';
   String get firstNameLabel => _isFrench ? 'PRÉNOM' : 'FIRST NAME';
   String get lastNameLabel => _isFrench ? 'NOM DE FAMILLE' : 'LAST NAME';
+  String get fullNameLabel => _isFrench ? 'NOM COMPLET' : 'FULL NAME';
   String get phoneNumberLabel =>
       _isFrench ? 'NUMÉRO DE TÉLÉPHONE' : 'PHONE NUMBER';
   String get emailLabel => _isFrench ? 'EMAIL' : 'EMAIL';

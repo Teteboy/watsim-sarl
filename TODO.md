@@ -1,14 +1,6 @@
-# TODO - Mobile login failure
+# TODO
 
-## Step 1
-- Update plan approved by user.
-- Modify `Watsim-app/lib/services/api_service.dart` to make API base URL configurable (no hard-coded IP).
-
-## Step 2
-- Improve login error handling so backend error message/status/body shows in the login UI.
-
-## Step 3
-- Run Flutter app and test:
-  - confirm /health works from phone
-  - attempt login with PIN and verify error surface from backend
-
+All items completed:
+- [x] API base URL configurable via --dart-define (WATSIM_API_BASE / WATSIM_API_ROOT)
+- [x] Login surfaces backend error message/status/body
+- [x] Registration flow is now phone+name -> PIN (OTP removed system-wide)

@@ -416,20 +416,24 @@ class ApiService {
     return data;
   }
 
-  /// Mobile registration (creates user + sets initial PIN on backend)
-  /// Backend currently sets a generated PIN during registration and returns it.
+  /// Mobile registration — single step: creates the user with a PIN and
+  /// returns auth tokens. No OTP step.
   /// Phone normalization should be done by the caller (no auto +237 here).
   static Future<Map<String, dynamic>> registerPhone({
     required String phone,
+    required String pin,
+    String? fullName,
     String? referralCode,
   }) async {
-    final body = <String, dynamic>{'phone': phone};
+    final body = <String, dynamic>{'phone': phone, 'pin': pin};
+    if (fullName != null && fullName.isNotEmpty) {
+      body['fullName'] = fullName;
+    }
     if (referralCode != null && referralCode.isNotEmpty) {
       body['referralCode'] = referralCode;
     }
 
     debugPrint('🔍 RegisterPhone: Sending request to $kApiBase/auth/register');
-    debugPrint('🔍 Body: $body');
 
     try {
       final res = await http
@@ -441,10 +445,10 @@ class ApiService {
           .timeout(const Duration(seconds: 30));
 
       debugPrint('🔍 Response status: ${res.statusCode}');
-      debugPrint('🔍 Response body: ${res.body}');
 
       final data = _decode(res);
-      // Step 1: OTP sent, no tokens yet (will get tokens after complete registration)
+      await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
+      if (data['user'] != null) await AuthService.saveUser(data['user']);
       return data;
     } on SocketException catch (e) {
       debugPrint('🔍 Connection error: $e');
@@ -462,11 +466,9 @@ class ApiService {
   static Future<Map<String, dynamic>> loginWithPin({
     required String phone,
     required String pin,
-    String? otp2fa,
   }) async {
     final uri = Uri.parse('$kApiBase/auth/login-pin');
     final body = <String, String>{'phone': phone, 'pin': pin};
-    if (otp2fa != null) body['otp2fa'] = otp2fa;
 
     // Capture request/response details so UI can show the *exact* backend body.
     debugPrint('🔍 loginWithPin: POST $uri');
@@ -505,32 +507,12 @@ class ApiService {
 
     try {
       final data = _decode(res);
-
-      // Only save tokens if login is fully complete (not requiring 2FA)
-      if (data['requires2FA'] != true) {
-        await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
-        if (data['user'] != null) await AuthService.saveUser(data['user']);
-      }
+      await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
+      if (data['user'] != null) await AuthService.saveUser(data['user']);
       return data;
     } on ApiException {
       rethrow;
     }
-  }
-
-  static Future<Map<String, dynamic>> verify2FALogin({
-    required String phone,
-    required String pin,
-    required String otp,
-  }) async {
-    final res = await http.post(
-      Uri.parse('$kApiBase/auth/verify-2fa'),
-      headers: await _headers(auth: false),
-      body: jsonEncode({'phone': phone, 'pin': pin, 'otp': otp}),
-    );
-    final data = _decode(res);
-    await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
-    if (data['user'] != null) await AuthService.saveUser(data['user']);
-    return data;
   }
 
   static Future<void> logout(String refreshToken) async {
@@ -542,48 +524,6 @@ class ApiService {
       );
     } catch (_) {}
     await AuthService.clear();
-  }
-
-  static Future<Map<String, dynamic>> sendOtp(String phone) async {
-    final res = await http.post(
-      Uri.parse('$kApiBase/auth/send-otp'),
-      headers: await _headers(auth: false),
-      body: jsonEncode({'phone': phone}),
-    );
-    return _decode(res);
-  }
-
-  static Future<Map<String, dynamic>> verifyOtp(
-      String phone, String code) async {
-    final res = await http.post(
-      Uri.parse('$kApiBase/auth/verify-otp'),
-      headers: await _headers(auth: false),
-      body: jsonEncode({'phone': phone, 'code': code}),
-    );
-    return _decode(res);
-  }
-
-  /// Set PIN after OTP verification.
-  /// Note: Backend currently requires an authenticated request for /auth/set-pin.
-  /// If your backend changes to accept verificationToken, adjust this accordingly.
-  static Future<Map<String, dynamic>> setPinAfterOtp(String pin) async {
-    return setPin(pin);
-  }
-
-  /// Reset PIN using verification token from OTP
-  static Future<Map<String, dynamic>> resetPinWithToken({
-    required String verificationToken,
-    required String newPin,
-  }) async {
-    final res = await http.post(
-      Uri.parse('$kApiBase/auth/reset-pin'),
-      headers: await _headers(auth: false),
-      body: jsonEncode({
-        'verificationToken': verificationToken,
-        'newPin': newPin,
-      }),
-    );
-    return _decode(res);
   }
 
   // ── KYC ──────────────────────────────────────────────────────────────
@@ -1032,41 +972,6 @@ class ApiService {
         'currentPin': currentPin,
         'newPin': newPin,
       }),
-    );
-    return _decode(res);
-  }
-
-  /// Complete registration with PIN after OTP verification
-  static Future<Map<String, dynamic>> registerComplete({
-    required String verificationToken,
-    required String pin,
-    String? fullName,
-  }) async {
-    final res = await http.post(
-      Uri.parse('$kApiBase/auth/register-complete'),
-      headers: await _headers(auth: false),
-      body: jsonEncode({
-        'verificationToken': verificationToken,
-        'pin': pin,
-        if (fullName != null) 'fullName': fullName,
-      }),
-    );
-    final data = _decode(res);
-    await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
-    if (data['user'] != null) await AuthService.saveUser(data['user']);
-    return data;
-  }
-
-  /// Reset PIN via OTP verification token (returned from verifyOtp)
-  static Future<Map<String, dynamic>> resetPin({
-    required String verificationToken,
-    required String newPin,
-  }) async {
-    final res = await http.post(
-      Uri.parse('$kApiBase/auth/reset-pin'),
-      headers: await _headers(auth: false),
-      body: jsonEncode(
-          {'verificationToken': verificationToken, 'newPin': newPin}),
     );
     return _decode(res);
   }
@@ -1588,7 +1493,6 @@ class ApiService {
     bool? fingerprintEnabled,
     bool? faceIdEnabled,
     bool? irisEnabled,
-    bool? twoFAEnabled,
     bool? loginAlertsEnabled,
     bool? transactionAlertsEnabled,
   }) async {
@@ -1597,7 +1501,6 @@ class ApiService {
       body['fingerprintEnabled'] = fingerprintEnabled;
     if (faceIdEnabled != null) body['faceIdEnabled'] = faceIdEnabled;
     if (irisEnabled != null) body['irisEnabled'] = irisEnabled;
-    if (twoFAEnabled != null) body['twoFAEnabled'] = twoFAEnabled;
     if (loginAlertsEnabled != null)
       body['loginAlertsEnabled'] = loginAlertsEnabled;
     if (transactionAlertsEnabled != null)

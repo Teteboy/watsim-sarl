@@ -353,74 +353,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _agreed = false;
   bool _loading = false;
 
+  final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _referralCtrl = TextEditingController();
 
   @override
   void dispose() {
+    _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _referralCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  void _submit() {
     final phoneRaw = _phoneCtrl.text.trim();
-    debugPrint('🔍 SUBMIT: phoneRaw = "$phoneRaw"');
-    debugPrint('🔍 SUBMIT: _agreed = $_agreed, _loading = $_loading');
-
     if (phoneRaw.isEmpty) {
-      debugPrint('🔍 SUBMIT: Phone empty, returning');
-      return;
-    }
-    if (!_agreed || _loading) {
-      debugPrint('🔍 SUBMIT: Not agreed or loading, returning');
-      return;
-    }
-
-    final phone = ApiService.normalizePhone(phoneRaw);
-    debugPrint('🔍 SUBMIT: normalized phone = $phone');
-
-    final referralCode = _referralCtrl.text.trim();
-    setState(() => _loading = true);
-    try {
-      debugPrint('🔍 SUBMIT: Calling registerPhone...');
-      // POST /auth/register { phone, referralCode? }
-      await ApiService.registerPhone(
-          phone: phone,
-          referralCode: referralCode.isNotEmpty ? referralCode : null);
-      debugPrint('🔍 SUBMIT: registerPhone succeeded, navigating to OTP');
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OtpScreen(phone: phone),
-        ),
-      );
-    } on ApiException catch (e) {
-      debugPrint('🔍 SUBMIT: ApiException - ${e.message}');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      debugPrint('🔍 SUBMIT: Error - $e');
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(LanguageService().isFrench
-              ? 'Inscription échouée : $e'
-              : 'Registration failed: $e'),
-          backgroundColor: AppColors.error,
+              ? 'Veuillez entrer votre numéro de téléphone'
+              : 'Please enter your phone number'),
+          backgroundColor: AppColors.warning,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
         ),
       );
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      return;
     }
+    if (!_agreed || _loading) return;
+
+    final phone = ApiService.normalizePhone(phoneRaw);
+    final referralCode = _referralCtrl.text.trim();
+
+    // Step 2: choose a PIN — registration happens there
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PinSetupScreen(
+          phone: phone,
+          fullName: _nameCtrl.text.trim(),
+          referralCode: referralCode.isNotEmpty ? referralCode : null,
+        ),
+      ),
+    );
   }
 
   @override
@@ -476,6 +451,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _label(lang.fullNameLabel),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _nameCtrl,
+                      keyboardType: TextInputType.name,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        hintText: lang.isFrench
+                            ? 'Ex : Jean Bakari'
+                            : 'Ex: Jean Bakari',
+                        prefixIcon: const Icon(Icons.person_outline_rounded,
+                            color: AppColors.primaryGreen, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     _label(lang.phoneNumberLabel),
                     const SizedBox(height: 6),
                     TextField(
@@ -677,15 +667,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _loading = true);
     try {
-      final result = await ApiService.loginWithPin(phone: phone, pin: pin);
-
-      // Check if 2FA is required
-      if (result['requires2FA'] == true) {
-        if (!mounted) return;
-        setState(() => _loading = false);
-        _show2FADialog(phone, pin);
-        return;
-      }
+      await ApiService.loginWithPin(phone: phone, pin: pin);
 
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -715,97 +697,6 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _show2FADialog(String phone, String pin) {
-    final otpController = TextEditingController();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(LanguageService().isFrench
-            ? 'Authentification à deux facteurs'
-            : 'Two-Factor Authentication'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(LanguageService().isFrench
-                ? 'Entrez le code à 6 chiffres envoyé sur votre téléphone :'
-                : 'Enter the 6-digit code sent to your phone:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              textAlign: TextAlign.center,
-              decoration: const InputDecoration(
-                hintText: '000000',
-                counterText: '',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(LanguageService().isFrench ? 'Annuler' : 'Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final otp = otpController.text.trim();
-              if (otp.length != 6) return;
-
-              Navigator.pop(dialogContext);
-              setState(() => _loading = true);
-
-              try {
-                final result = await ApiService.verify2FALogin(
-                    phone: phone, pin: pin, otp: otp);
-                if (!mounted) return;
-
-                // Check if login was successful (has tokens)
-                if (result['accessToken'] != null) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MainShell()),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(LanguageService().isFrench
-                          ? 'Connexion échouée. Veuillez réessayer.'
-                          : 'Login failed. Please try again.'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              } on ApiException catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(e.message),
-                      backgroundColor: AppColors.error),
-                );
-              } catch (_) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(LanguageService().isFrench
-                        ? 'Vérification échouée. Veuillez réessayer.'
-                        : 'Verification failed. Please try again.'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              } finally {
-                if (mounted) setState(() => _loading = false);
-              }
-            },
-            child: Text(LanguageService().isFrench ? 'Vérifier' : 'Verify'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showBiometricScan() {
@@ -1390,152 +1281,21 @@ class _ScanLinePainter extends CustomPainter {
 }
 
 // ─── Forgot PIN Screen ────────────────────────────────────────────────────
-class ForgotPinScreen extends StatefulWidget {
+// PIN reset requires identity verification by the support team (no OTP flow).
+class ForgotPinScreen extends StatelessWidget {
   const ForgotPinScreen({super.key});
-  @override
-  State<ForgotPinScreen> createState() => _ForgotPinScreenState();
-}
-
-class _ForgotPinScreenState extends State<ForgotPinScreen> {
-  final TextEditingController _phoneCtrl = TextEditingController();
-  final TextEditingController _otpCtrl = TextEditingController();
-  final TextEditingController _pinCtrl = TextEditingController();
-  final TextEditingController _confirmPinCtrl = TextEditingController();
-  bool _loading = false;
-  bool _otpSent = false;
-  bool _otpVerified = false;
-  bool _pinVisible = false;
-  bool _confirmPinVisible = false;
-  String? _verificationToken;
-
-  @override
-  void dispose() {
-    _phoneCtrl.dispose();
-    _otpCtrl.dispose();
-    _pinCtrl.dispose();
-    _confirmPinCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _sendOtp() async {
-    final phoneRaw = _phoneCtrl.text.trim();
-    if (phoneRaw.isEmpty) {
-      _showError('Please enter your phone number');
-      return;
-    }
-    final phone = ApiService.normalizePhone(phoneRaw);
-
-    setState(() => _loading = true);
-    try {
-      await ApiService.sendOtp(phone);
-      setState(() => _otpSent = true);
-      _showSuccess('OTP sent to your phone');
-    } on ApiException catch (e) {
-      _showError(e.message);
-    } catch (e) {
-      _showError('Failed to send OTP. Please try again.');
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _verifyOtp() async {
-    final otp = _otpCtrl.text.trim();
-    if (otp.length != 6) {
-      _showError('Please enter the 6-digit OTP');
-      return;
-    }
-    final phone = ApiService.normalizePhone(_phoneCtrl.text.trim());
-
-    setState(() => _loading = true);
-    try {
-      final result = await ApiService.verifyOtp(phone, otp);
-      setState(() {
-        _otpVerified = true;
-        _verificationToken = result['verificationToken'] as String?;
-      });
-      _showSuccess('OTP verified. Set your new PIN');
-    } on ApiException catch (e) {
-      _showError(e.message);
-    } catch (e) {
-      _showError('OTP verification failed');
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _resetPin() async {
-    final pin = _pinCtrl.text.trim();
-    final confirmPin = _confirmPinCtrl.text.trim();
-
-    if (pin.length != 4) {
-      _showError('PIN must be 4 digits');
-      return;
-    }
-    if (pin != confirmPin) {
-      _showError('PINs do not match');
-      return;
-    }
-    if (_verificationToken == null) {
-      _showError('Verification token missing. Please start over.');
-      return;
-    }
-
-    setState(() => _loading = true);
-    try {
-      await ApiService.resetPinWithToken(
-        verificationToken: _verificationToken!,
-        newPin: pin,
-      );
-      _showSuccess('PIN reset successful!');
-      await Future.delayed(const Duration(seconds: 1));
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    } on ApiException catch (e) {
-      _showError(e.message);
-    } catch (e) {
-      _showError('Failed to reset PIN');
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  void _showError(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _showSuccess(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final lang = LanguageProvider.of(context);
     return Scaffold(
-      backgroundColor: AppColors.deepTeal,
+      backgroundColor: AppColors.primaryDark,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 40),
-              // Back button
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
@@ -1547,184 +1307,64 @@ class _ForgotPinScreenState extends State<ForgotPinScreen> {
                   child: const Icon(Icons.arrow_back, color: Colors.white),
                 ),
               ),
+              const Spacer(),
+              Center(
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: AppColors.primaryGreen.withOpacity(0.35),
+                        width: 1.5),
+                  ),
+                  child: const Icon(Icons.lock_reset_rounded,
+                      color: AppColors.primaryGreen, size: 44),
+                ),
+              ),
               const SizedBox(height: 32),
               Text(
-                lang.isFrench ? 'Réinitialiser le PIN' : 'Reset PIN',
+                lang.isFrench ? 'PIN oublié ?' : 'Forgot your PIN?',
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 28,
+                  fontSize: 26,
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 14),
               Text(
                 lang.isFrench
-                    ? 'Entrez votre numéro de téléphone pour recevoir un code de vérification'
-                    : 'Enter your phone number to receive a verification code',
+                    ? 'Pour des raisons de sécurité, la réinitialisation du PIN nécessite une vérification d\u0027identité par notre équipe support.\n\nContactez le support WATSIM — après vérification de votre identité, un nouveau PIN sera défini sur votre compte.'
+                    : 'For security reasons, resetting your PIN requires identity verification by our support team.\n\nContact WATSIM support — once your identity is verified, a new PIN will be set on your account.',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.6),
                   fontSize: 15,
+                  height: 1.6,
                 ),
               ),
               const SizedBox(height: 40),
-              // Form Card
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(lang.isFrench
+                      ? 'Retour à la connexion'
+                      : 'Back to sign in'),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Phone field
-                    Text(
-                      lang.phoneNumberLabel,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textSecondary,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      enabled: !_otpSent,
-                      decoration: const InputDecoration(
-                        hintText: '6XX XXX XXX',
-                        prefixText: '+237  ',
-                        prefixStyle: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    if (_otpSent) ...[
-                      // OTP field
-                      Text(
-                        lang.isFrench ? 'Code OTP' : 'OTP Code',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _otpCtrl,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        enabled: !_otpVerified,
-                        decoration: InputDecoration(
-                          hintText: '6 digits',
-                          counterText: '',
-                          suffixIcon: _otpVerified
-                              ? const Icon(Icons.check_circle,
-                                  color: AppColors.success)
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                    if (_otpVerified) ...[
-                      // New PIN field
-                      Text(
-                        lang.isFrench ? 'Nouveau PIN' : 'New PIN',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _pinCtrl,
-                        obscureText: !_pinVisible,
-                        keyboardType: TextInputType.number,
-                        maxLength: 4,
-                        decoration: InputDecoration(
-                          hintText: '••••',
-                          counterText: '',
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _pinVisible
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                            ),
-                            onPressed: () =>
-                                setState(() => _pinVisible = !_pinVisible),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Confirm PIN field
-                      Text(
-                        lang.isFrench ? 'Confirmer le PIN' : 'Confirm PIN',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _confirmPinCtrl,
-                        obscureText: !_confirmPinVisible,
-                        keyboardType: TextInputType.number,
-                        maxLength: 4,
-                        decoration: InputDecoration(
-                          hintText: '••••',
-                          counterText: '',
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _confirmPinVisible
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                            ),
-                            onPressed: () => setState(
-                                () => _confirmPinVisible = !_confirmPinVisible),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                    // Action button
-                    ElevatedButton(
-                      onPressed: _loading
-                          ? null
-                          : _otpVerified
-                              ? _resetPin
-                              : _otpSent
-                                  ? _verifyOtp
-                                  : _sendOtp,
-                      child: _loading
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              _otpVerified
-                                  ? (lang.isFrench
-                                      ? 'Réinitialiser le PIN'
-                                      : 'Reset PIN')
-                                  : _otpSent
-                                      ? (lang.isFrench ? 'Vérifier' : 'Verify')
-                                      : (lang.isFrench
-                                          ? 'Envoyer OTP'
-                                          : 'Send OTP'),
-                            ),
-                    ),
-                  ],
+              ),
+              const Spacer(),
+              Center(
+                child: Text(
+                  lang.isFrench
+                      ? 'Support : support@watsim.cm'
+                      : 'Support: support@watsim.cm',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.35),
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],

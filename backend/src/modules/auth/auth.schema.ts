@@ -65,28 +65,11 @@ export const registerWithPinSchema = {
     required: ['phone'],
     properties: {
       phone: { type: 'string', minLength: 8 },
+      pin: { type: 'string', minLength: 4, maxLength: 6, pattern: '^[0-9]+$' },
+      email: { type: 'string', format: 'email' },
+      password: { type: 'string', minLength: 8 },
+      fullName: { type: 'string' },
       referralCode: { type: 'string', minLength: 1 },
-    },
-  },
-} as const;
-
-export const sendOtpSchema = {
-  body: {
-    type: 'object',
-    required: ['phone'],
-    properties: {
-      phone: { type: 'string', minLength: 8 },
-    },
-  },
-} as const;
-
-export const verifyOtpSchema = {
-  body: {
-    type: 'object',
-    required: ['phone', 'code'],
-    properties: {
-      phone: { type: 'string', minLength: 8 },
-      code: { type: 'string', minLength: 6, maxLength: 6 },
     },
   },
 } as const;

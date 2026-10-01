@@ -704,6 +704,54 @@ export async function resetUserPassword(id: string, newPassword?: string) {
   }
 }
 
+export async function resetUserPin(id: string, newPin: string) {
+  try {
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!/^\d{4,6}$/.test(newPin)) {
+      return { error: 'PIN must be 4-6 digits' };
+    }
+
+    let targetUserId = id;
+
+    const userExists = uuidRegex.test(id)
+      ? await prisma.user.findUnique({ where: { id }, select: { id: true } })
+      : null;
+
+    if (!userExists) {
+      const merchant = await prisma.merchant.findUnique({
+        where: { id },
+        select: { userId: true },
+      });
+      if (merchant?.userId && uuidRegex.test(merchant.userId)) {
+        targetUserId = merchant.userId;
+      } else {
+        return { error: 'No linked user account found' };
+      }
+    }
+
+    const finalUser = await prisma.user.findUnique({ where: { id: targetUserId }, select: { id: true } });
+    if (!finalUser) {
+      return { error: 'Linked user account no longer exists' };
+    }
+
+    const pinHash = await bcrypt.hash(newPin, 12);
+    const updated = await prisma.user.update({
+      where: { id: targetUserId },
+      data: { pinHash, pinSetAt: new Date() },
+      select: { id: true, phone: true, fullName: true },
+    });
+
+    await prisma.auditLog.create({
+      data: { action: 'ADMIN_PIN_RESET', entityType: 'User', entityId: targetUserId },
+    });
+
+    return { user: updated };
+  } catch (err: unknown) {
+    console.error('resetUserPin error:', err);
+    return { error: 'Failed to reset PIN' };
+  }
+}
+
 export async function repairMerchantUserLink(merchantId: string) {
   const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
   if (!merchant) return { error: 'Merchant not found' };

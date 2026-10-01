@@ -3,7 +3,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { authorizeAdminRequest } from '../../middleware/admin-permissions';
 import { creditLimitSchema, kycDecisionSchema, listFilterSchema, merchantStatusSchema } from './admin.schema';
-import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, updateMerchant, setUserActive, deleteAdminUser, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, bulkDeleteAdminProducts, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins, updateAdminRole } from './admin.service';
+import { listBnplPurchases, listMerchants, listTransactions, listUsers, reportsSummary, setCreditLimit, setKycDecision, setMerchantStatus, updateMerchant, setUserActive, deleteAdminUser, listCategories, createCategory, updateCategory, deleteCategory, listBnplCategorySettings, getSystemSettings, setSystemSetting, createAdminUser, updateUser, resetUserPassword, resetUserPin, repairMerchantUserLink, listNotifications, createNotification, updateNotificationStatus, createAdminProduct, listAdminProducts, updateAdminProduct, deleteAdminProduct, bulkDeleteAdminProducts, listAllConversations, getAllConversationMessages, adminSendMessage, getDefaultFees, applyDefaultFeesToProducts, listMerchantWallets, getMerchantWalletById, adminCreditMerchantWallet, adminCreditClientWallet, adminContributeToInstallment, createTransaction, getBnplFeeSettings, updateBnplFeeSettings, updateCategoryMargin, updateAllCategoryMargins, updateAdminRole } from './admin.service';
 import { approvePayoutRequest, rejectPayoutRequest, setMerchantCategories } from '../merchants/merchants.service';
 import { listDisputes, getDisputeById, resolveDispute, listFraudAlerts, getFraudAlertById, resolveFraudAlert } from './admin.service-disputes';
 import { listAllReferrals, getReferralStats } from './admin.service-referrals';
@@ -243,6 +243,20 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
     } catch (err: unknown) {
       req.log.error({ err: err instanceof Error ? err.message : err, id }, 'reset-password unexpected failure');
       return { error: 'Unexpected error while resetting password' };
+    }
+  });
+
+  // Reset PIN for a customer (support-driven forgot-PIN flow)
+  app.post('/users/:id/reset-pin', async (req) => {
+    const { id } = req.params as { id: string };
+    const { pin } = req.body as { pin?: string };
+    if (!pin) return { error: 'pin is required' };
+    try {
+      const result = await resetUserPin(id, pin);
+      return result;
+    } catch (err: unknown) {
+      req.log.error({ err: err instanceof Error ? err.message : err, id }, 'reset-pin unexpected failure');
+      return { error: 'Unexpected error while resetting PIN' };
     }
   });
 

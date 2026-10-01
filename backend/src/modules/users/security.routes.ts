@@ -24,7 +24,6 @@ export async function securityRoutes(app: FastifyInstance): Promise<void> {
       fingerprintEnabled?: boolean;
       faceIdEnabled?: boolean;
       irisEnabled?: boolean;
-      twoFAEnabled?: boolean;
       loginAlertsEnabled?: boolean;
       transactionAlertsEnabled?: boolean;
       accountFrozen?: boolean;

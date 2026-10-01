@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { calculateInstalmentPlan, isValidCount } from '../src/modules/bnpl/bnpl.calculator';
+import { calculateInstalmentPlan, isValidCount, type BnplFees } from '../src/modules/bnpl/bnpl.calculator';
+
+// Zero-fee preset so tests assert on the pure interest math
+const NO_FEES: BnplFees = { stockingFee: 0, accountCreationFee: 0, deliveryFee: 0, collectionFee: 0 };
 
 describe('BNPL calculator', () => {
   it('charges 0% interest for 1 instalment', () => {
-    const p = calculateInstalmentPlan(100_000, 1);
+    const p = calculateInstalmentPlan(100_000, 1, 'monthly', new Date(), 0, NO_FEES);
     expect(p.rate).toBe(0);
     expect(p.total).toBe(100_000);
     expect(p.monthly).toBe(100_000);
@@ -11,7 +14,7 @@ describe('BNPL calculator', () => {
   });
 
   it('charges 2% flat for 2 instalments', () => {
-    const p = calculateInstalmentPlan(100_000, 2);
+    const p = calculateInstalmentPlan(100_000, 2, 'monthly', new Date(), 0, NO_FEES);
     expect(p.rate).toBe(0.02);
     expect(p.total).toBe(102_000);
     expect(p.monthly).toBe(51_000);
@@ -19,14 +22,14 @@ describe('BNPL calculator', () => {
   });
 
   it('charges 4% flat for 3 instalments', () => {
-    const p = calculateInstalmentPlan(150_000, 3);
+    const p = calculateInstalmentPlan(150_000, 3, 'monthly', new Date(), 0, NO_FEES);
     expect(p.rate).toBe(0.04);
     expect(p.total).toBe(156_000);
     expect(p.monthly).toBe(Math.ceil(156_000 / 3));
   });
 
   it('charges 8% flat for 6 instalments', () => {
-    const p = calculateInstalmentPlan(300_000, 6);
+    const p = calculateInstalmentPlan(300_000, 6, 'monthly', new Date(), 0, NO_FEES);
     expect(p.rate).toBe(0.08);
     expect(p.total).toBe(324_000);
     expect(p.monthly).toBe(Math.ceil(324_000 / 6));
@@ -54,7 +57,7 @@ describe('BNPL calculator', () => {
   });
 
   it('charges progressive rate for 12 instalments', () => {
-    const p = calculateInstalmentPlan(100_000, 12);
+    const p = calculateInstalmentPlan(100_000, 12, 'monthly', new Date(), 0, NO_FEES);
     expect(p.rate).toBe(0.14);
     expect(p.total).toBe(114_000);
     expect(p.monthly).toBe(Math.ceil(114_000 / 12));
@@ -62,7 +65,7 @@ describe('BNPL calculator', () => {
   });
 
   it('charges progressive rate for 24 instalments', () => {
-    const p = calculateInstalmentPlan(200_000, 24);
+    const p = calculateInstalmentPlan(200_000, 24, 'monthly', new Date(), 0, NO_FEES);
     expect(p.rate).toBe(0.20);
     expect(p.total).toBe(240_000);
     expect(p.monthly).toBe(Math.ceil(240_000 / 24));
@@ -70,8 +73,22 @@ describe('BNPL calculator', () => {
   });
 
   it('charges progressive rate for 60 instalments (5 years)', () => {
-    const p = calculateInstalmentPlan(500_000, 60);
+    const p = calculateInstalmentPlan(500_000, 60, 'monthly', new Date(), 0, NO_FEES);
     expect(p.rate).toBeCloseTo(0.308, 3);
     expect(p.schedule).toHaveLength(60);
+  });
+
+  it('includes default fees in total when no fees provided', () => {
+    const p = calculateInstalmentPlan(100_000, 2);
+    // stocking 3000*2 + collection 1000 + delivery 0 = 7000 (no account creation fee)
+    expect(p.fees.totalFees).toBe(7_000);
+    expect(p.total).toBe(102_000 + 7_000);
+  });
+
+  it('adds account creation fee on first purchase', () => {
+    const p = calculateInstalmentPlan(100_000, 1, 'monthly', new Date(), 0, NO_FEES, true);
+    expect(p.fees.accountCreationFee).toBe(0); // NO_FEES preset zeroes it
+    const q = calculateInstalmentPlan(100_000, 1, 'monthly', new Date(), 0, undefined, true);
+    expect(q.fees.accountCreationFee).toBe(500);
   });
 });

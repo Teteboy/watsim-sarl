@@ -4,7 +4,6 @@ export interface SecuritySettings {
   fingerprintEnabled: boolean;
   faceIdEnabled: boolean;
   irisEnabled: boolean;
-  twoFAEnabled: boolean;
   loginAlertsEnabled: boolean;
   transactionAlertsEnabled: boolean;
   accountFrozen: boolean;
@@ -20,7 +19,6 @@ export async function getSecuritySettings(userId: string): Promise<SecuritySetti
       fingerprintEnabled: false,
       faceIdEnabled: false,
       irisEnabled: false,
-      twoFAEnabled: false,
       loginAlertsEnabled: true,
       transactionAlertsEnabled: true,
       accountFrozen: false,
@@ -32,7 +30,6 @@ export async function getSecuritySettings(userId: string): Promise<SecuritySetti
     fingerprintEnabled: settings.fingerprintEnabled,
     faceIdEnabled: settings.faceIdEnabled,
     irisEnabled: settings.irisEnabled,
-    twoFAEnabled: settings.twoFAEnabled,
     loginAlertsEnabled: settings.loginAlertsEnabled,
     transactionAlertsEnabled: settings.transactionAlertsEnabled,
     accountFrozen: settings.accountFrozen,
@@ -52,7 +49,6 @@ export async function updateSecuritySettings(
       fingerprintEnabled: settings.fingerprintEnabled ?? false,
       faceIdEnabled: settings.faceIdEnabled ?? false,
       irisEnabled: settings.irisEnabled ?? false,
-      twoFAEnabled: settings.twoFAEnabled ?? false,
       loginAlertsEnabled: settings.loginAlertsEnabled ?? true,
       transactionAlertsEnabled: settings.transactionAlertsEnabled ?? true,
       accountFrozen: settings.accountFrozen ?? false,
@@ -61,7 +57,6 @@ export async function updateSecuritySettings(
       ...(settings.fingerprintEnabled !== undefined && { fingerprintEnabled: settings.fingerprintEnabled }),
       ...(settings.faceIdEnabled !== undefined && { faceIdEnabled: settings.faceIdEnabled }),
       ...(settings.irisEnabled !== undefined && { irisEnabled: settings.irisEnabled }),
-      ...(settings.twoFAEnabled !== undefined && { twoFAEnabled: settings.twoFAEnabled }),
       ...(settings.loginAlertsEnabled !== undefined && { loginAlertsEnabled: settings.loginAlertsEnabled }),
       ...(settings.transactionAlertsEnabled !== undefined && { transactionAlertsEnabled: settings.transactionAlertsEnabled }),
       ...(settings.accountFrozen !== undefined && { accountFrozen: settings.accountFrozen }),
@@ -81,7 +76,6 @@ export async function updateSecuritySettings(
     fingerprintEnabled: updated.fingerprintEnabled,
     faceIdEnabled: updated.faceIdEnabled,
     irisEnabled: updated.irisEnabled,
-    twoFAEnabled: updated.twoFAEnabled,
     loginAlertsEnabled: updated.loginAlertsEnabled,
     transactionAlertsEnabled: updated.transactionAlertsEnabled,
     accountFrozen: updated.accountFrozen,
