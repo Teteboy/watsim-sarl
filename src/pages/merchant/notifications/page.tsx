@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react';
 import MerchantLayout from '@/components/feature/MerchantLayout';
+import Toast, { useToast } from '@/components/base/Toast';
 import { merchantApi } from '@/lib/api';
 
 export default function MerchantNotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toasts, addToast, removeToast } = useToast();
 
   const load = async () => {
     try {
       const res = await merchantApi.getMerchantNotifications();
       setNotifications(res.data || res || []);
-    } catch {
+    } catch (error: any) {
       setNotifications([]);
+      addToast('error', 'Chargement impossible', error?.message || 'Les notifications n’ont pas pu être chargées.');
     } finally {
       setLoading(false);
     }
@@ -24,15 +27,21 @@ export default function MerchantNotificationsPage() {
   const markRead = async (id: string) => {
     try {
       await merchantApi.markNotificationRead(id);
-      await load();
-    } catch { /* ignore */ }
+      setNotifications(prev => prev.map(notification => notification.id === id ? { ...notification, isRead: true } : notification));
+      addToast('success', 'Notification lue', 'La notification a été marquée comme lue.');
+    } catch (error: any) {
+      addToast('error', 'Action impossible', error?.message || 'La notification n’a pas pu être mise à jour.');
+    }
   };
 
   const markAllRead = async () => {
     try {
       await merchantApi.markAllNotificationsRead();
-      await load();
-    } catch { /* ignore */ }
+      setNotifications(prev => prev.map(notification => ({ ...notification, isRead: true })));
+      addToast('success', 'Notifications mises à jour', 'Toutes les notifications ont été marquées comme lues.');
+    } catch (error: any) {
+      addToast('error', 'Action impossible', error?.message || 'Les notifications n’ont pas pu être mises à jour.');
+    }
   };
 
   const cardStyle = { background: '#FFFFFF', border: '1px solid #E8F2F1', borderRadius: '16px' };
@@ -121,6 +130,7 @@ export default function MerchantNotificationsPage() {
           </div>
         )}
       </div>
+      <Toast toasts={toasts} onRemove={removeToast} />
     </MerchantLayout>
   );
 }

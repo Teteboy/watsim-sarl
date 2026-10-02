@@ -48,10 +48,10 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
         <i className={`${cfg.icon} text-base`} style={{ color: cfg.color }} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{toast.title}</p>
-        {toast.message && <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins, sans-serif' }}>{toast.message}</p>}
+        <p className="text-sm font-semibold" style={{ color: cfg.color, fontFamily: 'Poppins, sans-serif' }}>{toast.title}</p>
+        {toast.message && <p className="text-xs mt-0.5" style={{ color: '#374151', fontFamily: 'Poppins, sans-serif' }}>{toast.message}</p>}
       </div>
-      <button onClick={() => { setVisible(false); setTimeout(() => onRemove(toast.id), 300); }} className="w-5 h-5 flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ color: 'rgba(255,255,255,0.4)' }}>
+      <button onClick={() => { setVisible(false); setTimeout(() => onRemove(toast.id), 300); }} className="w-5 h-5 flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ color: '#6B7280' }}>
         <i className="ri-close-line text-sm" />
       </button>
     </div>

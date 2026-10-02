@@ -109,12 +109,20 @@ class _MessagingScreenState extends State<MessagingScreen> {
         _conversations = mapped;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _conversations = [];
         _loading = false;
       });
+      final message = e is ApiException
+          ? e.message
+          : (LanguageService().isFrench
+              ? 'Impossible de charger les conversations.'
+              : 'Could not load conversations.');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.error),
+      );
     }
   }
 
@@ -873,14 +881,29 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       await ApiService.sendChatMessage(targetConvId, text);
       await _loadBackendMessages();
-    } catch (_) {}
+    } catch (e) {
+      if (!mounted) return;
+      _ctrl.text = text;
+      final message = e is ApiException
+          ? e.message
+          : (LanguageService().isFrench
+              ? 'Le message n’a pas pu être envoyé.'
+              : 'The message could not be sent.');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.error),
+      );
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
     setState(() => _showAttachMenu = false);
-    try {
-      // Attachments require backend upload support.
-    } catch (_) {}
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(LanguageService().isFrench
+              ? 'L’envoi d’images sera bientôt disponible.'
+              : 'Image attachments will be available soon.')),
+    );
   }
 
   Future<void> _pickFile() async {
@@ -890,9 +913,23 @@ class _ChatScreenState extends State<ChatScreen> {
         type: FileType.any,
         allowMultiple: false,
       );
-      if (result == null || result.files.isEmpty) return;
-      // Attachments require backend upload support.
-    } catch (_) {}
+      if (result == null || result.files.isEmpty || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(LanguageService().isFrench
+                ? 'L’envoi de fichiers sera bientôt disponible.'
+                : 'File attachments will be available soon.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(LanguageService().isFrench
+                ? 'Impossible de sélectionner le fichier.'
+                : 'Could not select the file.'),
+            backgroundColor: AppColors.error),
+      );
+    }
   }
 
   Future<void> _pickAudio() async {
@@ -902,9 +939,23 @@ class _ChatScreenState extends State<ChatScreen> {
         type: FileType.audio,
         allowMultiple: false,
       );
-      if (result == null || result.files.isEmpty) return;
-      // Attachments require backend upload support.
-    } catch (_) {}
+      if (result == null || result.files.isEmpty || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(LanguageService().isFrench
+                ? 'L’envoi de fichiers audio sera bientôt disponible.'
+                : 'Audio attachments will be available soon.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(LanguageService().isFrench
+                ? 'Impossible de sélectionner le fichier audio.'
+                : 'Could not select the audio file.'),
+            backgroundColor: AppColors.error),
+      );
+    }
   }
 
   @override

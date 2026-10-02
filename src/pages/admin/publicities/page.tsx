@@ -135,10 +135,12 @@ export default function AdminPublicitiesPage() {
     if (!confirmAction) return;
     try {
       await adminApi.deletePublicity(confirmAction.pub.id);
-    } catch { /* delete failed, optimistically removed */ }
-    setPublicities((prev) => prev.filter((p) => p.id !== confirmAction.pub.id));
-    addToast('success', 'Publicité supprimée', `La publicité ${confirmAction.pub.id} a été supprimée.`);
-    setConfirmAction(null);
+      setPublicities((prev) => prev.filter((p) => p.id !== confirmAction.pub.id));
+      addToast('success', 'Publicité supprimée', `La publicité ${confirmAction.pub.id} a été supprimée.`);
+      setConfirmAction(null);
+    } catch (error: any) {
+      addToast('error', 'Échec de suppression', error?.message || 'La publicité n’a pas pu être supprimée.');
+    }
   };
 
   const handleApprove = async (id: string) => {

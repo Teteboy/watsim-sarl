@@ -73,11 +73,16 @@ export default function AdminSettingsPage() {
   });
 
   const toggle = async (key: keyof typeof toggles) => {
-    const newValue = !toggles[key];
+    const previousValue = toggles[key];
+    const newValue = !previousValue;
     setToggles(prev => ({ ...prev, [key]: newValue }));
     try {
       await adminApi.setSystemSetting(key, String(newValue));
-    } catch { /* setting persist failed silently */ }
+      addToast('success', 'Paramètre mis à jour', 'La modification a été sauvegardée.');
+    } catch (error: any) {
+      setToggles(prev => ({ ...prev, [key]: previousValue }));
+      addToast('error', 'Échec de sauvegarde', error?.message || 'La modification n’a pas pu être sauvegardée.');
+    }
   };
 
   // Load persisted settings from backend
