@@ -46,7 +46,7 @@ export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState('bnpl');
   const [saved, setSaved] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'SUPPORT' });
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '', phone: '', password: '', role: 'SUPPORT' });
   const [editRoleUser, setEditRoleUser] = useState<any | null>(null);
   const [editRoleValue, setEditRoleValue] = useState('');
   const [roles, setRoles] = useState<any[]>([]);
@@ -150,14 +150,20 @@ export default function AdminSettingsPage() {
   };
 
   const handleInvite = async () => {
-    if (!inviteForm.name) { addToast('error', 'Champ requis', 'Veuillez remplir le nom complet.'); return; }
+    if (!inviteForm.name || !inviteForm.email || !inviteForm.phone || !inviteForm.password) {
+      addToast('error', 'Champs requis', 'Veuillez remplir le nom, l’email, le téléphone et le mot de passe temporaire.');
+      return;
+    }
+    if (inviteForm.password.length < 8) {
+      addToast('error', 'Mot de passe invalide', 'Le mot de passe temporaire doit contenir au moins 8 caractères.');
+      return;
+    }
     try {
-      // Email is optional; backend generates a placeholder when omitted
       await adminApi.createAdminUser({
-        email: inviteForm.email || undefined,
-        phone: `+237${Date.now().toString().slice(-8)}`, // placeholder unique phone
+        email: inviteForm.email,
+        phone: inviteForm.phone,
         fullName: inviteForm.name,
-        password: 'Admin@123',
+        password: inviteForm.password,
         adminRole: inviteForm.role as 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY',
       });
       // reload admins
@@ -174,8 +180,8 @@ export default function AdminSettingsPage() {
       setRoles(mapped);
       setAdmins(items);
       setShowInviteModal(false);
-      setInviteForm({ name: '', email: '', role: 'SUPPORT' });
-      addToast('success', 'Admin créé', `Compte admin créé pour ${inviteForm.email || inviteForm.name} (mot de passe temporaire: Admin@123)`);
+      setInviteForm({ name: '', email: '', phone: '', password: '', role: 'SUPPORT' });
+      addToast('success', 'Admin créé', `Compte admin créé pour ${inviteForm.email}. Communiquez le mot de passe temporaire de manière sécurisée.`);
     } catch (e: any) {
       addToast('error', 'Erreur', e?.message || 'Impossible de créer le compte admin.');
     }
@@ -366,7 +372,12 @@ export default function AdminSettingsPage() {
               <button onClick={() => setShowInviteModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer" style={{ color: '#6B7280' }}><i className="ri-close-line text-lg" /></button>
             </div>
             <div className="space-y-3">
-              {[{ label: 'Nom complet *', key: 'name', type: 'text' }, { label: 'Email', key: 'email', type: 'email' }].map(field => (
+              {[
+                { label: 'Nom complet *', key: 'name', type: 'text' },
+                { label: 'Email *', key: 'email', type: 'email' },
+                { label: 'Téléphone *', key: 'phone', type: 'tel' },
+                { label: 'Mot de passe temporaire *', key: 'password', type: 'password' },
+              ].map(field => (
                 <div key={field.key}>
                   <label className="text-xs mb-1.5 block" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{field.label}</label>
                   <input type={field.type} value={inviteForm[field.key as keyof typeof inviteForm]} onChange={e => setInviteForm(prev => ({ ...prev, [field.key]: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg text-sm outline-none" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' }} />

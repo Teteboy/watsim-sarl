@@ -215,7 +215,7 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
 
   // Create new user (customer, merchant or admin) from admin panel
   app.post('/users', async (req) => {
-    const body = req.body as { email: string; phone: string; fullName: string; password?: string; pin?: string; role?: string; creditLimit?: number };
+    const body = req.body as { email?: string; phone: string; fullName: string; password?: string; pin?: string; role?: string; adminRole?: 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE' | 'SUPPORT' | 'SECURITY'; creditLimit?: number };
     return createAdminUser(body);
   });
 

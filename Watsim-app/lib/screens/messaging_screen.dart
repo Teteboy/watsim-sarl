@@ -474,12 +474,14 @@ class _NewChatSheet extends StatefulWidget {
 }
 
 class _NewChatSheetState extends State<_NewChatSheet> {
+  bool _startingChat = false;
   bool _startingSupport = false;
 
   Future<void> _start() async {
     final phone = widget.phoneCtrl.text.trim();
-    if (phone.isEmpty) return;
+    if (phone.isEmpty || _startingChat) return;
 
+    setState(() => _startingChat = true);
     // Backend-driven conversation creation (1:1)
     try {
       // Backend resolves phone -> user and creates/finds a 1:1 conversation.
@@ -501,6 +503,8 @@ class _NewChatSheetState extends State<_NewChatSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
+    } finally {
+      if (mounted) setState(() => _startingChat = false);
     }
   }
 
@@ -612,9 +616,14 @@ class _NewChatSheetState extends State<_NewChatSheet> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _start,
-              icon: const Icon(Icons.arrow_forward_rounded),
-              label: Text(lang.startChat),
+              onPressed: _startingChat ? null : _start,
+              icon: _startingChat
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.arrow_forward_rounded),
+              label: Text(_startingChat ? lang.loading : lang.startChat),
             ),
           ),
         ],

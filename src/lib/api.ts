@@ -392,6 +392,9 @@ export const adminApi = {
   async resetUserPassword(id: string, password?: string) {
     return postJson<any>(`${API_PREFIX}/admin/users/${id}/reset-password`, { password });
   },
+  async resetUserPin(id: string, pin: string) {
+    return postJson<any>(`${API_PREFIX}/admin/users/${id}/reset-pin`, { pin });
+  },
   async repairMerchantLinkage(merchantId: string) {
     return postJson<any>(`${API_PREFIX}/admin/merchants/${merchantId}/repair-link`, {});
   },

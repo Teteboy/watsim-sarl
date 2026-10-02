@@ -269,18 +269,27 @@ export async function markMessagesReadByIds(messageIds: string[], userId: string
 }
 
 export async function resolveUserIdsByPhones(phones: string[]): Promise<string[]> {
-  const variants = Array.from(
-    new Set(phones.flatMap((p) => phoneVariants(p)))
-  ).filter(Boolean);
+  const requestedDigits = new Set(phones.map((phone) => phone.replace(/\D/g, '')).filter(Boolean));
+  const variants = Array.from(new Set(phones.flatMap((phone) => phoneVariants(phone)))).filter(Boolean);
   if (variants.length === 0) return [];
 
-  const users = await prisma.user.findMany({
-    where: { phone: { in: variants } },
-    select: { id: true },
-    take: variants.length,
+  const suffixes = Array.from(requestedDigits).map((digits) => digits.slice(-9)).filter((digits) => digits.length === 9);
+  const candidates = await prisma.user.findMany({
+    where: {
+      OR: [
+        { phone: { in: variants } },
+        ...suffixes.map((suffix) => ({ phone: { contains: suffix } })),
+      ],
+    },
+    select: { id: true, phone: true },
   });
 
-  return users.map((u) => u.id);
+  return candidates
+    .filter((user) => {
+      const digits = user.phone.replace(/\D/g, '');
+      return Array.from(requestedDigits).some((requested) => digits === requested || digits.slice(-9) === requested.slice(-9));
+    })
+    .map((user) => user.id);
 }
 
 async function getSupportAdminUserId(): Promise<string> {

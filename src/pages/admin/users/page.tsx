@@ -86,6 +86,9 @@ export default function AdminUsersPage() {
   const [showCreditModal, setShowCreditModal] = useState<User | null>(null);
   const [creditForm, setCreditForm] = useState({ amount: '', note: '', provider: '', phone: '' });
   const [creditLoading, setCreditLoading] = useState(false);
+  const [pinResetUser, setPinResetUser] = useState<User | null>(null);
+  const [pinForm, setPinForm] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -248,6 +251,25 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleResetPin = async () => {
+    if (!pinResetUser) return;
+    if (!/^\d{4,6}$/.test(pinForm)) {
+      addToast('error', 'PIN invalide', 'Le PIN doit contenir 4 à 6 chiffres.');
+      return;
+    }
+    setPinLoading(true);
+    try {
+      await adminApi.resetUserPin(pinResetUser.id, pinForm);
+      addToast('success', 'PIN réinitialisé', `Le nouveau PIN de ${pinResetUser.name} est : ${pinForm}. Communiquez-le à l'utilisateur de manière sécurisée.`);
+      setPinResetUser(null);
+      setPinForm('');
+    } catch (e: any) {
+      addToast('error', 'Échec réinitialisation', e?.message || 'Impossible de réinitialiser le PIN.');
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
   const inputStyle = { background: '#F5FAF5', border: '1px solid #E8F2F1', color: '#1A2B1F', fontFamily: 'Poppins, sans-serif' };
   const cardStyle = { background: '#FFFFFF', border: '1px solid #E8F2F1' };
 
@@ -381,6 +403,9 @@ export default function AdminUsersPage() {
                         <button onClick={() => openEdit(user)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" title="Modifier">
                           <i className="ri-edit-line text-sm" style={{ color: '#6B7280' }} />
                         </button>
+                        <button onClick={() => { setPinResetUser(user); setPinForm(''); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 transition-colors cursor-pointer" title="Réinitialiser le PIN">
+                          <i className="ri-lock-password-line text-sm" style={{ color: '#D4AF37' }} />
+                        </button>
                         <button onClick={() => { setShowCreditModal(user); setCreditForm({ amount: '', note: '', provider: '', phone: '' }); }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-green-50 transition-colors cursor-pointer" title="Créditer Wallet">
                           <i className="ri-wallet-3-line text-sm" style={{ color: '#4DB049' }} />
                         </button>
@@ -477,6 +502,9 @@ export default function AdminUsersPage() {
                 <i className="ri-edit-line mr-2" />Modifier
               </button>
             </div>
+            <button onClick={() => { setPinResetUser(selectedUser); setPinForm(''); }} className="w-full py-2 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: 'rgba(212,175,55,0.12)', color: '#B8941F', border: '1px solid rgba(212,175,55,0.4)', fontFamily: 'Poppins, sans-serif' }}>
+              <i className="ri-lock-password-line mr-2" />Réinitialiser le PIN
+            </button>
           </div>
         </div>
       )}
@@ -684,6 +712,48 @@ export default function AdminUsersPage() {
               </button>
               <button onClick={handleCreditWallet} disabled={creditLoading} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#ffffff', fontFamily: 'Poppins, sans-serif' }}>
                 {creditLoading ? <><i className="ri-loader-4-line animate-spin mr-2" />Traitement…</> : <><i className="ri-check-line mr-2" />Confirmer</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset PIN Modal */}
+      {pinResetUser && (
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }} onClick={() => setPinResetUser(null)}>
+          <div className="w-full max-w-sm rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto" style={cardStyle} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold" style={{ color: '#014945', fontFamily: 'Montserrat, sans-serif' }}>Réinitialiser le PIN</h2>
+              <button onClick={() => setPinResetUser(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer" style={{ color: '#6B7280' }}>
+                <i className="ri-close-line text-lg" />
+              </button>
+            </div>
+            <div className="p-3 rounded-xl" style={{ background: '#F5FAF5', border: '1px solid #E8F2F1' }}>
+              <p className="text-sm font-medium" style={{ color: '#014945', fontFamily: 'Poppins, sans-serif' }}>{pinResetUser.name}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>{pinResetUser.phone}</p>
+            </div>
+            <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
+              Définissez un nouveau PIN (4 à 6 chiffres) après avoir vérifié l'identité de l'utilisateur. Communiquez-le ensuite par un canal sécurisé.
+            </p>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>Nouveau PIN *</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={pinForm}
+                onChange={e => setPinForm(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Ex: 1234"
+                className="w-full px-3 py-2 rounded-lg text-sm tracking-widest"
+                style={inputStyle}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setPinResetUser(null)} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap" style={{ background: '#F5FAF5', color: '#6B7280', border: '1px solid #E8F2F1', fontFamily: 'Poppins, sans-serif' }}>
+                Annuler
+              </button>
+              <button onClick={handleResetPin} disabled={pinLoading || pinForm.length < 4} className="flex-1 py-2.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #D4AF37, #F5D76E)', color: '#0A1628', fontFamily: 'Poppins, sans-serif' }}>
+                {pinLoading ? <><i className="ri-loader-4-line animate-spin mr-2" />Traitement…</> : <><i className="ri-lock-password-line mr-2" />Réinitialiser</>}
               </button>
             </div>
           </div>
