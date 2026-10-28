@@ -34,8 +34,8 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
       ]);
       if (mounted) {
         setState(() {
-          _faqs = results[0] as List<Map<String, dynamic>>;
-          _tickets = results[1] as List<Map<String, dynamic>>;
+          _faqs = results[0];
+          _tickets = results[1];
           _loading = false;
         });
       }

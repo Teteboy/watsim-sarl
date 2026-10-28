@@ -29,13 +29,9 @@ const AUTH_KEY = 'watsim_admin_auth';
 export function getAdminAuthState(): AdminAuthState {
   try {
     const raw = sessionStorage.getItem(AUTH_KEY);
-    if (raw) return JSON.parse(raw) as AdminAuthState;
+    if (raw && tokenStore.access && tokenStore.getUser()?.role === 'ADMIN') return JSON.parse(raw) as AdminAuthState;
   } catch {
     // ignore
-  }
-  const stored = tokenStore.getUser();
-  if (stored && stored.role === 'ADMIN') {
-    return { isAuthenticated: true, adminEmail: stored.email };
   }
   return { isAuthenticated: false, adminEmail: null };
 }
@@ -62,6 +58,7 @@ export function useAdminAuth() {
 
   const logout = useCallback(async () => {
     await authApi.logout();
+    tokenStore.clear();
     sessionStorage.removeItem(AUTH_KEY);
     sessionStorage.removeItem('watsim_token_expiry');
     setAuthState({ isAuthenticated: false, adminEmail: null });

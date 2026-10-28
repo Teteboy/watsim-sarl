@@ -1,0 +1,2 @@
+ALTER TABLE "Wallet"
+ADD CONSTRAINT "Wallet_balance_nonnegative" CHECK ("balance" >= 0);

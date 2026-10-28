@@ -32,14 +32,23 @@ class _MessagingScreenState extends State<MessagingScreen> {
         () => setState(() => _query = _searchCtrl.text.toLowerCase()));
     _conversations = [];
     _loadConversations();
+    // Rebuild when conversations/messages change via WebSocket events.
+    NotificationState.instance.addListener(_onStateChanged);
     // Initialize WebSocket for real-time messaging
     WebSocketService.instance.connect();
   }
 
+  void _onStateChanged() {
+    if (!mounted) return;
+    setState(() {
+      _conversations = List.of(NotificationState.instance.conversations);
+    });
+  }
+
   @override
   void dispose() {
+    NotificationState.instance.removeListener(_onStateChanged);
     _searchCtrl.dispose();
-    WebSocketService.instance.disconnect();
     super.dispose();
   }
 
@@ -106,7 +115,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
 
       if (!mounted) return;
       setState(() {
-        _conversations = mapped;
+        _conversations = List.of(NotificationState.instance.conversations);
         _loading = false;
       });
     } catch (e) {
@@ -656,6 +665,11 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _showAttachMenu = false;
   bool _showEmojiPicker = false;
   bool _loadingMessages = true;
+  bool _loadingOlder = false;
+  bool _hasOlderMessages = true;
+  int _messageLimit = 50;
+  static int _localMessageCounter = 0;
+  bool _typingSent = false;
   Conversation get _conv =>
       NotificationState.instance.getConversation(widget.convId) ??
       Conversation(
@@ -674,8 +688,10 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     NotificationState.instance.addListener(_onChanged);
-    _ctrl.addListener(
-        () => setState(() => _isTyping = _ctrl.text.trim().isNotEmpty));
+    // Suppress unread badge increments while this chat is open.
+    NotificationState.instance.activeConversationId = widget.convId;
+    _ctrl.addListener(_onTextChanged);
+    _scroll.addListener(_onScroll);
 
     // Sync support conversation with backend and load messages
     _initConversation();
@@ -695,9 +711,34 @@ class _ChatScreenState extends State<ChatScreen> {
     await _loadBackendMessages(widget.convId);
   }
 
+  void _onTextChanged() {
+    final hasText = _ctrl.text.trim().isNotEmpty;
+    if (hasText != _isTyping) {
+      setState(() => _isTyping = hasText);
+    }
+    // Simple throttled typing indicator: send `true` on the first
+    // non-empty keystroke and `false` when the field is cleared.
+    if (hasText && !_typingSent) {
+      _typingSent = true;
+      WebSocketService.instance
+          .sendTypingIndicator(conversationId: widget.convId, isTyping: true);
+    } else if (!hasText && _typingSent) {
+      _typingSent = false;
+      WebSocketService.instance
+          .sendTypingIndicator(conversationId: widget.convId, isTyping: false);
+    }
+  }
+
   @override
   void dispose() {
     NotificationState.instance.removeListener(_onChanged);
+    if (NotificationState.instance.activeConversationId == widget.convId) {
+      NotificationState.instance.activeConversationId = null;
+    }
+    if (_typingSent) {
+      WebSocketService.instance
+          .sendTypingIndicator(conversationId: widget.convId, isTyping: false);
+    }
     WebSocketService.instance.unsubscribeFromConversation(widget.convId);
     _ctrl.dispose();
     _scroll.dispose();
@@ -735,6 +776,9 @@ class _ChatScreenState extends State<ChatScreen> {
         _markMessagesDeliveredAndRead(widget.convId, newMessages);
       }
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    } else if (mounted) {
+      // Rebuild so read-tick/status changes on existing messages show up.
+      setState(() {});
     }
   }
 
@@ -749,13 +793,31 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _loadBackendMessages([String? convId]) async {
+  void _onScroll() {
+    if (_scroll.hasClients &&
+        _scroll.position.pixels <= 40 &&
+        _scroll.position.extentAfter > 0 &&
+        !_loadingMessages && !_loadingOlder && _hasOlderMessages) {
+      _loadBackendMessages(widget.convId, true);
+    }
+  }
+
+  Future<void> _loadBackendMessages([String? convId, bool older = false]) async {
+    if (!mounted || _loadingOlder) return;
     final targetConvId = convId ?? widget.convId;
-    if (mounted) setState(() => _loadingMessages = true);
-    final currentUser = await AuthService.currentUser;
-    final currentUserId = currentUser?['id'] as String?;
+    final requestedLimit = older ? _messageLimit + 50 : _messageLimit;
+    setState(() {
+      if (older) {
+        _loadingOlder = true;
+      } else {
+        _loadingMessages = true;
+      }
+    });
     try {
-      final raw = await ApiService.fetchMessages(targetConvId, limit: 50);
+      final currentUser = await AuthService.currentUser;
+      final currentUserId = currentUser?['id'] as String?;
+      // The API exposes only limit: re-fetch a larger window, merging by ID.
+      final raw = await ApiService.fetchMessages(targetConvId, limit: requestedLimit);
 
       // Map backend payload to AppMessage (keep compatible with existing UI)
       final mapped = raw.map((e) {
@@ -790,19 +852,50 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }).toList();
 
+      if (!mounted) return;
+      final oldExtent = _scroll.hasClients ? _scroll.position.maxScrollExtent : 0.0;
+      final oldOffset = _scroll.hasClients ? _scroll.offset : 0.0;
+      final previousIds = _backendMessages.map((m) => m.id).toSet();
+      final addedOlder = mapped.any((m) => !previousIds.contains(m.id));
+      final merged = {for (final m in _backendMessages) m.id: m};
+      for (final m in mapped) {
+        merged[m.id] = m;
+      }
+      // Use the same objects as NotificationState so WS read receipts update ticks.
+      final conv = NotificationState.instance.getConversation(targetConvId);
+      if (conv != null) {
+        final knownIds = conv.messages.map((m) => m.id).toSet();
+        conv.messages.addAll(mapped.where((m) => knownIds.add(m.id)));
+        for (final m in conv.messages) {
+          merged[m.id] = m;
+        }
+        conv.messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      }
+      setState(() {
+        _backendMessages = merged.values.toList()
+          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        _messageLimit = requestedLimit;
+        _hasOlderMessages = raw.length >= requestedLimit && (!older || addedOlder);
+        _loadingMessages = false;
+        _loadingOlder = false;
+      });
+      _markMessagesDeliveredAndRead(targetConvId, mapped);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (older && _scroll.hasClients) {
+          _scroll.jumpTo((oldOffset + _scroll.position.maxScrollExtent - oldExtent)
+              .clamp(0.0, _scroll.position.maxScrollExtent));
+        } else {
+          _scrollToBottom();
+        }
+      });
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _backendMessages = mapped;
           _loadingMessages = false;
+          _loadingOlder = false;
         });
-
-        // Mark incoming messages as delivered, then mark read since user is viewing
-        _markMessagesDeliveredAndRead(targetConvId, mapped);
       }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-    } catch (_) {
-      if (mounted) setState(() => _loadingMessages = false);
     }
   }
 
@@ -810,7 +903,7 @@ class _ChatScreenState extends State<ChatScreen> {
       Map<String, dynamic> e, dynamic attachmentTypeRaw) {
     if (attachmentTypeRaw == null) {
       // try detect by presence of known attachment fields
-      if (e['attachmentUrl'] != null || e['attachmentUrl'] != '') {
+      if (e['attachmentUrl'] != null && e['attachmentUrl'] != '') {
         attachmentTypeRaw = 'image';
       }
     }
@@ -870,29 +963,35 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final targetConvId = widget.convId;
 
-    // Send via WebSocket if connected; otherwise fall back to the REST API.
-    if (WebSocketService.instance.isConnected) {
-      WebSocketService.instance.sendChatMessage(
-        conversationId: targetConvId,
-        content: text,
+    final socket = WebSocketService.instance;
+    final wasConnected = socket.isConnected;
+    // The shared service owns retrying queued messages after reconnect.
+    final accepted = socket.sendMessage(targetConvId, text);
+    if (!accepted) {
+      _ctrl.text = text;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The message could not be sent.')),
       );
       return;
     }
-    try {
-      await ApiService.sendChatMessage(targetConvId, text);
-      await _loadBackendMessages();
-    } catch (e) {
-      if (!mounted) return;
-      _ctrl.text = text;
-      final message = e is ApiException
-          ? e.message
-          : (LanguageService().isFrench
-              ? 'Le message n’a pas pu être envoyé.'
-              : 'The message could not be sent.');
+    NotificationState.instance.addMessageToConversation(
+      targetConvId,
+      AppMessage(
+        id: 'local_${DateTime.now().millisecondsSinceEpoch}_${_localMessageCounter++}',
+        conversationId: targetConvId,
+        text: text,
+        isMe: true,
+        timestamp: DateTime.now(),
+      ),
+    );
+    // No queue acknowledgement event is exposed, so avoid a pending status
+    // that could remain stuck forever; inform the user at queue time instead.
+    if (!wasConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: AppColors.error),
+        const SnackBar(content: Text('Message will be sent when reconnected')),
       );
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -976,6 +1075,8 @@ class _ChatScreenState extends State<ChatScreen> {
           Column(
             children: [
               // ── Messages ─────────────────────────────────────────
+              if (_loadingOlder)
+                const LinearProgressIndicator(color: AppColors.primaryGreen),
               Expanded(
                 child: _loadingMessages &&
                         _backendMessages.isEmpty &&
@@ -1082,20 +1183,27 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: Colors.white,
                           fontSize: 15,
                           fontWeight: FontWeight.w600)),
-                  Text(
-                    conv.isSystem
-                        ? lang.online
-                        : (lang.isFrench
-                            ? 'Utilisateur Watsim'
-                            : 'Watsim user'),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: TextStyle(
-                        color: conv.isSystem
-                            ? AppColors.primaryGreen
-                            : Colors.white60,
-                        fontSize: 11),
-                  ),
+                  Builder(builder: (context) {
+                    final typing =
+                        NotificationState.instance.typingUsers.isNotEmpty;
+                    final online = conv.isSystem ||
+                        NotificationState.instance.onlineUsers.isNotEmpty;
+                    final subtitle = typing
+                        ? (lang.isFrench ? 'écrit…' : 'typing…')
+                        : online
+                            ? lang.online
+                            : (lang.isFrench ? 'hors ligne' : 'offline');
+                    return Text(
+                      subtitle,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: TextStyle(
+                          color: typing || online
+                              ? AppColors.primaryGreen
+                              : Colors.white60,
+                          fontSize: 11),
+                    );
+                  }),
                 ],
               ),
             ),

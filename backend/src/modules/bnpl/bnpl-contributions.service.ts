@@ -15,7 +15,8 @@ async function getTotalPaid(purchaseId: string): Promise<number> {
     where: {
       purchaseId,
       status: 'COMPLETED',
-      type: { in: ['PURCHASE', 'REPAYMENT'] },
+      type: 'REPAYMENT',
+      provider: { in: ['WALLET', 'MTN_MOMO', 'ORANGE_MONEY', 'MTN', 'ORANGE', 'CASH', 'WAVE'] },
     },
   });
   return (result._sum?.amount as number | null) ?? 0;
@@ -43,10 +44,11 @@ export async function withdrawContribution(userId: string, purchaseId: string) {
   const providerRef = `WD_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
 
   await prisma.$transaction(async (tx) => {
-    await tx.bnplPurchase.update({
-      where: { id: purchaseId },
+    const claimed = await tx.bnplPurchase.updateMany({
+      where: { id: purchaseId, userId, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
       data: { status: 'CANCELLED' },
     });
+    if (claimed.count !== 1) throw new BnplContributionError(400, 'Purchase already settled');
     await tx.instalment.updateMany({
       where: { purchaseId },
       data: { status: 'WAIVED' },
@@ -120,18 +122,16 @@ export async function transferContribution(
   const ref = `TX_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
 
   await prisma.$transaction(async (tx) => {
-    await tx.bnplPurchase.update({
-      where: { id: purchaseId },
+    const claimed = await tx.bnplPurchase.updateMany({
+      where: { id: purchaseId, userId, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
       data: { status: 'CANCELLED' },
     });
+    if (claimed.count !== 1) throw new BnplContributionError(400, 'Purchase already settled');
     await tx.instalment.updateMany({
       where: { purchaseId },
       data: { status: 'WAIVED' },
     });
-    await tx.wallet.update({
-      where: { userId },
-      data: { balance: { increment: fee } },
-    });
+    // The gross contribution is consumed by cancellation; the platform retains the fee.
     await tx.wallet.update({
       where: { userId: recipient.id },
       data: { balance: { increment: net } },

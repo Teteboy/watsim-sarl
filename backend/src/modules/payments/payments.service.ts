@@ -12,7 +12,7 @@ import {
   recordWalletSettlement,
 } from '../accounting/accounting.hooks';
 import { logger } from '../../config/logger';
-import { processFirstReward, processSecondReward } from '../../services/referral.service';
+import { processFirstReward, processSecondReward, getReferralRewardBalance } from '../../services/referral.service';
 
 export class PaymentError extends Error {
   constructor(public statusCode: number, message: string) { super(message); }
@@ -35,8 +35,17 @@ export async function initiatePayment(input: {
   phone: string;
   userId: string;
 }) {
-  if (input.provider === 'WALLET' || input.provider === 'REFERRAL') {
-    return processWalletPayment(input.userId, input.transactionId, input.amount);
+  if (input.provider === 'WALLET') {
+    const result = await processWalletPayment(input.userId, input.transactionId, input.amount);
+    const transaction = await prisma.transaction.findUnique({ where: { id: input.transactionId } });
+    if (transaction?.type === 'REPAYMENT' && transaction.purchaseId) await processSecondReward(transaction.purchaseId);
+    return result;
+  }
+  if (input.provider === 'REFERRAL') {
+    const result = await processReferralPayment(input.userId, input.transactionId, input.amount);
+    const transaction = await prisma.transaction.findUnique({ where: { id: input.transactionId } });
+    if (transaction?.type === 'REPAYMENT' && transaction.purchaseId) await processSecondReward(transaction.purchaseId);
+    return result;
   }
   const adapter = getAdapter(input.provider);
   const result = await adapter.initiatePayment({
@@ -86,15 +95,55 @@ export async function initiateCashDepositPayment(input: {
 
 async function processWalletPayment(userId: string, transactionId: string, amount: number) {
   return prisma.$transaction(async (tx) => {
-    const wallet = await tx.wallet.findUnique({ where: { userId } });
-    if (!wallet || wallet.balance < amount) throw new PaymentError(400, 'Insufficient wallet balance');
-    await tx.wallet.update({ where: { userId }, data: { balance: { decrement: amount } } });
+    await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', transactionId);
+    const payment = await tx.transaction.findUnique({ where: { id: transactionId } });
+    if (!payment || payment.userId !== userId || payment.amount !== amount || amount <= 0) {
+      throw new PaymentError(400, 'Invalid payment');
+    }
+    if (payment.status !== 'PENDING') return { providerRef: payment.providerRef, status: payment.status };
+    const debit = await tx.wallet.updateMany({
+      where: { userId, balance: { gte: amount } },
+      data: { balance: { decrement: amount } },
+    });
+    if (debit.count !== 1) throw new PaymentError(400, 'Insufficient wallet balance');
     await tx.transaction.update({
       where: { id: transactionId },
       data: { status: 'COMPLETED', provider: 'WALLET', providerRef: `WALLET_${transactionId}` },
     });
     await applyTransactionEffects(tx, transactionId);
     return { providerRef: `WALLET_${transactionId}`, status: 'COMPLETED' as const };
+  });
+}
+
+// Pays from the referral rewards ledger (not the wallet). The transaction
+// row itself (provider 'REFERRAL', non-DEPOSIT type) is the consumption
+// record: PENDING reserves the amount, COMPLETED spends it, FAILED/REVERSED
+// releases it. This keeps reward spending single-sourced and idempotent.
+async function processReferralPayment(userId: string, transactionId: string, amount: number) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', userId);
+    const t = await tx.transaction.findUnique({ where: { id: transactionId } });
+    if (!t) throw new PaymentError(404, 'Transaction not found');
+    if (t.userId !== userId) throw new PaymentError(403, 'Transaction does not belong to user');
+    if (t.status !== 'PENDING') {
+      // Idempotent: already processed, don't consume twice
+      return { providerRef: t.providerRef ?? `REFERRAL_${transactionId}`, status: t.status };
+    }
+
+    // If this transaction is already flagged REFERRAL it is already counted
+    // in the consumed balance; add it back before checking affordability.
+    const rewardBalance = await getReferralRewardBalance(userId, tx);
+    const alreadyReserved = t.provider === 'REFERRAL' ? Math.abs(t.amount) : 0;
+    if (rewardBalance.available + alreadyReserved < amount) {
+      throw new PaymentError(400, 'Insufficient rewards balance');
+    }
+
+    await tx.transaction.update({
+      where: { id: transactionId },
+      data: { status: 'COMPLETED', provider: 'REFERRAL', providerRef: `REFERRAL_${transactionId}` },
+    });
+    await applyTransactionEffects(tx, transactionId);
+    return { providerRef: `REFERRAL_${transactionId}`, status: 'COMPLETED' as const };
   });
 }
 
@@ -109,21 +158,36 @@ export async function getStatus(transactionId: string) {
   const adapter = getAdapter(paymentProvider);
   const verify = await adapter.verifyPayment(tx.providerRef);
   if (verify.status === 'COMPLETED' || verify.status === 'FAILED') {
-    await handleProviderResult(tx.id, verify.status);
+    await handleProviderResult(tx.id, verify.status, verify.amount);
   }
-  return { transactionId: tx.id, status: verify.status, amount: tx.amount };
+  const current = await prisma.transaction.findUniqueOrThrow({ where: { id: tx.id } });
+  return { transactionId: tx.id, status: current.status, amount: tx.amount };
 }
 
-export async function handleProviderResult(transactionId: string, status: 'COMPLETED' | 'FAILED'): Promise<void> {
+export async function handleProviderResult(transactionId: string, status: 'COMPLETED' | 'FAILED', reportedAmount?: number): Promise<void> {
+  if (status === 'COMPLETED' && reportedAmount === undefined) {
+    const payment = await prisma.transaction.findUnique({ where: { id: transactionId } });
+    const metadata = payment?.metadata as { campayProvider?: Provider } | null;
+    const provider = payment?.provider === 'CASH' ? metadata?.campayProvider : payment?.provider;
+    if (payment?.status === 'PENDING' && payment.providerRef && (provider === 'MTN_MOMO' || provider === 'ORANGE_MONEY')) {
+      const verification = await getAdapter(provider).verifyPayment(payment.providerRef);
+      if (verification.status === 'PENDING') return;
+      status = verification.status;
+      reportedAmount = verification.amount;
+    }
+  }
   let completed = false;
   await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', transactionId);
     const t = await tx.transaction.findUnique({ where: { id: transactionId } });
     if (!t || t.status !== 'PENDING') return;
+    const mismatch = reportedAmount !== undefined && (!Number.isFinite(reportedAmount) || reportedAmount !== t.amount);
     await tx.transaction.update({
       where: { id: transactionId },
-      data: { status: status === 'COMPLETED' ? 'COMPLETED' : 'FAILED' },
+      data: { status: status === 'COMPLETED' && !mismatch ? 'COMPLETED' : 'FAILED' },
     });
-    if (status === 'COMPLETED') {
+    if (mismatch) logger.warn({ transactionId, reportedAmount, expectedAmount: t.amount }, 'Provider payment amount mismatch');
+    if (status === 'COMPLETED' && !mismatch) {
       await applyTransactionEffects(tx, transactionId);
       completed = true;
     }
@@ -132,6 +196,7 @@ export async function handleProviderResult(transactionId: string, status: 'COMPL
 
   const t = await prisma.transaction.findUnique({ where: { id: transactionId } });
   if (!t) return;
+  if (t.type === 'REPAYMENT' && t.purchaseId) await processSecondReward(t.purchaseId);
   await enqueueScoreUpdate(t.userId);
   await notifyUser(t.userId, `Paiement de ${t.amount} XAF confirmé.`);
   if (t.type === 'PURCHASE' && t.purchaseId) {
@@ -154,6 +219,7 @@ async function applyTransactionEffects(tx: import('@prisma/client').Prisma.Trans
   if (t.type === 'REPAYMENT' && t.metadata && typeof t.metadata === 'object') {
     const meta = t.metadata as { instalmentId?: string; partialPayment?: boolean };
     if (meta.instalmentId) {
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', meta.instalmentId);
       // Get current installment state
       const currentInst = await tx.instalment.findUnique({
         where: { id: meta.instalmentId },
@@ -181,10 +247,7 @@ async function applyTransactionEffects(tx: import('@prisma/client').Prisma.Trans
       });
       if (remaining === 0) {
         await tx.bnplPurchase.update({ where: { id: inst.purchaseId }, data: { status: 'COMPLETED' } });
-        // Trigger second referral reward when purchase is fully paid
-        processSecondReward(inst.purchaseId).catch((err) => {
-          logger.warn({ err, purchaseId: inst.purchaseId }, 'Failed to process second referral reward');
-        });
+
       }
       try {
         if (isWallet) {
@@ -200,14 +263,13 @@ async function applyTransactionEffects(tx: import('@prisma/client').Prisma.Trans
       }
     }
   } else if (t.type === 'PURCHASE' && t.purchaseId) {
-    const first = await tx.instalment.findFirst({ where: { purchaseId: t.purchaseId, status: 'DUE' }, orderBy: { dueDate: 'asc' } });
-    if (first) await tx.instalment.update({ where: { id: first.id }, data: { status: 'PAID', paidAt: new Date() } });
+    // The down payment is separate from every scheduled instalment.
     try {
       if (isWallet) {
         await recordWalletSettlement({ transactionId: t.id, amount: t.amount, userId: t.userId }, tx);
       } else {
         await recordInstalmentPayment(
-          { transactionId: t.id, amount: t.amount, provider: t.provider ?? 'WALLET', userId: t.userId, instalmentId: first?.id ?? t.purchaseId },
+          { transactionId: t.id, amount: t.amount, provider: t.provider ?? 'WALLET', userId: t.userId, instalmentId: t.purchaseId },
           tx,
         );
       }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import 'otp_screen.dart';
@@ -42,28 +41,31 @@ class _SplashScreenState extends State<SplashScreen>
     Future.delayed(const Duration(milliseconds: 3200), () async {
       if (mounted) {
         // Check auth state and validate token before navigating
-        debugPrint('🔍 SPLASH: Starting auth check...');
+        apiLog('🔍 SPLASH: Starting auth check...');
         final isLoggedIn = await AuthService.isLoggedIn();
-        debugPrint('🔍 SPLASH: isLoggedIn = $isLoggedIn');
+        if (!mounted) return;
+        apiLog('🔍 SPLASH: isLoggedIn = $isLoggedIn');
         if (isLoggedIn) {
           // Validate token is still valid with backend
-          debugPrint('🔍 SPLASH: Validating token...');
+          apiLog('🔍 SPLASH: Validating token...');
           final isValid = await ApiService.validateToken();
-          debugPrint('🔍 SPLASH: isValid = $isValid');
+          if (!mounted) return;
+          apiLog('🔍 SPLASH: isValid = $isValid');
           if (isValid) {
-            debugPrint('🔍 SPLASH: Navigating to MainShell');
+            apiLog('🔍 SPLASH: Navigating to MainShell');
             Navigator.pushReplacement(
                 context, MaterialPageRoute(builder: (_) => const MainShell()));
           } else {
             // Token expired, clear and go to onboarding
-            debugPrint(
+            apiLog(
                 '🔍 SPLASH: Token invalid, clearing and going to Onboarding');
             await AuthService.clear();
+            if (!mounted) return;
             Navigator.pushReplacement(context,
                 MaterialPageRoute(builder: (_) => const OnboardingScreen()));
           }
         } else {
-          debugPrint('🔍 SPLASH: Not logged in, going to Onboarding');
+          apiLog('🔍 SPLASH: Not logged in, going to Onboarding');
           Navigator.pushReplacement(context,
               MaterialPageRoute(builder: (_) => const OnboardingScreen()));
         }
@@ -152,12 +154,8 @@ class _SplashScreenState extends State<SplashScreen>
                                   shape: BoxShape.circle,
                                 ),
                                 child: ClipOval(
-                                  child: Image.asset('assets/cm_flag.png',
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const Icon(
-                                          Icons.flag,
-                                          color: Colors.white,
-                                          size: 12)),
+                                  child: const Icon(Icons.flag,
+                                      color: Colors.white, size: 12),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -337,9 +335,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
 class _OnboardData {
   final String? image;
-  final IconData? icon;
   final Color color;
-  const _OnboardData({this.image, this.icon, required this.color});
+  const _OnboardData({this.image, required this.color});
 }
 
 // ─── Register Screen ──────────────────────────────────────────────────────
@@ -626,8 +623,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _pinVisible = false;
   bool _biometricEnabled = false;
-  bool _biometricAvailable = false;
-  String? _storedPhone;
 
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _pinCtrl = TextEditingController();
@@ -642,10 +637,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final enabled = await BiometricService.isBiometricEnabled();
     final available = await BiometricService.canCheckBiometrics();
     final deviceSupported = await BiometricService.isDeviceSupported();
+    if (!mounted) return;
 
     setState(() {
       _biometricEnabled = enabled && available && deviceSupported;
-      _biometricAvailable = available && deviceSupported;
     });
   }
 

@@ -34,8 +34,21 @@ export async function buildApp(): Promise<FastifyInstance> {
           ? { target: 'pino-pretty', options: { colorize: true, translateTime: 'SYS:standard' } }
           : undefined,
     },
-    trustProxy: true,
+    trustProxy: process.env.TRUST_PROXY !== 'false',
     bodyLimit: 10 * 1024 * 1024,
+  });
+
+  // Capture the raw request body for webhook signature verification while
+  // keeping normal JSON parsing behaviour for all routes.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    try {
+      const raw = (body as string) || '';
+      (req as { rawBody?: string }).rawBody = raw;
+      done(null, raw.length ? JSON.parse(raw) : {});
+    } catch (err) {
+      (err as { statusCode?: number }).statusCode = 400;
+      done(err as Error, undefined);
+    }
   });
 
   await app.register(helmet, { contentSecurityPolicy: false });
@@ -51,7 +64,18 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(websocket);
   await registerRateLimit(app);
 
-  // Static file serving for uploads
+  // KYC documents must never be publicly served. New files are written to
+  // uploads-private/ (outside the static root); block any legacy kyc_* files
+  // that may still live under uploads/ as well.
+  app.addHook('onRequest', async (req, reply) => {
+    if (req.url.startsWith('/uploads/kyc_')) {
+      return reply.code(404).send({ error: 'NotFound', message: 'Not found' });
+    }
+  });
+
+  // Static file serving for uploads (public assets only: product, profile,
+  // publicity images). KYC documents are served via the authenticated
+  // /auth/kyc/file/:filename route instead.
   await app.register(staticFiles, {
     root: resolve(process.cwd(), 'uploads'),
     prefix: '/uploads/',
@@ -133,24 +157,34 @@ export async function buildApp(): Promise<FastifyInstance> {
     const { writeFile } = await import('fs/promises');
     const { randomUUID } = await import('crypto');
     const { mkdir } = await import('fs/promises');
-    
-    const extensions: Record<string, string> = {
-      'image/jpeg': '.jpg',
-      'image/png': '.png',
-      'image/webp': '.webp',
-      'image/gif': '.gif',
-      'image/avif': '.avif',
-    };
-    const ext = extensions[data.mimetype];
-    if (!ext) {
-      return reply.code(400).send({ error: 'BadRequest', message: 'Unsupported image format. Use JPEG, PNG, WebP, GIF, or AVIF.' });
+
+    const buffer = await data.toBuffer();
+
+    // Per-image size sanity limit (consistent with multipart/body limits).
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+    if (buffer.length > MAX_IMAGE_BYTES) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'Image too large (max 5MB)' });
     }
-    const filename = `${randomUUID()}${ext}`;
+
+    // Verify magic bytes — never trust the client-supplied filename/mimetype.
+    // Extension is derived from the detected content type, not the upload.
+    function detectImageType(buf: Buffer): 'jpg' | 'png' | 'webp' | null {
+      if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpg';
+      if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
+        && buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a) return 'png';
+      if (buf.length >= 12 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+      return null;
+    }
+
+    const detected = detectImageType(buffer);
+    if (!detected) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'Unsupported or invalid image. Use JPEG, PNG, or WebP.' });
+    }
+    const filename = `${randomUUID()}.${detected}`;
     const uploadDir = resolve(process.cwd(), 'uploads');
     await mkdir(uploadDir, { recursive: true });
     const filepath = resolve(uploadDir, filename);
 
-    const buffer = await data.toBuffer();
     await writeFile(filepath, buffer);
 
     const url = `/uploads/${filename}`;

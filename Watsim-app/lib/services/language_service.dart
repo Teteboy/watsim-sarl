@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── Language Service (InheritedWidget + ChangeNotifier) ──────────────────
 class LanguageService extends ChangeNotifier {
@@ -6,12 +7,26 @@ class LanguageService extends ChangeNotifier {
   factory LanguageService() => _instance;
   LanguageService._internal();
 
+  static const _localeKey = 'watsim_locale';
+
   bool _isFrench = true;
+  bool _loaded = false;
   bool get isFrench => _isFrench;
+
+  /// Load the persisted locale once (idempotent).
+  Future<void> load() async {
+    if (_loaded) return;
+    _loaded = true;
+    final prefs = await SharedPreferences.getInstance();
+    _isFrench = prefs.getString(_localeKey) != 'en';
+    notifyListeners();
+  }
 
   void toggle() {
     _isFrench = !_isFrench;
     notifyListeners();
+    SharedPreferences.getInstance().then(
+        (prefs) => prefs.setString(_localeKey, _isFrench ? 'fr' : 'en'));
   }
 
   String get languageLabel => _isFrench ? 'Français' : 'English';
@@ -20,18 +35,11 @@ class LanguageService extends ChangeNotifier {
   String get creditScore => _isFrench ? 'Score de crédit' : 'Credit Score';
   String get excellent => _isFrench ? 'Excellent' : 'Excellent';
   String get bnplLimit => _isFrench ? 'Limite BNPL' : 'BNPL Limit';
-  String get bnplUsed => _isFrench
-      ? '75 000 FCFA utilisés sur 150 000 FCFA'
-      : '75,000 FCFA used of 150,000 FCFA';
   String get accountBenefits =>
       _isFrench ? 'Compte & Avantages' : 'Account & Benefits';
   String get myReferrals => _isFrench ? 'Mes Parrainages' : 'My Referrals';
-  String get referralCode =>
-      _isFrench ? 'Code : WATSIM-789' : 'Code: WATSIM-789';
   String get rewardsCashback =>
       _isFrench ? 'Récompenses & Cashback' : 'Rewards & Cashback';
-  String get rewardsAvailable =>
-      _isFrench ? '3 200 FCFA disponibles' : '3,200 FCFA available';
   String get settings => _isFrench ? 'Paramètres' : 'Settings';
   String get myAccount => _isFrench ? 'Mon Compte' : 'My Account';
   String get notifications => _isFrench ? 'Notifications' : 'Notifications';
@@ -136,9 +144,6 @@ class LanguageService extends ChangeNotifier {
       _isFrench ? 'Récompenses & Cashback' : 'Rewards & Cashback';
   String get availableCashback =>
       _isFrench ? 'Cashback disponible' : 'Available Cashback';
-  String get cashbackBreakdown => _isFrench
-      ? '+2 000 FCFA bonus parrainage\n+1 200 FCFA récompenses achats'
-      : '+2,000 FCFA referral bonus\n+1,200 FCFA purchase rewards';
   String get convertBalance =>
       _isFrench ? 'Convertir en solde Watsim' : 'Convert to Watsim Balance';
   String get cashbackHistory =>
@@ -542,8 +547,6 @@ class LanguageService extends ChangeNotifier {
   String get yesterday => _isFrench ? 'Hier' : 'Yesterday';
 
   // ── Wallet screen strings ───────────────────────────────────────────────
-  String get growthThisMonth =>
-      _isFrench ? '+2,4% ce mois-ci' : '+2.4% this month';
   String get addMoney => _isFrench ? 'Ajouter de l\'argent' : 'Add Money';
   String get topUpWalletInstantly => _isFrench
       ? 'Rechargez votre portefeuille instantanément'
@@ -1098,8 +1101,8 @@ class LanguageService extends ChangeNotifier {
   String get confirmReceipt2 =>
       _isFrench ? 'Confirmer la réception' : 'Confirm Receipt';
   String get demoSimulateOffice => _isFrench
-      ? 'Démo : Simuler action bureau'
-      : 'Demo: Simulate Office Action';
+      ? 'Simuler action bureau'
+      : 'Simulate Office Action';
   String get officeConfirmsReceipt =>
       _isFrench ? 'Le bureau confirme la réception' : 'Office Confirms Receipt';
   String get howPayCashWorks => _isFrench

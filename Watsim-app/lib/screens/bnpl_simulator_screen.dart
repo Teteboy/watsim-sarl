@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../cart_state.dart';
@@ -895,12 +896,14 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
               frequency: paymentFrequency.toLowerCase(),
             );
             backendPurchaseId = result['purchase']?['id'] as String?;
-            debugPrint('BNPL purchase created on backend: $backendPurchaseId');
+            if (kDebugMode) {
+              debugPrint('BNPL purchase created on backend');
+            }
             // Sync wallet and orders from backend so local state reflects reality
             await WalletState.instance.syncWithBackend();
             await OrderState.instance.syncWithBackend();
           } catch (e) {
-            debugPrint('Backend BNPL creation failed: $e');
+            if (kDebugMode) debugPrint('Backend BNPL creation failed: $e');
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -1961,7 +1964,7 @@ Future<void> _pollPaymentStatus(
     await Future.delayed(const Duration(seconds: 5));
     try {
       final status = await ApiService.getPaymentStatus(transactionId);
-      debugPrint('POLL: attempt=$i status=$status');
+      if (kDebugMode) debugPrint('POLL: attempt=$i status=$status');
       if (status['status'] == 'COMPLETED') {
         finalStatus = 'COMPLETED';
         if (context.mounted) {
@@ -1991,7 +1994,7 @@ Future<void> _pollPaymentStatus(
         break;
       }
     } catch (e) {
-      debugPrint('POLL: error=$e');
+      if (kDebugMode) debugPrint('POLL: error=$e');
     }
   }
   await WalletState.instance.syncWithBackend();
@@ -2315,11 +2318,17 @@ class _PinConfirmSheetState extends State<_PinConfirmSheet> {
 
   void _verify() async {
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
+    final valid = await ApiService.verifyTransactionPin(_pin);
     if (!mounted) return;
-    // Accept any 4-digit PIN for demo
     setState(() => _loading = false);
-    widget.onPinConfirmed();
+    if (valid) {
+      widget.onPinConfirmed();
+    } else {
+      setState(() {
+        _error = true;
+        _pin = '';
+      });
+    }
   }
 
   @override

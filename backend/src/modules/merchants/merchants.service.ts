@@ -345,6 +345,7 @@ export async function changeMerchantPassword(userId: string, currentPassword: st
     where: { id: user.id },
     data: { passwordHash: newHash },
   });
+  await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
 
   return true;
 }
@@ -513,25 +514,17 @@ export async function approvePayoutRequest(adminId: string, payoutId: string) {
 
   // Deduct merchant wallet atomically and mark APPROVED
   await prisma.$transaction(async (tx) => {
-    await tx.wallet.update({
-      where: { userId: payout.merchant.userId },
-      data: { balance: { decrement: payout.amount } },
-    });
-    await tx.payoutRequest.update({
-      where: { id: payoutId },
+    const claimed = await tx.payoutRequest.updateMany({
+      where: { id: payoutId, status: 'PENDING' },
       data: { status: 'APPROVED', processedAt: new Date(), note: `Approved by admin ${adminId}` },
     });
-    await tx.transaction.create({
-      data: {
-        userId: payout.merchant.userId,
-        type: 'WITHDRAWAL',
-        amount: payout.amount,
-        status: 'PENDING',
-        provider: payout.provider,
-        providerRef: `PAYOUT_${payoutId}`,
-        metadata: { payoutId, approvedBy: adminId, source: 'merchant_payout' } as never,
-      },
+    if (claimed.count !== 1) throw new Error('Payout already processed');
+    const debit = await tx.wallet.updateMany({
+      where: { userId: payout.merchant.userId, balance: { gte: payout.amount } },
+      data: { balance: { decrement: payout.amount } },
     });
+    if (debit.count !== 1) throw new Error('Insufficient merchant wallet balance');
+
     await tx.auditLog.create({
       data: { userId: adminId, action: 'PAYOUT_APPROVED', entityType: 'PayoutRequest', entityId: payoutId, metadata: { amount: payout.amount } as never },
     });
@@ -548,19 +541,14 @@ export async function approvePayoutRequest(adminId: string, payoutId: string) {
       phoneNumber: merchantUser.phone,
       provider: provider as import('../../services/withdrawal.service').WithdrawalProvider,
       reference: payoutId.slice(0, 20),
+      debitSource: 'PREDEBITED',
       metadata: { payoutId, source: 'merchant_payout_approval' },
     }).then(async (result) => {
       await prisma.payoutRequest.update({
         where: { id: payoutId },
         data: { status: result.success ? 'PAID' : 'REJECTED', note: result.message },
       });
-      // Refund wallet if CamPay failed
-      if (!result.success) {
-        await prisma.wallet.update({
-          where: { userId: payout.merchant.userId },
-          data: { balance: { increment: payout.amount } },
-        });
-      }
+      // processWithdrawal owns refunds for the already-debited amount.
     }).catch(() => { /* disbursement will be retried manually */ });
   } else {
     // No phone on file — mark as manually pending

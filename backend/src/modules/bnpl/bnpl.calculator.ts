@@ -90,7 +90,7 @@ export function calculateInstalmentPlan(
   const rate = RATES[count];
   const financedTotal = Math.round(principal * (1 + rate));
   const total = financedTotal + downPayment + totalFees;
-  const monthly = Math.ceil((financedTotal + totalFees) / count);
+  const monthly = Math.floor((financedTotal + totalFees) / count);
   const interest = financedTotal - principal;
 
   const daysPerInstalment = frequency === 'daily' ? 1 : frequency === 'weekly' ? 7 : 30;
@@ -98,7 +98,9 @@ export function calculateInstalmentPlan(
   const schedule = Array.from({ length: count }, (_, i) => {
     const due = new Date(startDate);
     due.setDate(due.getDate() + daysPerInstalment * (i + 1));
-    return { index: i, dueDate: due, amount: monthly };
+    // XAF is stored as integer units; the final payment absorbs the remainder.
+    const instalmentAmount = i === count - 1 ? financedTotal + totalFees - monthly * (count - 1) : monthly;
+    return { index: i, dueDate: due, amount: instalmentAmount };
   });
 
   return { 

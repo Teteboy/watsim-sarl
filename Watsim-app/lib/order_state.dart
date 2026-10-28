@@ -146,10 +146,14 @@ class ConfirmedOrder {
     OrderState.instance._notify();
   }
 
-  /// Toggle collection fee on/off and recalculate totals
+  int? _configuredCollectionFee;
+
+  /// Toggle the backend-provided fee without losing it when disabled.
   void toggleCollectionFee(bool enabled) {
+    _configuredCollectionFee ??= collectionFee;
     final originalValue = collectionFee;
-    collectionFee = enabled ? 1000 : 0;
+    // TODO: Fetch the configured fee when no backend fee was supplied (zero).
+    collectionFee = enabled ? _configuredCollectionFee! : 0;
     totalFees = downPayment +
         stockingFee +
         accountCreationFee +
@@ -375,6 +379,7 @@ class OrderState extends ChangeNotifier {
 
   /// Load orders from backend and sync with local state
   Future<void> syncWithBackend() async {
+    if (_isLoading) return;
     _isLoading = true;
     _error = null;
     _notify();

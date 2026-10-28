@@ -71,8 +71,13 @@ export default function AdminMessagingPage() {
   const openConversation = (conv: Conversation) => {
     setSelected(conv);
     loadMessages(conv);
-    // Mark as read
-    adminApi.sendMessage(conv.id, { text: undefined } as any).catch(() => {});
+    // The messaging read endpoint marks the current participant's messages, without sending text.
+    adminApi.markConversationRead(conv.id).then(() => {
+      setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unreadCount: 0 } : c));
+      setSelected(current => current?.id === conv.id ? { ...current, unreadCount: 0 } : current);
+    }).catch(() => {
+      addToast('error', 'Erreur', 'Impossible de marquer la conversation comme lue.');
+    });
   };
 
   // Poll every 5s when a conversation is open

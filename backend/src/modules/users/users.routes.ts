@@ -7,7 +7,7 @@ import { getUserStatistics } from '../../services/statistics.service';
 import { prisma } from '../../config/db';
 import { uploadProfilePicture, resolveImageUrl } from '../../services/storage-local.service';
 import { recomputeScore, getScoreHistory, getScoreTips } from '../../services/credit-scoring.service';
-import { ensureUserReferralCode, getReferralStats, updateReferralCode } from '../../services/referral.service';
+import { ensureUserReferralCode, getReferralStats, getReferralRewardBalance, updateReferralCode } from '../../services/referral.service';
 import { getUserBadges, checkAndAwardBadges } from '../../services/badge.service';
 import { processWithdrawal, checkWithdrawalStatus, WithdrawalProvider } from '../../services/withdrawal.service';
 import { processTransfer, getTransferHistory } from '../../services/transfer.service';
@@ -388,17 +388,16 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   // GET /users/me/rewards - Fetch rewards summary with history
   app.get('/me/rewards', async (req) => {
     const userId = req.authUser!.id;
-    
-    // Get wallet to check referral reward balance (transactions with provider 'REFERRAL')
-    await prisma.wallet.findUnique({
-      where: { userId },
-    });
 
-    // Get all referral-related transactions for history
+    // Rewards ledger: earned minus consumed (convert/withdraw/REFERRAL payments)
+    const rewardBalance = await getReferralRewardBalance(userId);
+
+    // Get all referral-related transactions for history (reward grants only)
     const referralTransactions = await prisma.transaction.findMany({
-      where: { 
+      where: {
         userId,
         provider: 'REFERRAL',
+        type: 'DEPOSIT',
         status: 'COMPLETED',
       },
       orderBy: { createdAt: 'desc' },
@@ -441,7 +440,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     });
 
     return {
-      availableBalance: totalFirstRewards + totalSecondRewards,
+      availableBalance: rewardBalance.available,
       pendingBalance: pendingAmount,
       totalFirstRewards,
       totalSecondRewards,
@@ -463,7 +462,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     };
 
     // Validate inputs
-    if (!amount || amount < 1000) {
+    if (!Number.isFinite(amount) || amount < 1000) {
       return reply.code(400).send({ error: 'InvalidAmount', message: 'Minimum withdrawal is 1000 FCFA' });
     }
     if (!phoneNumber || phoneNumber.length < 9) {
@@ -477,22 +476,51 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     const netAmount = Math.floor(amount / 2);
     const feeAmount = amount - netAmount;
 
-    // Check actual wallet balance — rewards are deposited into the main wallet on conversion
-    const wallet = await prisma.wallet.findUnique({ where: { userId } });
-    if (!wallet || wallet.balance < amount) {
+    // Rewards live in the referral ledger (not the wallet) — validate and
+    // reserve the gross amount (payout + platform fee) against it.
+    const reservation = await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', userId);
+      const rewardBalance = await getReferralRewardBalance(userId, tx);
+      if (rewardBalance.available < amount) return { available: rewardBalance.available, consumption: null };
+
+      // Consumption is created only after the locked balance check.
+      const consumption = await tx.transaction.create({
+      data: {
+        userId,
+        type: 'WITHDRAWAL',
+        amount,
+        status: 'COMPLETED',
+        provider: 'REFERRAL',
+        providerRef: `REFERRAL_WD_${Date.now()}_${userId.slice(0, 8)}`,
+        metadata: {
+          source: 'REWARDS_WITHDRAWAL',
+          grossAmount: amount,
+          feeAmount,
+          netAmount,
+        },
+      },
+    });
+
+      return { available: rewardBalance.available, consumption };
+    });
+    if (!reservation.consumption) {
       return reply.code(400).send({
         error: 'InsufficientBalance',
-        message: `Insufficient wallet balance. Available: ${wallet?.balance ?? 0} FCFA`,
+        message: `Insufficient rewards balance. Available: ${reservation.available} FCFA`,
       });
     }
+    const consumption = reservation.consumption;
 
-    // processWithdrawal handles wallet deduction + transaction record atomically for the net amount
+    // processWithdrawal pays out the net amount; debitSource 'REWARDS' skips
+    // wallet deduction and releases the reservation on failure.
     const withdrawalResult = await processWithdrawal({
       userId,
       amount: netAmount,
       phoneNumber,
       provider: method.toUpperCase() as WithdrawalProvider,
       reference: `REWARDS_WD_${Date.now()}`,
+      debitSource: 'REWARDS',
+      rewardsConsumptionId: consumption.id,
       metadata: {
         source: 'REWARDS',
         phoneNumber,
@@ -500,6 +528,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         requestedAt: new Date().toISOString(),
         grossAmount: amount,
         feeAmount,
+        rewardsConsumptionId: consumption.id,
       },
     });
 
@@ -509,29 +538,6 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         message: withdrawalResult.message || 'Withdrawal could not be processed',
       });
     }
-
-    // Record the 50% platform fee and deduct it from the wallet
-    await prisma.$transaction(async (tx) => {
-      await tx.wallet.update({
-        where: { userId },
-        data: { balance: { decrement: feeAmount } },
-      });
-      await tx.transaction.create({
-        data: {
-          userId,
-          type: 'WITHDRAWAL',
-          amount: feeAmount,
-          status: 'COMPLETED',
-          provider: 'WALLET',
-          providerRef: `REWARDS_FEE_${Date.now()}`,
-          metadata: {
-            source: 'REWARDS_WITHDRAWAL_FEE',
-            originalWithdrawalId: withdrawalResult.withdrawalId,
-            grossAmount: amount,
-          } as never,
-        },
-      });
-    });
 
     // Award badges if withdrawal successful
     await checkAndAwardBadges(userId);
@@ -557,56 +563,69 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'InvalidAmount', message: 'Amount must be greater than 0' });
     }
 
-    // Check available balance
-    const completedReferrals = await prisma.referral.findMany({
-      where: { 
-        referrerId: userId,
-        firstRewardPaid: true,
-      },
-    });
-    const totalRewards = completedReferrals.reduce((sum, r) => sum + r.firstRewardAmount + r.secondRewardAmount, 0);
+    // Consume rewards from the referral ledger and credit the wallet atomically.
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', userId);
+      // Check available rewards balance (earned - consumed)
+      const rewardBalance = await getReferralRewardBalance(userId, tx);
+      if (amount > rewardBalance.available) {
+        return { insufficient: true, newBalance: 0 };
+      }
 
-    if (amount > totalRewards) {
+      // Mark rewards as consumed in the referral ledger
+      await tx.transaction.create({
+        data: {
+          userId,
+          type: 'WITHDRAWAL',
+          amount,
+          status: 'COMPLETED',
+          provider: 'REFERRAL',
+          providerRef: `REFERRAL_CONVERT_${Date.now()}_${userId.slice(0, 8)}`,
+          metadata: { source: 'REWARDS_CONVERSION' },
+        },
+      });
+
+      // Credit the wallet
+      const wallet = await tx.wallet.upsert({
+        where: { userId },
+        create: { userId, balance: 0, currency: 'XAF' },
+        update: {},
+      });
+      const updatedWallet = await tx.wallet.update({
+        where: { userId },
+        data: { balance: { increment: amount } },
+      });
+
+      // Create deposit transaction record
+      await tx.transaction.create({
+        data: {
+          userId,
+          type: 'DEPOSIT',
+          amount,
+          status: 'COMPLETED',
+          provider: 'WALLET',
+          providerRef: `REWARDS_CONVERT_${Date.now()}_${userId.slice(0, 8)}`,
+          metadata: {
+            source: 'REWARDS_CONVERSION',
+            convertedAt: new Date().toISOString(),
+            previousBalance: wallet.balance,
+            newBalance: wallet.balance + amount,
+          },
+        },
+      });
+
+      return { insufficient: false, newBalance: updatedWallet.balance };
+    });
+
+    if (result.insufficient) {
       return reply.code(400).send({ error: 'InsufficientBalance', message: 'Insufficient rewards balance' });
     }
-
-    // Get or create wallet
-    let wallet = await prisma.wallet.findUnique({ where: { userId } });
-    if (!wallet) {
-      wallet = await prisma.wallet.create({
-        data: { userId, balance: 0, currency: 'XAF' },
-      });
-    }
-
-    // Update wallet balance
-    await prisma.wallet.update({
-      where: { userId },
-      data: { balance: { increment: amount } },
-    });
-
-    // Create deposit transaction record
-    await prisma.transaction.create({
-      data: {
-        userId,
-        type: 'DEPOSIT',
-        amount,
-        status: 'COMPLETED',
-        provider: 'WALLET',
-        providerRef: `REWARDS_CONVERT_${Date.now()}`,
-        metadata: { 
-          source: 'REWARDS_CONVERSION',
-          convertedAt: new Date().toISOString(),
-          previousBalance: wallet.balance,
-          newBalance: wallet.balance + amount,
-        },
-      },
-    });
 
     return {
       success: true,
       amount,
       convertedToWallet: true,
-      newWalletBalance: wallet.balance + amount,
+      newWalletBalance: result.newBalance,
     };
   });
 

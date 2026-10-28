@@ -34,13 +34,15 @@
 
 ## 3. Technologies
 - **Frontend** : React + TypeScript + Tailwind CSS + Vite
-- **Backend** : Supabase (Auth + Database + Edge Functions)
+- **Backend** : Node.js 20 + Fastify, Prisma + PostgreSQL, Redis (auth JWT côté backend). L'ancien prototype Supabase n'est plus utilisé.
 - **Icons** : FontAwesome + Remix Icon
 - **Charts** : Recharts (dashboard)
 
 ## 4. Structure de Données
 
-### Collections Supabase Principales
+### Modèle conceptuel historique (non contractuel)
+
+Ces tables décrivent le prototype initial, pas le schéma de production. La source de vérité actuelle est `backend/prisma/schema.prisma`; ne pas provisionner Supabase Auth ou Edge Functions à partir de ce plan.
 
 #### Users
 | Champ | Type | Description |

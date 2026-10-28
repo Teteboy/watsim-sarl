@@ -1,8 +1,57 @@
 export type FetchResult<T> = { data?: T; error?: string };
 
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function refreshTokens(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  const refreshToken = tokenStore.refresh;
+  if (!refreshToken) return false;
+  refreshInFlight = (async () => {
+    try {
+      const res = await fetch(`${API_PREFIX}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return false;
+      const tokens = await res.json();
+      // Do not restore a session that was logged out or replaced while refreshing.
+      if (tokenStore.refresh !== refreshToken) return false;
+      if (!tokens.accessToken || !tokens.refreshToken) return false;
+      tokenStore.setTokens(tokens.accessToken, tokens.refreshToken);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  try { return await refreshInFlight; }
+  finally { refreshInFlight = null; }
+}
+
+async function fetchWithRefresh(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  const access = tokenStore.access;
+  if (access) headers.set('Authorization', `Bearer ${access}`);
+  let res = await fetch(path, { ...init, headers });
+  // Invalid login credentials should not refresh an unrelated existing session.
+  const isAuthRequest = path.startsWith(`${API_PREFIX}/auth/`);
+  if (res.status === 401 && !isAuthRequest) {
+    const refreshed = tokenStore.access && tokenStore.access !== access
+      ? true : await refreshTokens();
+    if (refreshed) {
+      headers.set('Authorization', `Bearer ${tokenStore.access}`);
+      res = await fetch(path, { ...init, headers });
+    }
+    if (!refreshed || res.status === 401) handleUnauthorized();
+  }
+  if (res.status === 401 && isAuthRequest) handleUnauthorized();
+  return res;
+}
+
 async function fetchJson<T>(path: string): Promise<FetchResult<T>> {
   try {
-    const res = await fetch(path, { credentials: 'same-origin' });
+    const res = await fetchWithRefresh(path, { credentials: 'same-origin' });
     if (!res.ok) return { error: `Request failed ${res.status}` };
     const data = (await res.json()) as T;
     return { data };
@@ -14,14 +63,13 @@ async function fetchJson<T>(path: string): Promise<FetchResult<T>> {
 async function postJson<T>(path: string, body: any): Promise<T> {
   const headers: Record<string,string> = { 'Content-Type': 'application/json' };
   if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-  const res = await fetch(path, {
+  const res = await fetchWithRefresh(path, {
     method: 'POST',
     headers,
     credentials: 'same-origin',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    if (res.status === 401) handleUnauthorized();
     let msg = `Request failed ${res.status}`;
     try {
       const errBody = await res.json();
@@ -29,7 +77,7 @@ async function postJson<T>(path: string, body: any): Promise<T> {
     } catch {
       // ignore JSON parse errors
     }
-    throw new ApiError(msg);
+    throw new ApiError(msg, res.status);
   }
   return (await res.json()) as T;
 }
@@ -37,20 +85,19 @@ async function postJson<T>(path: string, body: any): Promise<T> {
 async function putJson<T>(path: string, body: any): Promise<T> {
   const headers: Record<string,string> = { 'Content-Type': 'application/json' };
   if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-  const res = await fetch(path, {
+  const res = await fetchWithRefresh(path, {
     method: 'PUT',
     headers,
     credentials: 'same-origin',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    if (res.status === 401) handleUnauthorized();
     let msg = `Request failed ${res.status}`;
     try {
       const errBody = await res.json();
       if (errBody?.message) msg = errBody.message;
     } catch { /* ignore JSON parse error */ }
-    throw new ApiError(msg);
+    throw new ApiError(msg, res.status);
   }
   return (await res.json()) as T;
 }
@@ -58,20 +105,19 @@ async function putJson<T>(path: string, body: any): Promise<T> {
 async function patchJson<T>(path: string, body: any): Promise<T> {
   const headers: Record<string,string> = { 'Content-Type': 'application/json' };
   if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-  const res = await fetch(path, {
+  const res = await fetchWithRefresh(path, {
     method: 'PATCH',
     headers,
     credentials: 'same-origin',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    if (res.status === 401) handleUnauthorized();
     let msg = `Request failed ${res.status}`;
     try {
       const errBody = await res.json();
       if (errBody?.message) msg = errBody.message;
     } catch { /* ignore JSON parse error */ }
-    throw new ApiError(msg);
+    throw new ApiError(msg, res.status);
   }
   return (await res.json()) as T;
 }
@@ -79,9 +125,8 @@ async function patchJson<T>(path: string, body: any): Promise<T> {
 async function getJson<T>(path: string): Promise<T> {
   const headers: Record<string,string> = {};
   if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-  const res = await fetch(path, { credentials: 'same-origin', headers });
+  const res = await fetchWithRefresh(path, { credentials: 'same-origin', headers });
   if (!res.ok) {
-    if (res.status === 401) handleUnauthorized();
     let msg = `Request failed ${res.status}`;
     try {
       const errBody = await res.json();
@@ -89,14 +134,18 @@ async function getJson<T>(path: string): Promise<T> {
     } catch {
       // ignore JSON parse errors
     }
-    throw new ApiError(msg);
+    throw new ApiError(msg, res.status);
   }
   return (await res.json()) as T;
 }
 
 export class ApiError extends Error {
   status?: number;
-  constructor(message?: string) { super(message ?? 'API error'); this.name = 'ApiError'; }
+  constructor(message?: string, status?: number) {
+    super(message ?? 'API error');
+    this.name = 'ApiError';
+    this.status = status;
+  }
 }
 
 function handleUnauthorized() {
@@ -290,8 +339,8 @@ export const adminApi = {
   async deleteUser(id: string) {
     const headers: Record<string, string> = {};
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/admin/users/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
-    if (!res.ok) throw new ApiError(`Request failed ${res.status}`);
+    const res = await fetchWithRefresh(`${API_PREFIX}/admin/users/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
+    if (!res.ok) throw new ApiError(`Request failed ${res.status}`, res.status);
     return true;
   },
   async transactions(params: { page?: number; limit?: number } = {}) {
@@ -319,20 +368,20 @@ export const adminApi = {
   async updatePublicity(id: string, body: any) { 
     const headers: Record<string,string> = { 'Content-Type': 'application/json' };
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/admin/publicities/${id}`, { 
+    const res = await fetchWithRefresh(`${API_PREFIX}/admin/publicities/${id}`, { 
       method: 'PUT', 
       headers, 
       credentials: 'same-origin',
       body: JSON.stringify(body)
     });
-    if (!res.ok) throw new ApiError(`Request failed ${res.status}`);
+    if (!res.ok) throw new ApiError(`Request failed ${res.status}`, res.status);
     return (await res.json()) as any;
   },
   async deletePublicity(id: string) {
     const headers: Record<string,string> = {};
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/admin/publicities/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
-    if (!res.ok) throw new ApiError(`Request failed ${res.status}`);
+    const res = await fetchWithRefresh(`${API_PREFIX}/admin/publicities/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
+    if (!res.ok) throw new ApiError(`Request failed ${res.status}`, res.status);
     return true;
   },
 
@@ -341,7 +390,7 @@ export const adminApi = {
     formData.append('image', file);
     const headers: Record<string, string> = {};
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/upload/image`, {
+    const res = await fetchWithRefresh(`${API_PREFIX}/upload/image`, {
       method: 'POST',
       headers,
       credentials: 'same-origin',
@@ -350,7 +399,7 @@ export const adminApi = {
     if (!res.ok) {
       let msg = `Upload failed ${res.status}`;
       try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore */ }
-      throw new ApiError(msg);
+      throw new ApiError(msg, res.status);
     }
     return (await res.json()) as { url: string };
   },
@@ -376,8 +425,8 @@ export const adminApi = {
   async deleteCategory(id: string) {
     const headers: Record<string,string> = {};
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/admin/categories/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
-    if (!res.ok) throw new ApiError(`Request failed ${res.status}`);
+    const res = await fetchWithRefresh(`${API_PREFIX}/admin/categories/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
+    if (!res.ok) throw new ApiError(`Request failed ${res.status}`, res.status);
     return true;
   },
   async bnplCategorySettings() { return getJson<any>(`${API_PREFIX}/admin/bnpl/category-settings`); },
@@ -410,8 +459,8 @@ export const adminApi = {
   async deleteProduct(id: string) {
     const headers: Record<string,string> = {};
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/admin/products/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
-    if (!res.ok) { let msg = `Request failed ${res.status}`; try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore */ } throw new ApiError(msg); }
+    const res = await fetchWithRefresh(`${API_PREFIX}/admin/products/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
+    if (!res.ok) { let msg = `Request failed ${res.status}`; try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore */ } throw new ApiError(msg, res.status); }
     return true;
   },
   async disputes() {
@@ -437,6 +486,9 @@ export const adminApi = {
   },
 async sendMessage(convId: string, data: { text?: string; attachmentUrl?: string; attachmentType?: string }) {
     return postJson<any>(`${API_PREFIX}/admin/conversations/${convId}/messages`, data);
+  },
+  async markConversationRead(convId: string) {
+    return postJson<{ success: boolean }>(`${API_PREFIX}/messages/conversations/${convId}/read`, {});
   },
   async getDefaultFees() { return getJson<any>(`${API_PREFIX}/admin/fees/default`); },
   async applyDefaultFees() { return postJson<any>(`${API_PREFIX}/admin/fees/apply`, {}); },
@@ -655,22 +707,22 @@ export const merchantApi = {
   async updateProduct(id: string, body: any) {
     const headers: Record<string,string> = { 'Content-Type': 'application/json' };
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/merchant/products/${id}`, { method: 'PUT', headers, credentials: 'same-origin', body: JSON.stringify(body) });
+    const res = await fetchWithRefresh(`${API_PREFIX}/merchant/products/${id}`, { method: 'PUT', headers, credentials: 'same-origin', body: JSON.stringify(body) });
     if (!res.ok) {
       let msg = `Request failed ${res.status}`;
       try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore JSON parse error */ }
-      throw new ApiError(msg);
+      throw new ApiError(msg, res.status);
     }
     return (await res.json()) as any;
   },
   async deleteProduct(id: string) {
     const headers: Record<string,string> = { 'Content-Type': 'application/json' };
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/merchant/products/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
+    const res = await fetchWithRefresh(`${API_PREFIX}/merchant/products/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
     if (!res.ok) {
       let msg = `Request failed ${res.status}`;
       try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore JSON parse error */ }
-      throw new ApiError(msg);
+      throw new ApiError(msg, res.status);
     }
     return (await res.json()) as any;
   },
@@ -688,11 +740,11 @@ export const merchantApi = {
   async deleteMerchantUser(id: string) {
     const headers: Record<string,string> = {};
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/merchant/users/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
+    const res = await fetchWithRefresh(`${API_PREFIX}/merchant/users/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
     if (!res.ok) {
       let msg = `Request failed ${res.status}`;
       try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore JSON parse error */ }
-      throw new ApiError(msg);
+      throw new ApiError(msg, res.status);
     }
     return true;
   },
@@ -720,11 +772,11 @@ export const merchantApi = {
   async deleteMerchantCustomer(id: string) {
     const headers: Record<string,string> = {};
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/merchant/customers/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
+    const res = await fetchWithRefresh(`${API_PREFIX}/merchant/customers/${id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
     if (!res.ok) {
       let msg = `Request failed ${res.status}`;
       try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore JSON parse error */ }
-      throw new ApiError(msg);
+      throw new ApiError(msg, res.status);
     }
     return true;
   },
@@ -744,7 +796,7 @@ export const merchantApi = {
     formData.append('image', file);
     const headers: Record<string, string> = {};
     if (tokenStore?.access) headers['Authorization'] = `Bearer ${tokenStore.access}`;
-    const res = await fetch(`${API_PREFIX}/upload/image`, {
+    const res = await fetchWithRefresh(`${API_PREFIX}/upload/image`, {
       method: 'POST',
       headers,
       credentials: 'same-origin',
@@ -753,7 +805,7 @@ export const merchantApi = {
     if (!res.ok) {
       let msg = `Upload failed ${res.status}`;
       try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore */ }
-      throw new ApiError(msg);
+      throw new ApiError(msg, res.status);
     }
     return (await res.json()) as { url: string };
   },
@@ -791,5 +843,5 @@ export const accountingApi = {
 
 };
 
-export type { PlatformCategory } from './mocks';
+
 

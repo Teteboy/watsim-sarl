@@ -4,7 +4,6 @@ import '../widgets/shared_widgets.dart';
 import '../services/language_service.dart';
 import '../services/api_service.dart';
 import '../services/biometric_service.dart';
-import 'otp_screen.dart';
 
 // ─── Security Screen ──────────────────────────────────────────────────────
 class SecurityScreen extends StatefulWidget {

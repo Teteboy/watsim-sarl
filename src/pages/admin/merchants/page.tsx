@@ -7,9 +7,7 @@ import { adminApi, authApi, ApiError } from '@/lib/api';
 import { mapMerchant, type BackendMerchant, type BackendCategory, type Paginated, type UiAdminMerchant } from '@/lib/api-adapters';
 
 type Merchant = UiAdminMerchant & {
-  password?: string;
   userId?: string | null;
-  tempPassword?: string;
 };
 
 const statusColors: Record<string, string> = { active: '#22C55E', pending: '#F97316', suspended: '#EF4444' };
@@ -82,11 +80,7 @@ export default function AdminMerchantsPage() {
       const data = res;
       if (Array.isArray(data.items)) {
         const mapped = data.items.map(mapMerchant) as unknown as Merchant[];
-        const withTemps = mapped.map(m => ({
-          ...m,
-          tempPassword: tempPasswords[m.id] || (m as any).tempPassword,
-        }));
-        setMerchants(withTemps);
+        setMerchants(mapped);
         setTotal(data.total || 0);
         setPage(pageNum);
       }
@@ -148,15 +142,10 @@ export default function AdminMerchantsPage() {
   const [addCategoryIds, setAddCategoryIds] = useState<string[]>([]);
   const [addAllCategories, setAddAllCategories] = useState(false);
 
-  // Persist temporary passwords across reloads (so admin can see them after refresh)
-  const [tempPasswords, setTempPasswords] = useState<Record<string, string>>(() => {
-    try {
-      const saved = localStorage.getItem('admin_merchant_temp_passwords');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  // Remove passwords persisted by older versions; new secrets live only in resetResult.
+  useEffect(() => {
+    try { localStorage.removeItem('admin_merchant_temp_passwords'); } catch { /* storage unavailable */ }
+  }, []);
 
   const { toasts, addToast, removeToast } = useToast();
 
@@ -184,15 +173,7 @@ export default function AdminMerchantsPage() {
     setMerchants(prev => prev.map(m => m.id === merchant.id ? { ...m, status: newStatus, verified: action === 'approve' ? true : m.verified } : m));
     if (selectedMerchant?.id === merchant.id) setSelectedMerchant(prev => prev ? { ...prev, status: newStatus } : null);
 
-    try {
-      if (action === 'approve') {
-        await adminApi.setMerchantStatus(merchant.id, 'ACTIVE');
-      } else {
-        await adminApi.setMerchantStatus(merchant.id, newStatus.toUpperCase());
-      }
-    } catch (e) {
-      addToast('error', 'Erreur', 'Le changement de statut a échoué côté serveur.');
-    }
+    addToast('success', 'Statut mis à jour', toastMsg);
   };
 
   const handleResetPassword = async (merchant: Merchant) => {
@@ -208,27 +189,9 @@ export default function AdminMerchantsPage() {
     try {
       const res = await adminApi.resetUserPassword(targetId);
 
-      if (res.error) {
-        addToast('error', 'Erreur', res.error);
-        return;
-      }
-
       const tempPw = res.temporaryPassword || res.password;
-
-      // Persist so it survives page reload / refetch
-      const updatedTemps = { ...tempPasswords, [merchant.id]: tempPw };
-      setTempPasswords(updatedTemps);
-      try {
-        localStorage.setItem('admin_merchant_temp_passwords', JSON.stringify(updatedTemps));
-      } catch { /* localStorage unavailable */ }
-
-      // Update local list immediately
-      setMerchants(prev =>
-        prev.map(m => (m.id === merchant.id ? { ...m, tempPassword: tempPw } : m))
-      );
-
       setResetResult({ merchant, tempPassword: tempPw });
-      addToast('success', 'Mot de passe réinitialisé', `Nouveau mot de passe temporaire : ${tempPw}`);
+      addToast('success', 'Mot de passe réinitialisé', 'Le mot de passe temporaire est affiché une seule fois.');
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Échec de la réinitialisation';
       addToast('error', 'Erreur', msg);
@@ -505,8 +468,8 @@ export default function AdminMerchantsPage() {
                       <td className="px-4 py-3 text-[10px] font-mono" style={{ color: '#9CA3AF' }} title={m.userId || 'Aucun compte lié'}>
                         {m.userId ? m.userId.slice(0, 8) + '…' : '—'}
                       </td>
-                      <td className="px-4 py-3 text-sm font-mono" style={{ color: (m.tempPassword || tempPasswords[m.id]) ? '#4DB049' : '#9CA3AF' }}>
-                        {(m.tempPassword || tempPasswords[m.id]) || '—'}
+                      <td className="px-4 py-3 text-sm" style={{ color: '#9CA3AF' }}>
+                        Affiché une seule fois
                       </td>
                       <td className="px-4 py-3">
                          <div className="flex items-center gap-1">
@@ -683,7 +646,7 @@ export default function AdminMerchantsPage() {
             <div className="p-4 rounded-xl font-mono text-xl text-center" style={{ background: 'rgba(77,176,89,0.1)', color: '#4DB049', border: '1px solid #4DB049' }}>
               {resetResult.tempPassword}
             </div>
-            <p className="text-xs" style={{ color: '#9CA3AF' }}>Communiquez ce mot de passe au marchand. Il pourra le changer après connexion.</p>
+            <p className="text-xs" style={{ color: '#9CA3AF' }}>Ce mot de passe est affiché une seule fois. Communiquez-le au marchand avant de fermer cette fenêtre.</p>
             <button onClick={() => setResetResult(null)} className="w-full py-2.5 rounded-lg font-medium" style={{ background: 'linear-gradient(135deg, #4DB049, #22C55E)', color: '#FFFFFF' }}>
               Fermer
             </button>

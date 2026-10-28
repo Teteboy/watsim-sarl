@@ -131,9 +131,13 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
     return { items, total, page, limit };
   });
 
-  app.post('/payouts/:id/status', async (req) => {
+  const ALLOWED_PAYOUT_STATUSES = ['PENDING', 'APPROVED', 'PAID', 'REJECTED'] as const;
+  app.post('/payouts/:id/status', async (req, reply) => {
     const { id } = req.params as { id: string };
     const { status, note } = req.body as { status: string; note?: string };
+    if (!ALLOWED_PAYOUT_STATUSES.includes(status as typeof ALLOWED_PAYOUT_STATUSES[number])) {
+      return reply.code(400).send({ error: 'BadRequest', message: `Invalid payout status. Allowed: ${ALLOWED_PAYOUT_STATUSES.join(', ')}` });
+    }
 
     const updated = await prisma.payoutRequest.update({
       where: { id },

@@ -41,7 +41,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final map = {
       'Transactions': ['transaction'],
       'BNPL': ['bnpl'],
-      'Promos': ['promo', 'reward', 'referral'],
+      'Promos': ['promotion', 'promo', 'reward', 'referral'],
     };
     return all.where((n) => (map[_tab] ?? []).contains(n.type)).toList();
   }

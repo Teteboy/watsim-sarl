@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,10 +7,32 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Load release signing properties from key.properties (not committed to VCS).
+// Copy android/key.properties.template or create key.properties with:
+//   storeFile=../upload-keystore.jks
+//   storePassword=...
+//   keyAlias=upload
+//   keyPassword=...
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+val hasKeystoreProperties = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .all { !keystoreProperties.getProperty(it).isNullOrBlank() } &&
+    keystoreProperties.getProperty("storeFile")?.let { file(it).exists() } == true
+// Validate the actual task graph, including aggregate tasks, without breaking debug.
+gradle.taskGraph.whenReady {
+    if (allTasks.any { it.project == project && it.name.contains("Release", ignoreCase = true) } &&
+        !hasKeystoreProperties) {
+        throw GradleException("Release builds require valid android/key.properties and a release keystore.")
+    }
+}
+
 android {
-    namespace = "com.example.wimps"
+    namespace = "com.watsim.app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -21,7 +45,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.wimps"
+        applicationId = "com.watsim.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -30,11 +54,25 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasKeystoreProperties) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+                storePassword = keystoreProperties["storePassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Never fall back to debug signing for a release artifact.
+            signingConfig = if (hasKeystoreProperties) {
+                signingConfigs.getByName("release")
+            } else {
+                null // The release task graph validation above fails the build.
+            }
         }
     }
 }

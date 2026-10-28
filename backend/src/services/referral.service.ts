@@ -1,10 +1,57 @@
 import { prisma } from '../config/db';
 import { logger } from '../config/logger';
 import { notifyUser } from './notification.service';
+import type { Prisma } from '@prisma/client';
 import crypto from 'crypto';
 
 const FIRST_REWARD_AMOUNT = 1000;
 const SECOND_REWARD_PERCENTAGE = 0.006; // 0.6%
+
+/**
+ * Referral rewards live in their own ledger, NOT in the wallet.
+ * - Earned rewards are recorded as Transaction rows with type 'DEPOSIT'
+ *   and provider 'REFERRAL' (plus the paid flags on the Referral rows).
+ * - Spending rewards (convert / withdraw / REFERRAL payment) records a
+ *   consumption Transaction row with provider 'REFERRAL' and a non-DEPOSIT
+ *   type. FAILED/REVERSED consumption rows do not count.
+ * available = earned - consumed.
+ */
+export async function getReferralRewardBalance(
+  userId: string,
+  tx?: Prisma.TransactionClient
+): Promise<{ earned: number; consumed: number; available: number }> {
+  const client = tx ?? prisma;
+
+  const referrals = await client.referral.findMany({
+    where: { referrerId: userId },
+    select: {
+      firstRewardAmount: true,
+      firstRewardPaid: true,
+      secondRewardAmount: true,
+      secondRewardPaid: true,
+    },
+  });
+  const earned = referrals.reduce(
+    (sum, r) =>
+      sum +
+      (r.firstRewardPaid ? r.firstRewardAmount : 0) +
+      (r.secondRewardPaid ? r.secondRewardAmount : 0),
+    0
+  );
+
+  const consumptionTxs = await client.transaction.findMany({
+    where: {
+      userId,
+      provider: 'REFERRAL',
+      type: { not: 'DEPOSIT' },
+      status: { notIn: ['FAILED', 'REVERSED'] },
+    },
+    select: { amount: true },
+  });
+  const consumed = consumptionTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+  return { earned, consumed, available: Math.max(0, earned - consumed) };
+}
 
 export function generateReferralCode(): string {
   // Generate 8-character alphanumeric code
@@ -117,28 +164,9 @@ export async function processFirstReward(userId: string): Promise<void> {
       },
     });
     
-    // Credit referrer's wallet
-    const wallet = await tx.wallet.findUnique({
-      where: { userId: referral.referrerId },
-    });
-    
-    if (wallet) {
-      await tx.wallet.update({
-        where: { userId: referral.referrerId },
-        data: { balance: { increment: referral.firstRewardAmount } },
-      });
-    } else {
-      // Create wallet with initial balance if it doesn't exist
-      await tx.wallet.create({
-        data: {
-          userId: referral.referrerId,
-          balance: referral.firstRewardAmount,
-          currency: 'XAF',
-        },
-      });
-    }
-    
-    // Create transaction record for the reward
+    // Rewards are NOT credited to the wallet — they stay in the referral
+    // ledger and are consumed via /me/rewards/convert, /me/rewards/withdraw
+    // or provider 'REFERRAL' payments. This transaction row is the ledger entry.
     await tx.transaction.create({
       data: {
         userId: referral.referrerId,
@@ -174,12 +202,16 @@ export async function processSecondReward(purchaseId: string): Promise<void> {
   });
   
   if (!referral) return;
-  if (referral.secondRewardPaid) return;
   
   // Calculate 0.6% of total amount
   const rewardAmount = Math.round(purchase.totalAmount * SECOND_REWARD_PERCENTAGE);
   
-  await prisma.$transaction(async (tx) => {
+  const paid = await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', referral.id);
+    const current = await tx.referral.findUnique({ where: { id: referral.id } });
+    if (!current || current.secondRewardPaid) return false;
+    const completedPurchase = await tx.bnplPurchase.findUnique({ where: { id: purchaseId } });
+    if (completedPurchase?.status !== 'COMPLETED') return false;
     // Update referral with purchase link and reward amount
     await tx.referral.update({
       where: { id: referral.id },
@@ -192,27 +224,9 @@ export async function processSecondReward(purchaseId: string): Promise<void> {
       },
     });
     
-    // Credit referrer's wallet
-    const wallet = await tx.wallet.findUnique({
-      where: { userId: referral.referrerId },
-    });
-    
-    if (wallet) {
-      await tx.wallet.update({
-        where: { userId: referral.referrerId },
-        data: { balance: { increment: rewardAmount } },
-      });
-    } else {
-      await tx.wallet.create({
-        data: {
-          userId: referral.referrerId,
-          balance: rewardAmount,
-          currency: 'XAF',
-        },
-      });
-    }
-    
-    // Create transaction record for the reward
+    // Rewards are NOT credited to the wallet — they stay in the referral
+    // ledger (see getReferralRewardBalance). This transaction row is the
+    // ledger entry for the earned reward.
     await tx.transaction.create({
       data: {
         userId: referral.referrerId,
@@ -230,7 +244,9 @@ export async function processSecondReward(purchaseId: string): Promise<void> {
         },
       },
     });
+    return true;
   });
+  if (!paid) return;
   
   await notifyUser(
     referral.referrerId,

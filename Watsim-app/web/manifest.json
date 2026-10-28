@@ -1,6 +1,6 @@
 {
-    "name": "wimps",
-    "short_name": "wimps",
+    "name": "Watsim",
+    "short_name": "Watsim",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

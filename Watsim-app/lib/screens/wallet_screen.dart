@@ -25,7 +25,6 @@ class _WalletScreenState extends State<WalletScreen> {
   Map<String, dynamic>? _profile;
   bool _loadingProfile = true;
 
-  static const _filters = ['All', 'Deposits', 'Withdrawals', 'BNPL'];
   static const _statusFilters = ['All', 'Pending', 'Completed'];
   // Status filter keys (internal; labels come from lang)
   static const _previewCount = 4;
@@ -318,20 +317,6 @@ class _WalletScreenState extends State<WalletScreen> {
                           size: 22,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.trending_up_rounded,
-                          color: AppColors.primaryGreen, size: 16),
-                      const SizedBox(width: 4),
-                      Text(lang.growthThisMonth,
-                          style: const TextStyle(
-                              color: AppColors.primaryGreen,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ],

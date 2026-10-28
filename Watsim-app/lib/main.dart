@@ -22,6 +22,8 @@ import 'cart_state.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Restore the saved locale before first frame.
+  LanguageService().load();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: AppColors.primaryDark,
@@ -155,6 +157,11 @@ class MainShell extends StatefulWidget {
   const MainShell(
       {super.key, this.initialIndex = 0, this.initialHistoryTab = 0});
 
+  /// Switches the active bottom-nav tab for the enclosing shell, if any.
+  static void switchToTab(BuildContext context, int index) {
+    context.findAncestorStateOfType<_MainShellState>()?.selectTab(index);
+  }
+
   @override
   State<MainShell> createState() => _MainShellState();
 }
@@ -174,6 +181,12 @@ class _MainShellState extends State<MainShell> {
       HistoryScreen(initialTab: widget.initialHistoryTab),
       const ReferralScreen(isNavTab: true),
     ];
+  }
+
+  void selectTab(int i) {
+    if (i >= 0 && i < _screens.length) {
+      setState(() => _currentIndex = i);
+    }
   }
 
   @override

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { prisma } from '../config/db';
 import { logger } from '../config/logger';
 import { sendTransactionAlert } from './notification.service';
@@ -25,7 +26,7 @@ export async function processTransfer(request: TransferRequest): Promise<Transfe
   const { senderId, recipientIdentifier, amount, note } = request;
 
   // Validate minimum amount
-  if (amount < 100) {
+  if (!Number.isFinite(amount) || amount < 100) {
     return {
       success: false,
       message: 'Minimum transfer amount is 100 FCFA',
@@ -76,26 +77,25 @@ export async function processTransfer(request: TransferRequest): Promise<Transfe
     };
   }
 
-  // Ensure recipient has a wallet
-  if (!recipient.wallet) {
-    // Create wallet for recipient if it doesn't exist
-    recipient.wallet = await prisma.wallet.create({
-      data: {
-        userId: recipient.id,
-        balance: 0,
-        currency: 'XAF',
-      },
-    });
-  }
-
   try {
     // Perform the transfer in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Debit sender
-      const updatedSenderWallet = await tx.wallet.update({
-        where: { userId: senderId },
+      const verifiedRecipient = await tx.user.findFirst({ where: recipientWhere(recipientIdentifier) });
+      if (!verifiedRecipient || verifiedRecipient.id !== recipient.id || verifiedRecipient.id === senderId) {
+        throw new Error('Recipient not found');
+      }
+      await tx.wallet.upsert({
+        where: { userId: recipient.id },
+        create: { userId: recipient.id, balance: 0, currency: 'XAF' },
+        update: {},
+      });
+      // Debit sender only if the current balance still covers the transfer.
+      const debit = await tx.wallet.updateMany({
+        where: { userId: senderId, balance: { gte: amount } },
         data: { balance: { decrement: amount } },
       });
+      if (debit.count !== 1) throw new Error('Insufficient wallet balance');
+      const updatedSenderWallet = await tx.wallet.findUniqueOrThrow({ where: { userId: senderId } });
 
       // Credit recipient
       await tx.wallet.update({
@@ -103,7 +103,7 @@ export async function processTransfer(request: TransferRequest): Promise<Transfe
         data: { balance: { increment: amount } },
       });
 
-      const transferRef = `TRANSFER_${Date.now()}_${senderId.slice(0, 8)}`;
+      const transferRef = `TRANSFER_${randomUUID()}`;
       // Create sender's transaction record (debit/transfer out)
       const senderTx = await tx.transaction.create({
         data: {

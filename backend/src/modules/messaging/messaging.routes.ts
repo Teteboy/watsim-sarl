@@ -182,11 +182,17 @@ export async function messagingRoutes(app: FastifyInstance): Promise<void> {
   // Mark specific messages as READ by IDs
   app.post('/conversations/:id/read-messages', async (req, reply) => {
     if (!req.authUser) return reply.code(401).send({ error: 'Unauthorized' });
+    const { id } = req.params as { id: string };
     const { messageIds } = req.body as { messageIds?: string[] };
     if (!messageIds || messageIds.length === 0) {
       return reply.code(400).send({ error: 'BadRequest', message: 'messageIds required' });
     }
-    await markMessagesReadByIds(messageIds, req.authUser.id);
+    try {
+      await markMessagesReadByIds(id, messageIds, req.authUser.id);
+    } catch (e) {
+      if (e instanceof AuthError) return reply.code(e.statusCode).send({ error: 'AuthError', message: e.message });
+      throw e;
+    }
     return { success: true };
   });
 

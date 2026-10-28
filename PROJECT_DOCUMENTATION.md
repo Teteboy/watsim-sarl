@@ -1,5 +1,7 @@
 # WATSIM — Project Documentation
 
+> **PRODUCTION SECURITY: The database seed must never run in production.** It creates demo accounts with known passwords (`Admin@123`, `Merchant@123`, `Customer@123`). Disable demo accounts and rotate all default passwords immediately if they have been deployed. Provision production administrators through an approved secure process. See `deploy/README.md` for hardened deployment and TLS setup.
+
 ## 1. Overview
 
 **WATSIM** is a Buy Now Pay Later (BNPL) fintech platform for the Cameroonian and Central African market. It lets verified customers buy from partner merchants and pay back in 1, 2, 3 or 6 monthly installments using Orange Money, MTN MoMo, or their WATSIM e-wallet.
@@ -29,7 +31,7 @@ Three roles are supported:
 
 - **Frontend**: `./src/` — React 19, Vite, Tailwind CSS, i18next.
 - **Backend**: `./backend/` — Fastify, Prisma, BullMQ.
-- **DB**: PostgreSQL 16 (user `watsim`, password `allpha01`, db `watsim_db`).
+- **DB**: PostgreSQL 16 (user `watsim`, password `<your-db-password>`, db `watsim_db`).
 - **Cache / jobs**: Redis 7.
 - **Storage**: Local filesystem (`uploads/` folder) for KYC docs and images.
 
@@ -130,7 +132,7 @@ npm run dev          # http://localhost:3001
 # 2. frontend (new terminal, repo root)
 cp .env.example .env
 npm install
-npm run dev          # http://localhost:3000 (or :5173)
+npm run dev          # frontend: use the URL printed by Vite (usually :5173)
 ```
 
 See `backend/SETUP.md` for full details and `backend/API.md` for curl examples.
@@ -186,7 +188,7 @@ Alternatively upload a ZIP via **File Manager**.
 hPanel → **Node.js Web Apps → your app → Environment variables**. Add (do NOT commit these):
 ```
 NODE_ENV=production
-PORT=3000                       # Hostinger maps this to 443 via Passenger
+PORT=3001                       # Hosting reverse proxy maps this to HTTPS
 HOST=0.0.0.0
 FRONTEND_URL=https://app.yourdomain.cm
 DATABASE_URL=postgresql://USER:PASS@HOST:5432/watsim_db?schema=public&sslmode=require
@@ -194,8 +196,8 @@ REDIS_URL=rediss://default:PASS@HOST:6379
 JWT_ACCESS_SECRET=<openssl rand -hex 32>
 JWT_REFRESH_SECRET=<openssl rand -hex 32>
 USE_MOCK_PAYMENTS=false
-CAMPAY_APP_USERNAME=...
-CAMPAY_APP_PASSWORD=...
+CAMPAY_USERNAME=...
+CAMPAY_PASSWORD=...
 CAMPAY_WEBHOOK_KEY=...
 USE_SMILE_ID=true
 SMILE_ID_PARTNER_ID=...
@@ -211,7 +213,7 @@ cd ~/domains/yourdomain.cm/public_html/watsim/backend
 npm ci --omit=dev=false
 npm run build                     # tsc → dist/
 npx prisma migrate deploy
-npx prisma db seed                # optional, only the first time
+# Never run the seed in production.
 ```
 
 ### 7-bis.6 Restart the Passenger app
@@ -282,7 +284,11 @@ Set in `.env`:
 ```
 NODE_ENV=production
 FRONTEND_URL=https://app.yourdomain.cm
-DATABASE_URL=postgresql://watsim:allpha01@db:5432/watsim_db?schema=public
+# Generate two distinct URL-safe secrets with openssl rand -hex 32.
+POSTGRES_PASSWORD=<your-db-password>
+REDIS_PASSWORD=<your-redis-password>
+DATABASE_URL=postgresql://watsim:<your-db-password>@db:5432/watsim_db?schema=public
+REDIS_URL=redis://:<your-redis-password>@redis:6379
 JWT_ACCESS_SECRET=<random 48+ chars>
 JWT_REFRESH_SECRET=<random 48+ chars>
 USE_MOCK_PAYMENTS=false        # once Orange/MTN creds are real
@@ -292,10 +298,10 @@ USE_MOCK_PAYMENTS=false        # once Orange/MTN creds are real
 ```bash
 docker compose up -d --build
 docker compose exec api npx prisma migrate deploy
-docker compose exec api npm run db:seed   # optional, only once
+# Never run the seed in production.
 docker compose logs -f api
 ```
-The API is now reachable on `http://<vps-ip>:3001`.
+The API binds to `http://127.0.0.1:3001` on the VPS; expose it only through the HTTPS reverse proxy.
 
 ### 8.5 Nginx + free TLS (Let's Encrypt)
 ```bash
@@ -385,7 +391,8 @@ find /var/backups -name 'watsim_*.sql.gz' -mtime +14 -delete
 ## 9. Production checklist
 
 - [ ] Strong, unique `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` (≥ 48 chars).
-- [ ] Strong Postgres password (rotate the default `allpha01`).
+- [ ] Strong unique Postgres and Redis passwords; no default credentials.
+- [ ] Never run the seed in production; disable demo accounts and rotate known default passwords immediately.
 - [ ] `NODE_ENV=production`, `USE_MOCK_PAYMENTS=false`.
 - [ ] `FRONTEND_URL` set so CORS is locked to your real domain.
 - [ ] Real Orange Money + MTN MoMo credentials, real webhook secrets.

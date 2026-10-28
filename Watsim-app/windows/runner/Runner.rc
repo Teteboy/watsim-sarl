@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "wimps" "\0"
+            VALUE "CompanyName", "Watsim SARL" "\0"
+            VALUE "FileDescription", "Watsim" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "wimps" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "wimps.exe" "\0"
-            VALUE "ProductName", "wimps" "\0"
+            VALUE "InternalName", "Watsim" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Watsim SARL. All rights reserved." "\0"
+            VALUE "OriginalFilename", "watsim.exe" "\0"
+            VALUE "ProductName", "Watsim" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

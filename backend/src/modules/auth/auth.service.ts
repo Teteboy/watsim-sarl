@@ -16,6 +16,17 @@ export async function verifyPin(plainPin: string, hash: string): Promise<boolean
 
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Refresh tokens are stored hashed (sha256) so a database leak does not
+// expose usable tokens.
+function hashRefreshToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/** Revoke every refresh token for a user (suspend, credential reset, unfreeze). */
+export async function revokeAllUserTokens(userId: string): Promise<void> {
+  await prisma.refreshToken.deleteMany({ where: { userId } });
+}
+
 export class AuthError extends Error {
   constructor(public statusCode: number, message: string) {
     super(message);
@@ -72,30 +83,34 @@ export async function verifyCredentials(email: string, password: string): Promis
 }
 
 export async function issueTokens(app: FastifyInstance, user: { id: string; role: UserRole; email: string }): Promise<AuthTokens> {
-  const expiresIn = user.role === 'ADMIN' ? '24h' : env.JWT_ACCESS_EXPIRY;
+  const expiresIn = env.JWT_ACCESS_EXPIRY;
   const accessToken = app.jwt.sign({ sub: user.id, role: user.role, email: user.email }, { expiresIn });
   const refreshToken = crypto.randomBytes(48).toString('hex');
   const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
 
   await prisma.refreshToken.create({
-    data: { userId: user.id, token: refreshToken, expiresAt },
+    data: { userId: user.id, token: hashRefreshToken(refreshToken), expiresAt },
   });
 
   return { accessToken, refreshToken, expiresIn };
 }
 
 export async function rotateRefreshToken(app: FastifyInstance, oldToken: string): Promise<AuthTokens> {
-  const record = await prisma.refreshToken.findUnique({ where: { token: oldToken }, include: { user: true } });
+  const hashed = hashRefreshToken(oldToken);
+  const record = await prisma.refreshToken.findUnique({ where: { token: hashed }, include: { user: true } });
   if (!record || record.expiresAt < new Date()) {
-    if (record) await prisma.refreshToken.deleteMany({ where: { id: record.id } });
+    if (record) await prisma.refreshToken.deleteMany({ where: { token: hashed } });
     throw new AuthError(401, 'Invalid or expired refresh token');
   }
-  await prisma.refreshToken.deleteMany({ where: { id: record.id } });
+  // Atomic delete-then-create: if the same token is presented twice
+  // concurrently, only one rotation succeeds.
+  const { count } = await prisma.refreshToken.deleteMany({ where: { token: hashed } });
+  if (count !== 1) throw new AuthError(401, 'Invalid or expired refresh token');
   return issueTokens(app, { id: record.user.id, role: record.user.role, email: record.user.email });
 }
 
 export async function revokeRefreshToken(token: string): Promise<void> {
-  await prisma.refreshToken.deleteMany({ where: { token } });
+  await prisma.refreshToken.deleteMany({ where: { token: hashRefreshToken(token) } });
 }
 
 export async function recordAudit(userId: string | null, action: string, metadata?: Record<string, unknown>, ip?: string): Promise<void> {

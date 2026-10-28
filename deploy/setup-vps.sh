@@ -1,61 +1,59 @@
 #!/bin/bash
-# =============================================================
-# WATSIM VPS Setup Script
-# Run on a fresh Ubuntu 22.04 / 24.04 Droplet as root or sudo
-# Usage: bash setup-vps.sh
-# =============================================================
-set -e
+# One-time provisioning on a fresh Ubuntu VPS, run as root.
+set -euo pipefail
+[ "$EUID" -eq 0 ] || { echo "Run as root" >&2; exit 1; }
+[ ! -e /var/www/watsim/.env ] || { echo "Already provisioned; refusing to overwrite secrets" >&2; exit 1; }
+umask 077
 
-echo "=== [1/8] System update ==="
 apt-get update -y && apt-get upgrade -y
-
-echo "=== [2/8] Install Node.js 20 ==="
+apt-get install -y curl openssl ca-certificates
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs
-
-echo "=== [3/8] Install tools: nginx, git, pm2, certbot ==="
-apt-get install -y nginx git build-essential
+apt-get install -y nodejs nginx git build-essential postgresql postgresql-contrib redis-server certbot python3-certbot-nginx
 npm install -g pm2
-apt-get install -y certbot python3-certbot-nginx
 
-echo "=== [4/8] Install PostgreSQL 16 ==="
-apt-get install -y postgresql postgresql-contrib
-systemctl enable postgresql
-systemctl start postgresql
+# App code, uploads, secrets and PM2 are owned by deploy, never www-data/root.
+id deploy >/dev/null 2>&1 || useradd --create-home --shell /bin/bash deploy
+install -d -m 755 -o deploy -g deploy /var/www/watsim /var/www/watsim/frontend /var/www/watsim/backend /var/www/watsim/backend/uploads /var/log/watsim
+install -d -m 755 /var/www/letsencrypt
+POSTGRES_PASSWORD=$(openssl rand -base64 24)
+REDIS_PASSWORD=$(openssl rand -hex 32)
+# Percent-encode base64 characters in the database URI (SQL password stays raw).
+DB_URL_PASSWORD=${POSTGRES_PASSWORD//+/%2B}
+DB_URL_PASSWORD=${DB_URL_PASSWORD//\//%2F}
+DB_URL_PASSWORD=${DB_URL_PASSWORD//=/%3D}
+cat > /var/www/watsim/.env <<ENV
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+REDIS_PASSWORD=$REDIS_PASSWORD
+DATABASE_URL=postgresql://watsim_user:$DB_URL_PASSWORD@127.0.0.1:5432/watsim_db
+REDIS_URL=redis://:$REDIS_PASSWORD@127.0.0.1:6379
+ENV
+chown deploy:deploy /var/www/watsim/.env
+chmod 600 /var/www/watsim/.env
+printf 'Generated PostgreSQL password (save securely): %s\n' "$POSTGRES_PASSWORD"
 
-echo "=== [5/8] Install Redis 7 ==="
-apt-get install -y redis-server
-sed -i 's/^supervised no/supervised systemd/' /etc/redis/redis.conf
-systemctl enable redis-server
-systemctl start redis-server
-
-echo "=== [6/8] Create PostgreSQL DB and user ==="
-sudo -u postgres psql <<SQL
-CREATE USER watsim_user WITH PASSWORD 'CHANGE_THIS_PASSWORD';
+systemctl enable --now postgresql
+runuser -u postgres -- psql -v ON_ERROR_STOP=1 <<SQL
+CREATE USER watsim_user WITH PASSWORD '$POSTGRES_PASSWORD';
 CREATE DATABASE watsim_db OWNER watsim_user;
 GRANT ALL PRIVILEGES ON DATABASE watsim_db TO watsim_user;
 SQL
-echo "  !! Change watsim_user password in /etc/postgresql/.../pg_hba.conf and .env !!"
+# Ubuntu Redis defaults bind to loopback; retain that and require authentication.
+sed -i '/^[[:space:]]*requirepass[[:space:]]/d' /etc/redis/redis.conf
+printf '\nrequirepass %s\n' "$REDIS_PASSWORD" >> /etc/redis/redis.conf
+systemctl enable redis-server
+systemctl restart redis-server
 
-echo "=== [7/8] Create app directories ==="
-mkdir -p /var/www/watsim/frontend
-mkdir -p /var/www/watsim/backend
-mkdir -p /var/log/watsim
-chown -R www-data:www-data /var/www/watsim
-chmod -R 755 /var/www/watsim
+if command -v ufw >/dev/null 2>&1; then
+  ufw default deny incoming
+  ufw default allow outgoing
+  ufw allow OpenSSH
+  ufw allow 80/tcp
+  ufw allow 443/tcp
+  ufw --force enable
+fi
 
-echo "=== [8/8] Configure Nginx ==="
-cp /tmp/watsim-deploy/nginx.conf /etc/nginx/sites-available/watsim
-ln -sf /etc/nginx/sites-available/watsim /etc/nginx/sites-enabled/watsim
-rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
-
-echo ""
-echo "=========================================="
-echo " VPS base setup complete!"
-echo " Next steps:"
-echo "  1. Edit /etc/nginx/sites-available/watsim → set YOUR_DOMAIN"
-echo "  2. Copy backend files: see deploy-backend.sh"
-echo "  3. Copy frontend build: see deploy-frontend.sh"
-echo "  4. Run certbot: certbot --nginx -d YOUR_DOMAIN"
-echo "=========================================="
+# Configure systemd once, running PM2 as deploy; deploy script only saves state.
+pm2 startup systemd -u deploy --hp /home/deploy
+# Do not enable the TLS template until real domain/certificate paths exist.
+install -m 644 /tmp/watsim-deploy/nginx.conf /etc/nginx/sites-available/watsim
+printf '%s\n' 'Base setup complete. See deploy/README.md to authorize deploy SSH keys, merge generated secrets into backend/.env, provision TLS, and enable the Nginx site.'

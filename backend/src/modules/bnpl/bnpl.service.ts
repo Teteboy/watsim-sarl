@@ -110,7 +110,11 @@ export async function createPurchase(userId: string, input: {
         status: i === 0 ? 'DUE' : 'UPCOMING',
       })),
     });
-    await tx.product.update({ where: { id: product.id }, data: { stock: { decrement: 1 } } });
+    const reserved = await tx.product.updateMany({
+      where: { id: product.id, stock: { gte: 1 } },
+      data: { stock: { decrement: 1 } },
+    });
+    if (reserved.count !== 1) throw new BnplError(400, 'Out of stock');
 
     // Only create a transaction for down payment (if any). Do NOT charge the first installment immediately —
     // installments are paid later via the repay endpoint.
@@ -145,13 +149,27 @@ export async function createPurchase(userId: string, input: {
   // Only process payment if there's a down payment to charge
   let payment = null;
   if (result.transaction) {
-    payment = await initiatePayment({
-      transactionId: result.transaction.id,
-      amount: input.downPayment ?? 0,
-      provider: input.paymentProvider,
-      phone: input.phone,
-      userId,
-    });
+    try {
+      payment = await initiatePayment({
+        transactionId: result.transaction.id,
+        amount: input.downPayment ?? 0,
+        provider: input.paymentProvider,
+        phone: input.phone,
+        userId,
+      });
+    } catch (error) {
+      await prisma.$transaction(async (tx) => {
+        const failed = await tx.transaction.updateMany({
+          where: { id: result.transaction!.id, status: 'PENDING' },
+          data: { status: 'FAILED' },
+        });
+        if (failed.count !== 1) return;
+        await tx.bnplPurchase.update({ where: { id: result.purchase.id }, data: { status: 'CANCELLED' } });
+        await tx.instalment.updateMany({ where: { purchaseId: result.purchase.id }, data: { status: 'WAIVED' } });
+        await tx.product.update({ where: { id: product.id }, data: { stock: { increment: 1 } } });
+      });
+      throw error;
+    }
   }
 
   await enqueueScoreUpdate(userId);
@@ -179,6 +197,7 @@ export async function repayInstalment(userId: string, input: {
     include: { purchase: { include: { instalments: true } } },
   });
   if (!inst || inst.purchase.userId !== userId) throw new BnplError(404, 'Instalment not found');
+  if (inst.purchase.status !== 'ACTIVE' || inst.status === 'WAIVED') throw new BnplError(400, 'Purchase is not active');
   if (inst.status === 'PAID') throw new BnplError(400, 'Instalment already paid');
 
   // Calculate remaining amount due

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../services/language_service.dart';
@@ -48,32 +49,36 @@ class _ReferralScreenState extends State<ReferralScreen> {
       });
 
       final data = await ApiService.fetchReferralStats();
+      if (!mounted) return;
 
       setState(() {
-        _code = data['code'] ?? '';
-        _totalReferrals = data['totalReferrals'] ?? 0;
-        _firstRewardsPaid = data['firstRewardsPaid'] ?? 0;
-        _secondRewardsPaid = data['secondRewardsPaid'] ?? 0;
-        _totalFirstRewards = data['totalFirstRewards'] ?? 0;
-        _totalSecondRewards = data['totalSecondRewards'] ?? 0;
+        _code = data['code']?.toString() ?? '';
+        _totalReferrals = (data['totalReferrals'] as num?)?.toInt() ?? 0;
+        _firstRewardsPaid = (data['firstRewardsPaid'] as num?)?.toInt() ?? 0;
+        _secondRewardsPaid = (data['secondRewardsPaid'] as num?)?.toInt() ?? 0;
+        _totalFirstRewards = (data['totalFirstRewards'] as num?)?.toInt() ?? 0;
+        _totalSecondRewards =
+            (data['totalSecondRewards'] as num?)?.toInt() ?? 0;
 
-        if (data['referrals'] != null) {
-          _referrals = (data['referrals'] as List)
-              .map((r) => ReferralItem(
-                    name: r['referredName'] ?? 'Unknown',
-                    status: r['status'] ?? 'PENDING',
-                    firstReward: r['firstRewardAmount'] ?? 1000,
-                    firstRewardPaid: r['firstRewardPaid'] ?? false,
-                    secondReward: r['secondRewardAmount'] ?? 0,
-                    secondRewardPaid: r['secondRewardPaid'] ?? false,
-                    date: _formatDate(r['createdAt']),
-                  ))
-              .toList();
-        }
+        _referrals = (data['referrals'] as List?)
+                ?.map((r) => ReferralItem(
+                      name: r['referredName']?.toString() ?? 'Unknown',
+                      status: r['status']?.toString() ?? 'PENDING',
+                      firstReward:
+                          (r['firstRewardAmount'] as num?)?.toInt() ?? 1000,
+                      firstRewardPaid: r['firstRewardPaid'] ?? false,
+                      secondReward:
+                          (r['secondRewardAmount'] as num?)?.toInt() ?? 0,
+                      secondRewardPaid: r['secondRewardPaid'] ?? false,
+                      date: _formatDate(r['createdAt']),
+                    ))
+                .toList() ??
+            [];
 
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _hasError = true;
@@ -132,12 +137,12 @@ class _ReferralScreenState extends State<ReferralScreen> {
 
     try {
       final result = await ApiService.updateReferralCode(newCode);
+      if (!mounted) return;
       setState(() {
         _code = (result['code'] as String?) ?? newCode;
         _isEditing = false;
         _isSaving = false;
       });
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(lang.isFrench
@@ -147,12 +152,16 @@ class _ReferralScreenState extends State<ReferralScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+      // Refresh referral stats/code from the server after a successful save.
+      _loadReferralData();
     } on ApiException catch (e) {
+      if (!mounted) return;
       setState(() {
         _editError = e.message;
         _isSaving = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _editError =
             lang.isFrench ? 'Échec de la mise à jour' : 'Update failed';
@@ -163,6 +172,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
 
   // ── Copy code ─────────────────────────────────────────────────────────────
   void _copyCode(LanguageService lang) {
+    if (_code.isEmpty) return;
     Clipboard.setData(ClipboardData(text: _code));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -181,6 +191,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
 
   // ── Share code ────────────────────────────────────────────────────────────
   void _shareCode(LanguageService lang) {
+    if (_code.isEmpty) return;
     final shareText = lang.isFrench
         ? '🎉 Rejoins Watsim et profite de services cotisation simples et sécurisés !\n\n'
             'Utilise mon code de parrainage : $_code\n\n'
@@ -193,14 +204,11 @@ class _ReferralScreenState extends State<ReferralScreen> {
             'Plus, I earn 0.6% when you complete a contribution 💰\n\n'
             '👉 Download Watsim now!';
 
-    Clipboard.setData(ClipboardData(text: shareText));
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) =>
-          _ShareSheet(code: _code, shareText: shareText, lang: lang),
+    Share.share(
+      shareText,
+      subject: lang.isFrench
+          ? 'Code de parrainage Watsim'
+          : 'Watsim Referral Code',
     );
   }
 
@@ -275,7 +283,9 @@ class _ReferralScreenState extends State<ReferralScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Earn 1000 FCFA when your friend makes their first deposit, and 0.6% when they complete a BNPL purchase!',
+                  lang.isFrench
+                      ? 'Gagnez 1 000 FCFA au premier dépôt de votre ami, et 0.6% lorsqu\'il finalise un achat BNPL !'
+                      : 'Earn 1000 FCFA when your friend makes their first deposit, and 0.6% when they complete a BNPL purchase!',
                   style: TextStyle(
                       color: Colors.white.withOpacity(0.75), fontSize: 14),
                 ),
@@ -436,7 +446,11 @@ class _ReferralScreenState extends State<ReferralScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                _code.isEmpty ? '---' : _code,
+                                _code.isEmpty
+                                    ? (lang.isFrench
+                                        ? 'Aucun code'
+                                        : 'No code')
+                                    : _code,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 24,
@@ -699,8 +713,8 @@ class _ReferralScreenState extends State<ReferralScreen> {
                                 ),
                               ),
                             if (!r.firstRewardPaid && !r.secondRewardPaid)
-                              const Text(
-                                'Pending',
+                              Text(
+                                lang.isFrench ? 'En attente' : 'Pending',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.warning,
@@ -985,139 +999,4 @@ class ReferralItem {
     required this.secondRewardPaid,
     required this.date,
   });
-}
-
-// ─── Share Sheet ──────────────────────────────────────────────────────────
-class _ShareSheet extends StatelessWidget {
-  final String code;
-  final String shareText;
-  final LanguageService lang;
-
-  const _ShareSheet(
-      {required this.code, required this.shareText, required this.lang});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.deepTeal, AppColors.secondaryGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  lang.isFrench ? 'Parrainer un ami' : 'Refer a Friend',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    code,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  lang.isFrench
-                      ? 'Copié dans le presse-papiers ! Partagez-le où vous voulez.'
-                      : 'Copied to clipboard! Share it anywhere.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _shareButton(Icons.message, 'SMS / WhatsApp', () {
-                  Clipboard.setData(ClipboardData(text: shareText));
-                  Navigator.pop(context);
-                }),
-                _shareButton(Icons.content_copy, lang.copy, () {
-                  Clipboard.setData(ClipboardData(text: shareText));
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(lang.codeCopied),
-                      backgroundColor: AppColors.primaryGreen,
-                    ),
-                  );
-                }),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(lang.isFrench ? 'Annuler' : 'Cancel'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _shareButton(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: AppColors.offWhite,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.primaryGreen, size: 22),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const Spacer(),
-            const Icon(Icons.chevron_right, color: AppColors.textMuted),
-          ],
-        ),
-      ),
-    );
-  }
 }

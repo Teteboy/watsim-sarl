@@ -1,8 +1,9 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { loginSchema, refreshSchema, logoutSchema, pinLoginSchema, setPinSchema, registerWithPinSchema } from './auth.schema';
-import { AuthError, issueTokens, registerCustomer, revokeRefreshToken, rotateRefreshToken, verifyCredentials, recordAudit, setPinForUser, verifyPinCredentials, verifyPin } from './auth.service';
+import { AuthError, issueTokens, registerCustomer, revokeRefreshToken, revokeAllUserTokens, rotateRefreshToken, verifyCredentials, recordAudit, setPinForUser, verifyPinCredentials, verifyPin } from './auth.service';
 import { authenticate } from '../../middleware/authenticate';
-import { uploadKycDocument, resolveImageUrl } from '../../services/storage-local.service';
+import { uploadKycDocument, resolveImageUrl, getKycFileBuffer, getFileBuffer, getBackendBaseUrl } from '../../services/storage-local.service';
+import { env } from '../../config/env';
 import { prisma } from '../../config/db';
 import { enqueueKycVerification } from '../../jobs/queue';
 import { mapResultCode, verifyCallbackSignature } from '../kyc/smile-id.service';
@@ -10,6 +11,7 @@ import { recomputeScore } from '../../services/credit-scoring.service';
 import { notifyUser, sendLoginAlert } from '../../services/notification.service';
 import { processReferralRegistration } from '../../services/referral.service';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   // Registration: single step, no OTP.
@@ -125,8 +127,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const backFilename = backBuffer
       ? await uploadKycDocument(req.authUser!.id, backName, backBuffer, backMime)
       : null;
-    const fileUrl = resolveImageUrl(frontFilename) ?? frontFilename;
-    const selfieUrl = backFilename ? (resolveImageUrl(backFilename) ?? backFilename) : null;
+    // KYC files live in private storage; expose them only through the
+    // authenticated download route below (owner or admin).
+    const kycFileUrl = (name: string) => `${getBackendBaseUrl()}${env.API_PREFIX}/auth/kyc/file/${name}`;
+    const fileUrl = kycFileUrl(frontFilename);
+    const selfieUrl = backFilename ? kycFileUrl(backFilename) : null;
     const doc = await prisma.kycDocument.create({
       data: { userId: req.authUser!.id, type: docType, fileUrl, selfieUrl, status: 'PENDING' },
     });
@@ -134,6 +139,38 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     await enqueueKycVerification(doc.id);
     await recordAudit(req.authUser!.id, 'KYC_UPLOADED', { docId: doc.id, type: docType }, req.ip);
     return reply.code(201).send({ document: { id: doc.id, type: doc.type, status: doc.status, fileUrl, selfieUrl } });
+  });
+
+  // Authenticated KYC document download — owner or admin only.
+  // KYC files are stored outside the public /uploads dir.
+  app.get('/kyc/file/:filename', { preHandler: authenticate }, async (req: FastifyRequest, reply: FastifyReply) => {
+    const { filename } = req.params as { filename: string };
+    if (!/^kyc_[A-Za-z0-9_.-]+$/.test(filename)) {
+      return reply.code(400).send({ error: 'BadRequest', message: 'Invalid filename' });
+    }
+    const me = req.authUser!;
+    if (me.role !== 'ADMIN') {
+      const doc = await prisma.kycDocument.findFirst({
+        where: { userId: me.id, OR: [{ fileUrl: { endsWith: filename } }, { selfieUrl: { endsWith: filename } }] },
+        select: { id: true },
+      });
+      if (!doc) return reply.code(403).send({ error: 'Forbidden', message: 'Not your document' });
+    }
+    let buf: Buffer;
+    try {
+      buf = await getKycFileBuffer(filename);
+    } catch {
+      // Fallback for legacy files written to the public uploads dir before
+      // the private-storage migration.
+      try {
+        buf = await getFileBuffer(filename);
+      } catch {
+        return reply.code(404).send({ error: 'NotFound', message: 'File not found' });
+      }
+    }
+    const ext = filename.split('.').pop()?.toLowerCase();
+    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    return reply.type(mime).send(buf);
   });
 
   // Smile ID asynchronous callback. Signature is HMAC-SHA256 over timestamp+partner_id+'sid_request'.
@@ -212,12 +249,29 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Set or change PIN (customer must be authenticated; can be called after login or registration)
+  // Step-up auth: if a PIN is already set, the caller must prove identity with
+  // the current PIN or the account password before the PIN can be changed.
   app.post('/set-pin', { schema: setPinSchema, preHandler: authenticate }, async (req: FastifyRequest, reply: FastifyReply) => {
-    const { pin } = req.body as { pin: string };
+    const { pin, currentPin, password } = req.body as { pin: string; currentPin?: string; password?: string };
     if (!/^\d{4,6}$/.test(pin)) {
       return reply.code(400).send({ error: 'BadRequest', message: 'PIN must be 4-6 digits' });
     }
+    const user = await prisma.user.findUnique({ where: { id: req.authUser!.id } });
+    if (!user) return reply.code(404).send({ error: 'NotFound', message: 'User not found' });
+    if (user.pinHash) {
+      // Existing PIN => this is a PIN change, require a fresh credential.
+      let verified = false;
+      if (currentPin) verified = await verifyPin(currentPin, user.pinHash);
+      if (!verified && password && user.passwordHash) {
+        verified = await bcrypt.compare(password, user.passwordHash);
+      }
+      if (!verified) {
+        return reply.code(401).send({ error: 'AuthError', message: 'Current PIN or password required to change PIN' });
+      }
+    }
     await setPinForUser(req.authUser!.id, pin);
+    // Revoke sessions so a stolen session cannot persist after PIN change.
+    await revokeAllUserTokens(req.authUser!.id);
     await recordAudit(req.authUser!.id, 'PIN_SET', undefined, req.ip);
     return { success: true, message: 'PIN set successfully' };
   });
@@ -237,6 +291,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(401).send({ error: 'AuthError', message: 'Current PIN is incorrect' });
     }
     await setPinForUser(req.authUser!.id, newPin);
+    await revokeAllUserTokens(req.authUser!.id);
     await recordAudit(req.authUser!.id, 'PIN_CHANGED', undefined, req.ip);
     return { success: true, message: 'PIN changed successfully' };
   });

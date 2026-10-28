@@ -61,7 +61,7 @@ export default function MerchantBnplPage() {
   useEffect(() => {
     loadBnpl(1);
     // Load real payout requests
-    (merchantApi as any).getPayoutRequests?.().then((res: any) => {
+    merchantApi.getPayoutRequests().then((res: any) => {
       const list = Array.isArray(res) ? res : (res?.items ?? []);
       setPayouts(list);
     }).catch(() => {});
@@ -111,7 +111,7 @@ export default function MerchantBnplPage() {
       setPayoutProvider('ORANGE_MONEY');
 
       // Refresh list
-      const res: any = await (merchantApi as any).getPayoutRequests?.();
+      const res: any = await merchantApi.getPayoutRequests();
       const list = Array.isArray(res) ? res : (res?.items ?? []);
       setPayouts(list);
     } catch (e: any) {

@@ -6,6 +6,7 @@ import 'services/api_service.dart';
 enum TxType { deposit, withdrawal, bnpl, transfer }
 
 class WalletTransaction {
+  final String? id;
   final TxType type;
   final String title;
   final int amount; // positive FCFA
@@ -14,6 +15,7 @@ class WalletTransaction {
   String tag; // mutable so cash deposits can update PENDING → SUCCESS
 
   WalletTransaction({
+    this.id,
     required this.type,
     required this.title,
     required this.amount,
@@ -23,6 +25,7 @@ class WalletTransaction {
   });
 
   String get amountFormatted {
+    if (amount < 1000) return '$amount FCFA';
     final thousands = amount ~/ 1000;
     final remainder = (amount % 1000).toString().padLeft(3, '0');
     return '$thousands,$remainder FCFA';
@@ -79,6 +82,7 @@ class WalletState extends ChangeNotifier {
   int get balance => _balance;
 
   String get balanceFormatted {
+    if (_balance < 1000) return '$_balance FCFA';
     final thousands = _balance ~/ 1000;
     final remainder = (_balance % 1000).toString().padLeft(3, '0');
     return '$thousands,$remainder FCFA';
@@ -127,7 +131,7 @@ class WalletState extends ChangeNotifier {
 
   void addBnplPayment(
       String productName, int amount, int installment, int total) {
-    _balance -= amount;
+    _balance = (_balance - amount).clamp(0, 1 << 62);
     _addTx(WalletTransaction(
       type: TxType.bnpl,
       title: 'BNPL — $productName',
@@ -167,10 +171,16 @@ class WalletState extends ChangeNotifier {
 
   /// Step 1: User finalises a Pay in Cash deposit.
   /// Records a PENDING transaction and returns its id.
-  String cashDepositPending(int requestedAmount) {
+  static const String cashDepositTitle =
+      'Dépôt en espèces via un agent Watsim';
+  static int _idCounter = 0;
+
+  String cashDepositPending(int requestedAmount, {String? transactionId}) {
+    final id = transactionId ?? '${DateTime.now().millisecondsSinceEpoch}-${_idCounter++}';
     final tx = WalletTransaction(
+      id: id,
       type: TxType.deposit,
-      title: 'Dépôt en espèces via un agent Watsim',
+      title: cashDepositTitle,
       amount: requestedAmount,
       isCredit: true,
       date: DateTime.now(),
@@ -178,7 +188,8 @@ class WalletState extends ChangeNotifier {
     );
     _transactions.add(tx);
     _notify();
-    return '${DateTime.now().millisecondsSinceEpoch}'; // used as reference id
+    // Monotonic suffix guarantees uniqueness even within the same millisecond.
+    return id;
   }
 
   /// Step 2: Watsim official hands in cash at office.
@@ -186,27 +197,17 @@ class WalletState extends ChangeNotifier {
   /// [collectedAmount]  – what the official actually brought in.
   /// Updates the latest matching PENDING transaction and credits the wallet.
   void cashDepositConfirm({
+    required String transactionId,
     required int requestedAmount,
     required int collectedAmount,
   }) {
-    // Find the most recent PENDING cash deposit to update its tag
-    final pending = _transactions.lastWhere(
-      (t) =>
-          t.tag == 'PENDING' &&
-          t.title == 'Dépôt en espèces via un agent Watsim',
-      orElse: () => WalletTransaction(
-        type: TxType.deposit,
-        title: '',
-        amount: 0,
-        isCredit: true,
-        date: DateTime.now(),
-        tag: '',
-      ),
+    // Match this exact request; duplicate confirmations must not credit again.
+    final idx = _transactions.indexWhere(
+      (t) => t.id == transactionId && t.title == cashDepositTitle && t.tag == 'PENDING',
     );
+    if (idx < 0) return;
 
-    if (pending.tag == 'PENDING') {
-      pending.tag = 'SUCCESS';
-    }
+    _transactions[idx].tag = 'SUCCESS';
 
     // Credit the actual collected amount to the balance
     _balance += collectedAmount;
@@ -238,6 +239,7 @@ class WalletState extends ChangeNotifier {
 
   /// Sync wallet, credit limit and active BNPL usage from the backend.
   Future<void> syncWithBackend() async {
+    if (_isLoading) return;
     _isLoading = true;
     _error = null;
     _notify();
@@ -286,6 +288,7 @@ class WalletState extends ChangeNotifier {
         final isCredit = type == TxType.deposit || (txData['type'] == 'REFUND');
 
         _transactions.add(WalletTransaction(
+          id: txData['id'] as String?,
           type: type,
           title: _formatTxTitle(txData),
           amount: amount,

@@ -65,47 +65,6 @@ class _NumKeyState extends State<_NumKey> {
 }
 
 // ─── Numpad ────────────────────────────────────────────────────────────────
-class _WatsimNumPad extends StatelessWidget {
-  final void Function(String) onKey;
-  final VoidCallback onDelete;
-
-  const _WatsimNumPad({required this.onKey, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = [
-      ['1', '2', '3'],
-      ['4', '5', '6'],
-      ['7', '8', '9'],
-      ['', '0', '⌫'],
-    ];
-
-    return Column(
-      children: rows.map((row) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            children: row.map((key) {
-              if (key.isEmpty) {
-                return const Expanded(child: SizedBox());
-              }
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  child: _NumKey(
-                    label: key,
-                    onTap: () => key == '⌫' ? onDelete() : onKey(key),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
 // ─── PIN Setup Screen ─────────────────────────────────────────────────────
 class PinSetupScreen extends StatefulWidget {
   final String phone; // normalized for backend
@@ -664,42 +623,6 @@ class _KycScreenState extends State<KycScreen> {
       prefixIcon: icon != null
           ? Icon(icon, color: AppColors.primaryGreen, size: 20)
           : null,
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.8),
-      ),
-    );
-  }
-
-  // Multiline variant — icon pinned to top so it aligns with the first line of text
-  InputDecoration _multilineInputDecoration(String label, {IconData? icon}) {
-    return InputDecoration(
-      labelText: label,
-      alignLabelWithHint: true,
-      labelStyle: const TextStyle(
-          color: AppColors.textSecondary, fontSize: 14, fontFamily: 'DM Sans'),
-      prefixIcon: icon != null
-          ? Align(
-              alignment: Alignment.topCenter,
-              widthFactor: 1,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Icon(icon, color: AppColors.primaryGreen, size: 20),
-              ),
-            )
-          : null,
-      prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

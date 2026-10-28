@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── API Configuration ───────────────────────────────────────────────────
@@ -35,41 +36,70 @@ class ApiException implements Exception {
   String toString() => 'ApiException($statusCode): $message';
 }
 
+/// Debug logging that is compiled out of release builds.
+void apiLog(String message) {
+  if (kDebugMode) debugPrint(message);
+}
+
+/// HTTP client that applies a global timeout to every request so stalled
+/// connections can't hang the app indefinitely.
+class _TimeoutClient extends http.BaseClient {
+  _TimeoutClient(this._inner, this._timeout);
+  final http.Client _inner;
+  final Duration _timeout;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) =>
+      _inner.send(request).timeout(_timeout);
+
+  @override
+  void close() => _inner.close();
+}
+
 // ─── Auth Service ─────────────────────────────────────────────────────────
 class AuthService {
   static const _accessKey = 'watsim_access_token';
   static const _refreshKey = 'watsim_refresh_token';
   static const _userKey = 'watsim_user_json';
 
-  static Future<String?> getAccessToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_accessKey);
-  }
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
-  static Future<String?> getRefreshToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_refreshKey);
-  }
+  static Future<String?> getAccessToken() =>
+      _secureStorage.read(key: _accessKey);
+
+  static Future<String?> getRefreshToken() =>
+      _secureStorage.read(key: _refreshKey);
 
   static Future<void> saveTokens(String access, String refresh) async {
+    await _secureStorage.write(key: _accessKey, value: access);
+    await _secureStorage.write(key: _refreshKey, value: refresh);
+    // Remove legacy plaintext copies from SharedPreferences if present.
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessKey, access);
-    await prefs.setString(_refreshKey, refresh);
+    await prefs.remove(_accessKey);
+    await prefs.remove(_refreshKey);
   }
 
   static Future<void> saveUser(Map<String, dynamic> user) async {
+    await _secureStorage.write(key: _userKey, value: jsonEncode(user));
+    _currentUser = Map<String, dynamic>.from(user);
+    // Remove legacy plaintext copy from SharedPreferences if present.
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_userKey, jsonEncode(user));
+    await prefs.remove(_userKey);
   }
 
   static Future<Map<String, dynamic>?> getUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_userKey);
+    final raw = await _secureStorage.read(key: _userKey);
     if (raw == null) return null;
     return jsonDecode(raw) as Map<String, dynamic>;
   }
 
   static Future<void> clear() async {
+    _currentUser = null;
+    await _secureStorage.delete(key: _accessKey);
+    await _secureStorage.delete(key: _refreshKey);
+    await _secureStorage.delete(key: _userKey);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_accessKey);
     await prefs.remove(_refreshKey);
@@ -96,6 +126,9 @@ class AuthService {
 
 // ─── API Service ──────────────────────────────────────────────────────────
 class ApiService {
+  static const Duration _timeout = Duration(seconds: 30);
+  static final http.Client _client = _TimeoutClient(http.Client(), _timeout);
+
   /// Normalize phone for backend.
   /// The app currently collects phone as local digits or with '+'.
   /// Backend expects a single canonical string.
@@ -156,17 +189,30 @@ class ApiService {
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
+  /// In-flight refresh, so concurrent requests share a single refresh call.
+  static Future<bool>? _refreshFuture;
+
   /// Refresh access token using stored refresh token.
-  static Future<bool> _refreshToken() async {
+  /// Concurrent callers share one in-flight request (single-flight).
+  static Future<bool> _refreshToken() {
+    return _refreshFuture ??= _doRefreshToken().whenComplete(() {
+      _refreshFuture = null;
+    });
+  }
+
+  static Future<bool> _doRefreshToken() async {
     try {
       final refresh = await AuthService.getRefreshToken();
       if (refresh == null || refresh.isEmpty) return false;
-      final res = await http.post(
+      final res = await _client.post(
         Uri.parse('$kApiBase/auth/refresh'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'refreshToken': refresh}),
       );
-      if (res.statusCode >= 400) return false;
+      if (res.statusCode == 401 || res.statusCode == 403) return false;
+      if (res.statusCode >= 400) {
+        throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
+      }
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final accessToken = data['accessToken'] as String?;
       final newRefresh = data['refreshToken'] as String?;
@@ -174,10 +220,10 @@ class ApiService {
         await AuthService.saveTokens(accessToken, newRefresh ?? refresh);
         return true;
       }
-      return false;
+      throw const ApiException(500, 'Réponse de renouvellement invalide.');
     } catch (e) {
-      debugPrint('Token refresh failed: $e');
-      return false;
+      apiLog('Token refresh failed: $e');
+      rethrow;
     }
   }
 
@@ -207,12 +253,14 @@ class ApiService {
     } on ApiException {
       rethrow;
     } catch (e) {
-      debugPrint('Token expiry check failed: $e');
-      await AuthService.clear();
-      throw const ApiException(
-          401, 'Votre session a expiré. Veuillez vous reconnecter.');
+      apiLog('Token expiry check failed: $e');
+      throw const ApiException(500, 'Impossible de vérifier la session. Veuillez réessayer.');
     }
   }
+
+  /// Public entry point so non-HTTP clients (e.g. WebSocket) can ensure the
+  /// stored access token is fresh before connecting.
+  static Future<void> ensureFreshToken() => _ensureValidToken();
 
   static Future<Map<String, String>> _headers({bool auth = true}) async {
     final h = <String, String>{'Content-Type': 'application/json'};
@@ -298,8 +346,7 @@ class ApiService {
     try {
       decoded = jsonDecode(bodyText);
     } catch (e) {
-      debugPrint('🔍 JSON parse error: $e');
-      debugPrint('🔍 Raw response: $bodyText');
+      apiLog('JSON parse error: $e');
       if (res.statusCode >= 400) {
         throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
       }
@@ -320,7 +367,7 @@ class ApiService {
           body['message'] ?? body['error'] ?? _fallbackMessage(res.statusCode);
       final String rawMsg = msgRaw is String ? msgRaw : msgRaw.toString();
       final msg = _sanitizeErrorMessage(rawMsg, res.statusCode);
-      debugPrint('🔍 API error ${res.statusCode}: $msg');
+      apiLog('API error ${res.statusCode}: $msg');
       throw ApiException(res.statusCode, msg);
     }
 
@@ -329,7 +376,10 @@ class ApiService {
 
   static List<dynamic> _decodeList(http.Response res) {
     if (res.statusCode == 401) {
-      AuthService.clear();
+      if (res.request?.headers.keys.any(
+              (key) => key.toLowerCase() == 'authorization') ?? false) {
+        AuthService.clear();
+      }
       throw const ApiException(
           401, 'Votre session a expiré. Veuillez vous reconnecter.');
     }
@@ -345,11 +395,11 @@ class ApiService {
     try {
       decoded = jsonDecode(bodyText);
     } catch (e) {
-      debugPrint('🔍 JSON parse error (list): $e');
+      apiLog('JSON parse error (list): $e');
       if (res.statusCode >= 400) {
         throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
       }
-      return [];
+      throw ApiException(500, _fallbackMessage(500));
     }
 
     if (res.statusCode >= 400) {
@@ -361,7 +411,7 @@ class ApiService {
         final msg = rawMsg is String
             ? _sanitizeErrorMessage(rawMsg, res.statusCode)
             : _fallbackMessage(res.statusCode);
-        debugPrint('🔍 API error ${res.statusCode}: $msg');
+        apiLog('API error ${res.statusCode}: $msg');
         throw ApiException(res.statusCode, msg);
       }
       throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
@@ -377,35 +427,11 @@ class ApiService {
 
   // ── Auth ──────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> register({
-    required String email,
-    required String phone,
-    required String password,
-    required String fullName,
-    String? initialPin,
-  }) async {
-    final res = await http.post(
-      Uri.parse('$kApiBase/auth/register'),
-      headers: await _headers(auth: false),
-      body: jsonEncode({
-        'email': email,
-        'phone': phone,
-        'password': password,
-        'fullName': fullName,
-        if (initialPin != null) 'initialPin': initialPin,
-      }),
-    );
-    final data = _decode(res);
-    await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
-    if (data['user'] != null) await AuthService.saveUser(data['user']);
-    return data;
-  }
-
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/auth/login'),
       headers: await _headers(auth: false),
       body: jsonEncode({'email': email, 'password': password}),
@@ -433,32 +459,24 @@ class ApiService {
       body['referralCode'] = referralCode;
     }
 
-    debugPrint('🔍 RegisterPhone: Sending request to $kApiBase/auth/register');
-
     try {
-      final res = await http
-          .post(
-            Uri.parse('$kApiBase/auth/register'),
-            headers: await _headers(auth: false),
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 30));
-
-      debugPrint('🔍 Response status: ${res.statusCode}');
+      final res = await _client.post(
+        Uri.parse('$kApiBase/auth/register'),
+        headers: await _headers(auth: false),
+        body: jsonEncode(body),
+      );
 
       final data = _decode(res);
       await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
       if (data['user'] != null) await AuthService.saveUser(data['user']);
       return data;
-    } on SocketException catch (e) {
-      debugPrint('🔍 Connection error: $e');
-      throw ApiException(0,
-          'Cannot connect to server. Check your internet and that the backend is running.');
-    } on TimeoutException catch (e) {
-      debugPrint('🔍 Timeout error: $e');
-      throw ApiException(0, 'Connection timed out. Please try again.');
-    } catch (e) {
-      debugPrint('🔍 Error: $e');
+    } on SocketException {
+      throw const ApiException(
+          0, 'Problème de connexion. Vérifiez votre réseau.');
+    } on TimeoutException {
+      throw const ApiException(
+          0, 'Le serveur met trop de temps à répondre. Veuillez réessayer.');
+    } on ApiException {
       rethrow;
     }
   }
@@ -470,54 +488,30 @@ class ApiService {
     final uri = Uri.parse('$kApiBase/auth/login-pin');
     final body = <String, String>{'phone': phone, 'pin': pin};
 
-    // Capture request/response details so UI can show the *exact* backend body.
-    debugPrint('🔍 loginWithPin: POST $uri');
-    debugPrint('🔍 loginWithPin: body=$body');
-
     http.Response res;
     try {
-      res = await http.post(
+      res = await _client.post(
         uri,
         headers: await _headers(auth: false),
         body: jsonEncode(body),
       );
-    } on SocketException catch (e) {
-      debugPrint('🔍 loginWithPin: SocketException: $e');
-      // Add connectivity diagnostics so you can see which host/port/path is failing.
-      final diag = await diagnoseConnection();
-      throw ApiException(
-        0,
-        'Cannot connect to server. Check internet + that backend is reachable.\n'
-        'SocketException: ${e.message}\n'
-        'Diagnostics: ${jsonEncode(diag)}',
-      );
-    } on TimeoutException catch (e) {
-      debugPrint('🔍 loginWithPin: TimeoutException: $e');
-      final diag = await diagnoseConnection();
-      throw ApiException(
-        0,
-        'Connection timed out while calling /auth/login-pin.\n'
-        '${e.toString()}\n'
-        'Diagnostics: ${jsonEncode(diag)}',
-      );
+    } on SocketException {
+      throw const ApiException(
+          0, 'Problème de connexion. Vérifiez votre réseau.');
+    } on TimeoutException {
+      throw const ApiException(
+          0, 'Le serveur met trop de temps à répondre. Veuillez réessayer.');
     }
 
-    debugPrint('🔍 loginWithPin: status=${res.statusCode}');
-    debugPrint('🔍 loginWithPin: raw body=${res.body}');
-
-    try {
-      final data = _decode(res);
-      await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
-      if (data['user'] != null) await AuthService.saveUser(data['user']);
-      return data;
-    } on ApiException {
-      rethrow;
-    }
+    final data = _decode(res);
+    await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
+    if (data['user'] != null) await AuthService.saveUser(data['user']);
+    return data;
   }
 
   static Future<void> logout(String refreshToken) async {
     try {
-      await http.post(
+      await _client.post(
         Uri.parse('$kApiBase/auth/logout'),
         headers: await _headers(),
         body: jsonEncode({'refreshToken': refreshToken}),
@@ -572,7 +566,7 @@ class ApiService {
     };
     final uri =
         Uri.parse('$kApiBase/products').replace(queryParameters: params);
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     return _decodeList(res);
   }
 
@@ -592,8 +586,22 @@ class ApiService {
     };
     final uri =
         Uri.parse('$kApiBase/products').replace(queryParameters: params);
-    final res = await http.get(uri);
-    final decoded = jsonDecode(res.body);
+    final res = await _client.get(uri);
+    final bodyText = res.body.trim();
+    if (res.statusCode == 401) {
+      // Public product requests do not carry credentials.
+      throw const ApiException(
+          401, 'Votre session a expiré. Veuillez vous reconnecter.');
+    }
+    dynamic decoded;
+    try {
+      decoded = bodyText.isEmpty ? null : jsonDecode(bodyText);
+    } catch (_) {
+      decoded = null;
+    }
+    if (res.statusCode >= 400) {
+      throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
+    }
     if (decoded is Map<String, dynamic>) return decoded;
     // Fallback: wrap list in pagination envelope
     if (decoded is List) {
@@ -617,24 +625,31 @@ class ApiService {
   static Future<List<dynamic>> fetchBestOffers({int limit = 8}) async {
     final uri = Uri.parse('$kApiBase/products/best-offers')
         .replace(queryParameters: {'limit': limit.toString()});
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     return _decodeList(res);
   }
 
   static Future<List<dynamic>> fetchCategories() async {
-    final res = await http.get(Uri.parse('$kApiBase/products/categories'));
-    if (res.statusCode >= 400) return [];
-    final decoded = jsonDecode(res.body);
-    if (decoded is List) return decoded;
-    if (decoded is Map && decoded['items'] is List)
-      return decoded['items'] as List;
-    return [];
+    try {
+      final res = await _client.get(Uri.parse('$kApiBase/products/categories'));
+      if (res.statusCode >= 400) return [];
+      final decoded = jsonDecode(res.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map && decoded['items'] is List) {
+        return decoded['items'] as List;
+      }
+      return [];
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      return [];
+    }
   }
 
   // ── Wallet & Transactions ─────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> fetchWallet() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/wallet'),
       headers: await _headers(),
     );
@@ -647,7 +662,7 @@ class ApiService {
   }) async {
     final uri = Uri.parse('$kApiBase/users/me/transactions').replace(
         queryParameters: {'page': page.toString(), 'limit': limit.toString()});
-    final res = await http.get(uri, headers: await _headers());
+    final res = await _client.get(uri, headers: await _headers());
     return _decodeList(res);
   }
 
@@ -659,7 +674,7 @@ class ApiService {
   }) async {
     final uri = Uri.parse('$kApiBase/users/me/purchases').replace(
         queryParameters: {'page': page.toString(), 'limit': limit.toString()});
-    final res = await http.get(uri, headers: await _headers());
+    final res = await _client.get(uri, headers: await _headers());
     final body = _decode(res);
     // Backend returns {items: [...]}
     final items = body['items'];
@@ -670,7 +685,7 @@ class ApiService {
   // ── Notifications ─────────────────────────────────────────────────────
 
   static Future<List<dynamic>> fetchNotifications() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/notifications'),
       headers: await _headers(),
     );
@@ -678,31 +693,35 @@ class ApiService {
   }
 
   static Future<int> fetchUnreadNotificationCount() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/notifications/unread-count'),
       headers: await _headers(),
     );
     if (res.statusCode >= 400) return 0;
-    final data = jsonDecode(res.body);
-    return (data['count'] ?? 0) as int;
+    try {
+      final data = jsonDecode(res.body);
+      return (data['count'] ?? 0) as int;
+    } catch (_) {
+      return 0;
+    }
   }
 
   static Future<void> markNotificationRead(String id) async {
-    await http.put(
+    await _client.put(
       Uri.parse('$kApiBase/users/me/notifications/$id/read'),
       headers: await _headers(),
     );
   }
 
   static Future<void> markAllNotificationsRead() async {
-    await http.put(
+    await _client.put(
       Uri.parse('$kApiBase/users/me/notifications/mark-all-read'),
       headers: await _headers(),
     );
   }
 
   static Future<void> deleteNotification(String id) async {
-    final res = await http.delete(
+    final res = await _client.delete(
       Uri.parse('$kApiBase/users/me/notifications/$id'),
       headers: await _headers(),
     );
@@ -717,7 +736,7 @@ class ApiService {
   static Future<Map<String, dynamic>> requestCashDeposit({
     required int amount,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/transactions/deposit'),
       headers: await _headers(),
       body: jsonEncode({'amount': amount, 'provider': 'CASH'}),
@@ -732,27 +751,16 @@ class ApiService {
     required String phone,
   }) async {
     // 1. Create a DEPOSIT transaction
-    debugPrint(
-        'API: POST /users/me/transactions/deposit amount=$amount provider=$provider');
-    final txRes = await http
-        .post(
+    final txRes = await _client.post(
       Uri.parse('$kApiBase/users/me/transactions/deposit'),
       headers: await _headers(),
       body: jsonEncode({'amount': amount, 'provider': provider}),
-    )
-        .timeout(const Duration(seconds: 30), onTimeout: () {
-      throw Exception(
-          'Transaction creation timed out. Check server connection.');
-    });
-    debugPrint('API: txRes status=${txRes.statusCode} body=${txRes.body}');
+    );
     final txData = _decode(txRes);
     final transactionId = txData['transactionId'] as String;
-    debugPrint('API: transactionId=$transactionId');
 
     // 2. Initiate payment via CamPay
-    debugPrint('API: POST /payments/initiate txId=$transactionId');
-    final payRes = await http
-        .post(
+    final payRes = await _client.post(
       Uri.parse('$kApiBase/payments/initiate'),
       headers: await _headers(),
       body: jsonEncode({
@@ -760,11 +768,7 @@ class ApiService {
         'provider': provider,
         'phone': phone,
       }),
-    )
-        .timeout(const Duration(seconds: 30), onTimeout: () {
-      throw Exception('Payment initiation timed out. Check server connection.');
-    });
-    debugPrint('API: payRes status=${payRes.statusCode} body=${payRes.body}');
+    );
     final payData = _decode(payRes);
     return {
       ...payData,
@@ -778,7 +782,7 @@ class ApiService {
     required String provider, // 'ORANGE_MONEY' or 'MTN_MOMO'
     required String phone,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/withdraw'),
       headers: await _headers(),
       body: jsonEncode({
@@ -812,7 +816,7 @@ class ApiService {
     required String recipientIdentifier, // phone, email or user id
     String? note,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/wallet/transfer'),
       headers: await _headers(),
       body: jsonEncode({
@@ -827,7 +831,7 @@ class ApiService {
   /// Poll the status of any user transaction.
   static Future<Map<String, dynamic>> getTransactionStatus(
       String transactionId) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/transactions/$transactionId/status'),
       headers: await _headers(),
     );
@@ -837,7 +841,7 @@ class ApiService {
   /// Poll payment status
   static Future<Map<String, dynamic>> getPaymentStatus(
       String transactionId) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/payments/$transactionId/status'),
       headers: await _headers(),
     );
@@ -857,7 +861,7 @@ class ApiService {
       'frequency': frequency,
       if (downPayment != null && downPayment > 0) 'downPayment': downPayment,
     };
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/bnpl/simulate'),
       headers: await _headers(),
       body: jsonEncode(body),
@@ -874,7 +878,7 @@ class ApiService {
     int? downPayment,
     String frequency = 'monthly',
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/bnpl/purchase'),
       headers: await _headers(),
       body: jsonEncode({
@@ -896,7 +900,7 @@ class ApiService {
     required String paymentProvider,
     required String phone,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/bnpl/purchases/$purchaseId/repay'),
       headers: await _headers(),
       body: jsonEncode({
@@ -911,7 +915,7 @@ class ApiService {
   /// Withdraw all contributed BNPL funds for a purchase back to the wallet.
   static Future<Map<String, dynamic>> withdrawContribution(
       {required String purchaseId}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/bnpl/purchases/$purchaseId/withdraw'),
       headers: await _headers(),
     );
@@ -923,7 +927,7 @@ class ApiService {
     required String purchaseId,
     required String recipientIdentifier,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/bnpl/purchases/$purchaseId/transfer'),
       headers: await _headers(),
       body: jsonEncode({
@@ -937,7 +941,7 @@ class ApiService {
 
   /// Set or change PIN after login (requires JWT token in storage)
   static Future<Map<String, dynamic>> setPin(String pin) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/auth/set-pin'),
       headers: await _headers(),
       body: jsonEncode({'pin': pin}),
@@ -945,18 +949,34 @@ class ApiService {
     return _decode(res);
   }
 
-  /// Verify PIN for transaction confirmation (transfers/withdrawals)
+  /// Verify PIN for transaction confirmation (transfers/withdrawals).
+  /// Returns false only when the server explicitly rejects the PIN.
+  /// Network/server failures throw so callers can show a real error
+  /// instead of misleading the user with "incorrect PIN".
   static Future<bool> verifyTransactionPin(String pin) async {
     try {
-      final res = await http.post(
+      final res = await _client.post(
         Uri.parse('$kApiBase/users/me/verify-pin'),
         headers: await _headers(),
         body: jsonEncode({'pin': pin}),
       );
-      if (res.statusCode < 400) return true;
-      return false;
-    } catch (_) {
-      return false;
+      if (res.statusCode < 400) {
+        final body = _decode(res);
+        // /users/me/verify-pin returns {verified: true}.
+        return body['verified'] == true || body['success'] == true || body['status'] == 'success';
+      }
+      if (res.statusCode == 400 || res.statusCode == 401 || res.statusCode == 403) {
+        return false;
+      }
+      throw ApiException(res.statusCode, _fallbackMessage(res.statusCode));
+    } on ApiException {
+      rethrow;
+    } on SocketException {
+      throw const ApiException(
+          0, 'Problème de connexion. Vérifiez votre réseau.');
+    } on TimeoutException {
+      throw const ApiException(
+          0, 'Le serveur met trop de temps à répondre. Veuillez réessayer.');
     }
   }
 
@@ -965,7 +985,7 @@ class ApiService {
     required String currentPin,
     required String newPin,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/auth/change-pin'),
       headers: await _headers(),
       body: jsonEncode({
@@ -979,20 +999,28 @@ class ApiService {
   // ── Messaging ─────────────────────────────────────────────────────────
 
   static Future<List<dynamic>> fetchConversations() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/messages/conversations'),
       headers: await _headers(),
     );
+    if (res.statusCode == 401) {
+      await AuthService.clear();
+      throw const ApiException(
+          401, 'Votre session a expiré. Veuillez vous reconnecter.');
+    }
     if (res.statusCode >= 400) return [];
-    final body = jsonDecode(res.body);
-    if (body is Map && body['conversations'] is List)
-      return body['conversations'] as List;
-    if (body is List) return body;
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map && body['conversations'] is List) {
+        return body['conversations'] as List;
+      }
+      if (body is List) return body;
+    } catch (_) {}
     return [];
   }
 
   static Future<String> getOrCreateSupportConversation() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/messages/support/conversation'),
       headers: await _headers(),
     );
@@ -1004,17 +1032,25 @@ class ApiService {
       {int limit = 50}) async {
     final uri = Uri.parse('$kApiBase/messages/conversations/$convId/messages')
         .replace(queryParameters: {'limit': limit.toString()});
-    final res = await http.get(uri, headers: await _headers());
+    final res = await _client.get(uri, headers: await _headers());
+    if (res.statusCode == 401) {
+      await AuthService.clear();
+      throw const ApiException(
+          401, 'Votre session a expiré. Veuillez vous reconnecter.');
+    }
     if (res.statusCode >= 400) return [];
-    final body = jsonDecode(res.body);
-    if (body is Map && body['messages'] is List)
-      return body['messages'] as List;
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map && body['messages'] is List) {
+        return body['messages'] as List;
+      }
+    } catch (_) {}
     return [];
   }
 
   static Future<Map<String, dynamic>> sendChatMessage(
       String convId, String text) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/messages/conversations/$convId/messages'),
       headers: await _headers(),
       body: jsonEncode({'text': text}),
@@ -1024,7 +1060,7 @@ class ApiService {
 
   static Future<void> markConversationRead(String convId) async {
     try {
-      await http.post(
+      await _client.post(
         Uri.parse('$kApiBase/messages/conversations/$convId/read'),
         headers: await _headers(),
         body: jsonEncode({}),
@@ -1035,7 +1071,7 @@ class ApiService {
   /// Mark messages in a conversation as DELIVERED
   static Future<void> markMessagesDelivered(String convId) async {
     try {
-      await http.post(
+      await _client.post(
         Uri.parse('$kApiBase/messages/conversations/$convId/delivered'),
         headers: await _headers(),
         body: jsonEncode({}),
@@ -1047,7 +1083,7 @@ class ApiService {
   static Future<void> markMessagesReadByIds(
       String convId, List<String> messageIds) async {
     try {
-      await http.post(
+      await _client.post(
         Uri.parse('$kApiBase/messages/conversations/$convId/read-messages'),
         headers: await _headers(),
         body: jsonEncode({'messageIds': messageIds}),
@@ -1057,7 +1093,7 @@ class ApiService {
 
   static Future<String> createOrGetConversation(
       List<String> participantIds) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/messages/conversations'),
       headers: await _headers(),
       body: jsonEncode({'participantIds': participantIds}),
@@ -1068,7 +1104,7 @@ class ApiService {
 
   /// Create a 1:1 conversation by the other user's phone number.
   static Future<String> createOrGetConversationByPhone(String phone) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/messages/conversations'),
       headers: await _headers(),
       body: jsonEncode({
@@ -1082,7 +1118,7 @@ class ApiService {
   // ── Profile ───────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> fetchStatistics() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/statistics'),
       headers: await _headers(),
     );
@@ -1090,7 +1126,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> fetchProfile() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me'),
       headers: await _headers(),
     );
@@ -1101,7 +1137,7 @@ class ApiService {
     String? fullName,
     String? phone,
   }) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$kApiBase/users/me'),
       headers: await _headers(),
       body: jsonEncode({
@@ -1114,7 +1150,7 @@ class ApiService {
 
   /// Get credit score with breakdown
   static Future<Map<String, dynamic>> getCreditScore() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/credit-score'),
       headers: await _headers(),
     );
@@ -1125,13 +1161,13 @@ class ApiService {
   static Future<List<dynamic>> getCreditScoreHistory({int limit = 10}) async {
     final uri = Uri.parse('$kApiBase/users/me/credit-score/history')
         .replace(queryParameters: {'limit': limit.toString()});
-    final res = await http.get(uri, headers: await _headers());
+    final res = await _client.get(uri, headers: await _headers());
     return _decodeList(res);
   }
 
   /// Get credit score improvement tips
   static Future<List<String>> getCreditScoreTips() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/credit-score/tips'),
       headers: await _headers(),
     );
@@ -1141,7 +1177,7 @@ class ApiService {
 
   /// Fetch active publicity/ads for mobile app
   static Future<List<Map<String, dynamic>>> fetchPublicities() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/publicities/active'),
       headers: await _headers(),
     );
@@ -1192,95 +1228,11 @@ class ApiService {
   // ── Single Purchase ────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> getPurchase(String purchaseId) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/bnpl/purchases/$purchaseId'),
       headers: await _headers(),
     );
     return _decode(res);
-  }
-
-  // ── Health & Validation ────────────────────────────────────────────────
-
-  /// Check if backend is reachable
-  static Future<bool> checkHealth() async {
-    try {
-      final res = await http
-          .get(Uri.parse('$kBaseUrl/health'))
-          .timeout(const Duration(seconds: 5));
-      return res.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Comprehensive connection diagnostic
-  static Future<Map<String, dynamic>> diagnoseConnection() async {
-    final results = <String, dynamic>{
-      'apiBase': kApiBase,
-      'baseUrl': kBaseUrl,
-      'timestamp': DateTime.now().toIso8601String(),
-      'troubleshootingSteps': [
-        '1. Verify backend is running: npm run dev',
-        '2. Check Windows Firewall allows port 3001',
-        '3. Ensure phone and computer are on same WiFi',
-        '4. Try accessing from computer browser first',
-        '5. Disable mobile data on phone (use WiFi only)',
-        '6. Check router does not have AP/client isolation',
-      ],
-    };
-
-    // Test 1: Basic health check
-    try {
-      final stopwatch = Stopwatch()..start();
-      final res = await http
-          .get(Uri.parse('$kBaseUrl/health'))
-          .timeout(const Duration(seconds: 5));
-      stopwatch.stop();
-      results['healthCheck'] = {
-        'success': res.statusCode == 200,
-        'statusCode': res.statusCode,
-        'responseTimeMs': stopwatch.elapsedMilliseconds,
-        'body': res.body,
-      };
-    } on SocketException catch (e) {
-      results['healthCheck'] = {
-        'success': false,
-        'error': 'SocketException: ${e.message}',
-        'osError': e.osError?.toString(),
-        'hint':
-            'Cannot reach backend. Check if backend is running and firewall allows port 3001',
-      };
-    } on TimeoutException catch (_) {
-      results['healthCheck'] = {
-        'success': false,
-        'error': 'TimeoutException: Request took longer than 5 seconds',
-        'hint':
-            'Backend may be running but blocked by firewall or router isolation',
-      };
-    } catch (e) {
-      results['healthCheck'] = {
-        'success': false,
-        'error': e.toString(),
-        'type': e.runtimeType.toString(),
-      };
-    }
-
-    // Test 2: Network test endpoint
-    if (results['healthCheck']['success'] == true) {
-      try {
-        final res = await http
-            .get(Uri.parse('$kBaseUrl/network-test'))
-            .timeout(const Duration(seconds: 5));
-        results['networkTest'] = {
-          'success': res.statusCode == 200,
-          'response': jsonDecode(res.body),
-        };
-      } catch (e) {
-        results['networkTest'] = {'success': false, 'error': e.toString()};
-      }
-    }
-
-    return results;
   }
 
   /// Check whether the stored token is locally valid (not expired).
@@ -1307,26 +1259,16 @@ class ApiService {
   /// On timeout or other network issues, falls back to local expiry check.
   static Future<bool> validateToken() async {
     try {
-      debugPrint('🔍 API: validateToken - checking with timeout');
-      await fetchProfile().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint('🔍 API: validateToken - TIMEOUT');
-          throw TimeoutException('Token validation timeout');
-        },
-      );
-      debugPrint('🔍 API: validateToken - SUCCESS');
+      await fetchProfile();
       return true;
     } on ApiException catch (e) {
-      debugPrint('🔍 API: validateToken - ApiException ${e.statusCode}');
       if (e.statusCode == 401) return false;
       // Server error / empty body – trust local JWT expiry instead of kicking user out
       return await _isTokenLocallyValid();
     } on TimeoutException catch (_) {
-      debugPrint('🔍 API: validateToken - timeout, checking local expiry');
       return await _isTokenLocallyValid();
     } catch (e) {
-      debugPrint('🔍 API: validateToken - ERROR: $e');
+      apiLog('validateToken error: $e');
       return await _isTokenLocallyValid();
     }
   }
@@ -1334,7 +1276,7 @@ class ApiService {
   // ─── Referrals ─────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> fetchReferralStats() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/referral'),
       headers: await _headers(),
     );
@@ -1342,7 +1284,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> updateReferralCode(String code) async {
-    final res = await http.patch(
+    final res = await _client.patch(
       Uri.parse('$kApiBase/users/me/referral'),
       headers: await _headers(),
       body: jsonEncode({'code': code.trim().toUpperCase()}),
@@ -1350,32 +1292,11 @@ class ApiService {
     return _decode(res);
   }
 
-  static Future<bool> registerWithReferral(
-      String phone, String? referralCode) async {
-    final body = <String, dynamic>{'phone': phone};
-    if (referralCode != null && referralCode.isNotEmpty) {
-      body['referralCode'] = referralCode;
-    }
-    final res = await http.post(
-      Uri.parse('$kApiBase/auth/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    );
-    if (res.statusCode >= 400) {
-      throw ApiException(res.statusCode,
-          jsonDecode(res.body)['message'] ?? 'Registration failed');
-    }
-    final data = jsonDecode(res.body);
-    await AuthService.saveTokens(data['accessToken'], data['refreshToken']);
-    await AuthService.saveUser(data['user']);
-    return true;
-  }
-
   // ─── Rewards & Cashback ──────────────────────────────────────────────────
 
   /// Fetches user's rewards summary including available balance, pending balance, and history.
   static Future<Map<String, dynamic>> fetchRewardsSummary() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/rewards'),
       headers: await _headers(),
     );
@@ -1388,7 +1309,7 @@ class ApiService {
     required String phoneNumber,
     required String method, // 'mtn', 'orange', 'wave'
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/rewards/withdraw'),
       headers: await _headers(),
       body: jsonEncode({
@@ -1402,7 +1323,7 @@ class ApiService {
 
   /// Converts available rewards/cashback to main wallet balance.
   static Future<Map<String, dynamic>> convertRewardsToWallet(int amount) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/rewards/convert'),
       headers: await _headers(),
       body: jsonEncode({'amount': amount}),
@@ -1412,7 +1333,7 @@ class ApiService {
 
   /// Fetches user's badges/achievements with earned status.
   static Future<Map<String, dynamic>> fetchBadges() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/badges'),
       headers: await _headers(),
     );
@@ -1421,7 +1342,7 @@ class ApiService {
 
   /// Checks and awards new badges based on user activity.
   static Future<Map<String, dynamic>> checkAndAwardBadges() async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/badges/check'),
       headers: await _headers(),
       body: jsonEncode({}),
@@ -1432,27 +1353,22 @@ class ApiService {
   // ─── Wallet Transfers ────────────────────────────────────────────────────
 
   /// Transfers money from user's wallet to another user.
+  /// Alias for [initiateTransfer] (kept for call-site compatibility).
   static Future<Map<String, dynamic>> transferMoney({
     required String recipientIdentifier,
     required int amount,
     String? note,
-  }) async {
-    final res = await http.post(
-      Uri.parse('$kApiBase/users/me/wallet/transfer'),
-      headers: await _headers(),
-      body: jsonEncode({
-        'recipientIdentifier': recipientIdentifier,
-        'amount': amount,
-        'note': note,
-      }),
-    );
-    return _decode(res);
-  }
+  }) =>
+      initiateTransfer(
+        amount: amount,
+        recipientIdentifier: recipientIdentifier,
+        note: note,
+      );
 
   /// Fetches user's transfer history.
   static Future<Map<String, dynamic>> fetchTransferHistory(
       {int limit = 20}) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/wallet/transfers?limit=$limit'),
       headers: await _headers(),
     );
@@ -1461,7 +1377,7 @@ class ApiService {
 
   /// Searches for a user by phone, email, or userId for transfers.
   static Future<Map<String, dynamic>?> searchUser(String identifier) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse(
           '$kApiBase/users/search?identifier=${Uri.encodeComponent(identifier)}'),
       headers: await _headers(),
@@ -1476,7 +1392,7 @@ class ApiService {
 
   /// Get user security settings
   static Future<Map<String, dynamic>> getSecuritySettings() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/security'),
       headers: await _headers(),
     );
@@ -1485,7 +1401,7 @@ class ApiService {
     if (settings is Map<dynamic, dynamic>) {
       return Map<String, dynamic>.from(settings);
     }
-    return (settings as Map<String, dynamic>?) ?? {};
+    return {};
   }
 
   /// Update user security settings
@@ -1506,7 +1422,7 @@ class ApiService {
     if (transactionAlertsEnabled != null)
       body['transactionAlertsEnabled'] = transactionAlertsEnabled;
 
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$kApiBase/users/me/security'),
       headers: await _headers(),
       body: jsonEncode(body),
@@ -1516,12 +1432,12 @@ class ApiService {
     if (settings is Map<dynamic, dynamic>) {
       return Map<String, dynamic>.from(settings);
     }
-    return (settings as Map<String, dynamic>?) ?? {};
+    return {};
   }
 
   /// Freeze user account
   static Future<Map<String, dynamic>> freezeAccount({String? reason}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/security/freeze'),
       headers: await _headers(),
       body: jsonEncode({'reason': reason}),
@@ -1531,7 +1447,7 @@ class ApiService {
 
   /// Unfreeze user account
   static Future<Map<String, dynamic>> unfreezeAccount() async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/security/unfreeze'),
       headers: await _headers(),
     );
@@ -1542,7 +1458,7 @@ class ApiService {
 
   /// Get FAQ data
   static Future<List<Map<String, dynamic>>> getFAQ() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/support/faq'),
       headers: await _headers(),
     );
@@ -1552,7 +1468,7 @@ class ApiService {
 
   /// Get all user support tickets
   static Future<List<Map<String, dynamic>>> getSupportTickets() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/support/tickets'),
       headers: await _headers(),
     );
@@ -1562,7 +1478,7 @@ class ApiService {
 
   /// Get specific support ticket
   static Future<Map<String, dynamic>?> getSupportTicket(String ticketId) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/users/me/support/tickets/$ticketId'),
       headers: await _headers(),
     );
@@ -1585,7 +1501,7 @@ class ApiService {
     };
     if (priority != null) body['priority'] = priority;
 
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/support/tickets'),
       headers: await _headers(),
       body: jsonEncode(body),
@@ -1599,7 +1515,7 @@ class ApiService {
     String ticketId,
     String message,
   ) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/support/tickets/$ticketId/messages'),
       headers: await _headers(),
       body: jsonEncode({'message': message}),
@@ -1611,7 +1527,7 @@ class ApiService {
 
   /// Close support ticket
   static Future<bool> closeSupportTicket(String ticketId) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/users/me/support/tickets/$ticketId/close'),
       headers: await _headers(),
     );
@@ -1652,7 +1568,7 @@ class ApiService {
     if (idBackPhoto != null) body['idBackPhoto'] = idBackPhoto;
     if (deliveryTime != null) body['deliveryTime'] = deliveryTime;
 
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$kApiBase/delivery'),
       headers: await _headers(),
       body: jsonEncode(body),
@@ -1662,7 +1578,7 @@ class ApiService {
 
   /// Get user's delivery requests
   static Future<List<dynamic>> getDeliveryRequests() async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$kApiBase/delivery'),
       headers: await _headers(),
     );

@@ -175,6 +175,8 @@ export async function setCreditLimit(adminId: string, userId: string, creditLimi
 
 export async function setUserActive(adminId: string, userId: string, isActive: boolean) {
   const user = await prisma.user.update({ where: { id: userId }, data: { isActive } });
+  // Revoke refresh tokens when suspending/deactivating so sessions cannot be renewed.
+  if (!isActive) await prisma.refreshToken.deleteMany({ where: { userId } });
   await prisma.auditLog.create({ data: { userId: adminId, action: isActive ? 'USER_REACTIVATED' : 'USER_SUSPENDED', entityType: 'User', entityId: userId } });
   return user;
 }
@@ -694,6 +696,9 @@ export async function resetUserPassword(id: string, newPassword?: string) {
       select: { id: true, email: true, fullName: true },
     });
 
+    // Revoke all sessions after a password reset.
+    await prisma.refreshToken.deleteMany({ where: { userId: targetUserId } });
+
     return {
       user: updated,
       temporaryPassword: tempPassword,
@@ -740,6 +745,9 @@ export async function resetUserPin(id: string, newPin: string) {
       data: { pinHash, pinSetAt: new Date() },
       select: { id: true, phone: true, fullName: true },
     });
+
+    // Revoke all sessions after a PIN reset.
+    await prisma.refreshToken.deleteMany({ where: { userId: targetUserId } });
 
     await prisma.auditLog.create({
       data: { action: 'ADMIN_PIN_RESET', entityType: 'User', entityId: targetUserId },

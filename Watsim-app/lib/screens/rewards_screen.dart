@@ -44,6 +44,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
         ApiService.fetchBadges(),
       ]);
 
+      if (!mounted) return;
       final data = results[0];
       final badgesData = results[1];
 
@@ -71,6 +72,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
       // Check for new badges after loading
       await _checkAndAwardBadges();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _hasError = true;
@@ -84,6 +86,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
       if (result['count'] > 0) {
         // Refresh badges if new ones were awarded
         final badgesData = await ApiService.fetchBadges();
+        if (!mounted) return;
         setState(() {
           _badges = badgesData['badges'] ?? [];
         });
@@ -164,6 +167,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
     try {
       await ApiService.convertRewardsToWallet(_cashbackAmount);
+      if (!mounted) return;
 
       // Add to wallet state
       WalletState.instance.topUp(_cashbackAmount, operator: 'Cashback Rewards');
@@ -297,7 +301,9 @@ class _RewardsScreenState extends State<RewardsScreen> {
                           const SizedBox(height: 8),
                           Text(
                             hasCashback
-                                ? lang.cashbackBreakdown
+                                ? (lang.isFrench
+                                    ? 'Cashback cumulé'
+                                    : 'Accumulated cashback')
                                 : (lang.isFrench
                                     ? 'Commencez à parrainer et à acheter !'
                                     : 'Start referring and shopping!'),

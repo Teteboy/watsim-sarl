@@ -1,6 +1,8 @@
 import { PrismaClient, UserRole, KycStatus, MerchantStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
+if (process.env.NODE_ENV === 'production') throw new Error('Seeding is forbidden in production');
+
 const prisma = new PrismaClient();
 
 async function hash(pw: string) {

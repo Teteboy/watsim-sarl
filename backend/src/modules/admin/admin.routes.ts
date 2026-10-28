@@ -109,6 +109,7 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
     const { ids, isActive } = req.body as { ids: string[]; isActive: boolean };
     if (!ids?.length) return reply.code(400).send({ error: 'ids required' });
     await prisma.user.updateMany({ where: { id: { in: ids } }, data: { isActive } });
+    if (!isActive) await prisma.refreshToken.deleteMany({ where: { userId: { in: ids } } });
     await prisma.auditLog.create({ data: { userId: req.authUser!.id, action: isActive ? 'BULK_USER_ACTIVATE' : 'BULK_USER_SUSPEND', entityType: 'User', entityId: ids.join(',') } });
     return { updated: ids.length };
   });
@@ -155,8 +156,18 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
   });
 
   // Admin can create transactions manually (deposits, adjustments, etc.)
-  app.post('/transactions', async (req) => {
+  const ALLOWED_MANUAL_TX_TYPES = ['DEPOSIT', 'WITHDRAWAL', 'REFUND', 'TRANSFER_IN', 'TRANSFER_OUT'] as const;
+  const ALLOWED_MANUAL_TX_PROVIDERS = ['ADMIN', 'CASH', 'ORANGE_MONEY', 'MTN_MOMO', 'WALLET'] as const;
+  app.post('/transactions', async (req, reply) => {
     const body = req.body as { userId: string; type: string; amount: number; description?: string; merchantId?: string; provider?: string };
+    if (!ALLOWED_MANUAL_TX_TYPES.includes(body.type as typeof ALLOWED_MANUAL_TX_TYPES[number])) {
+      return reply.code(400).send({ error: 'BadRequest', message: `Invalid transaction type. Allowed: ${ALLOWED_MANUAL_TX_TYPES.join(', ')}` });
+    }
+    // 'REFERRAL' is internal-only: admin-created transactions must never be
+    // marked as referral-ledger consumption rows.
+    if (body.provider !== undefined && !ALLOWED_MANUAL_TX_PROVIDERS.includes(body.provider as typeof ALLOWED_MANUAL_TX_PROVIDERS[number])) {
+      return reply.code(400).send({ error: 'BadRequest', message: `Invalid provider. Allowed: ${ALLOWED_MANUAL_TX_PROVIDERS.join(', ')}` });
+    }
     return createTransaction(req.authUser!.id, body);
   });
 
@@ -432,9 +443,13 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
     }
   });
 
-  app.post('/payouts/:id/status', async (req) => {
+  const ALLOWED_PAYOUT_STATUSES = ['PENDING', 'APPROVED', 'PAID', 'REJECTED'] as const;
+  app.post('/payouts/:id/status', async (req, reply) => {
     const { id } = req.params as { id: string };
     const { status, note } = req.body as { status: string; note?: string };
+    if (!ALLOWED_PAYOUT_STATUSES.includes(status as typeof ALLOWED_PAYOUT_STATUSES[number])) {
+      return reply.code(400).send({ error: 'BadRequest', message: `Invalid payout status. Allowed: ${ALLOWED_PAYOUT_STATUSES.join(', ')}` });
+    }
     const updated = await prisma.payoutRequest.update({
       where: { id },
       data: { status, note, processedAt: status !== 'PENDING' ? new Date() : undefined },
@@ -709,20 +724,40 @@ app.get('/users', { schema: listFilterSchema }, async (req, reply) => {
       throw new Error('Withdrawal is not pending');
     }
 
-    // Refund the amount back to user's rewards/referral balance
-    // For now, just mark as rejected - the actual refund logic would be more complex
-    const updated = await prisma.transaction.update({
-      where: { id },
-      data: {
-        status: 'FAILED',
-        metadata: {
-          ...(withdrawal.metadata as Record<string, unknown> || {}),
-          adminRejected: true,
-          rejectedAt: new Date().toISOString(),
-          rejectedBy: req.authUser!.id,
-          rejectReason: reason || 'No reason provided',
+    // Refund the debited amount inside a transaction (mirrors the FAILED
+    // refund path in services/withdrawal.service.ts): rewards-funded
+    // withdrawals release the referral-ledger reservation, otherwise the
+    // wallet balance is credited back.
+    const metadata = withdrawal.metadata as Record<string, unknown> | null;
+    const rewardsConsumptionId = metadata?.rewardsConsumptionId as string | undefined;
+    const refundAmount = Math.abs(withdrawal.amount);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedTx = await tx.transaction.update({
+        where: { id },
+        data: {
+          status: 'FAILED',
+          metadata: {
+            ...(metadata || {}),
+            adminRejected: true,
+            rejectedAt: new Date().toISOString(),
+            rejectedBy: req.authUser!.id,
+            rejectReason: reason || 'No reason provided',
+          },
         },
-      },
+      });
+      if (rewardsConsumptionId) {
+        await tx.transaction.update({
+          where: { id: rewardsConsumptionId },
+          data: { status: 'FAILED' },
+        });
+      } else {
+        await tx.wallet.update({
+          where: { userId: withdrawal.userId },
+          data: { balance: { increment: refundAmount } },
+        });
+      }
+      return updatedTx;
     });
 
     return {

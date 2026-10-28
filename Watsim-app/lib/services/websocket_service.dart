@@ -1,9 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../notification_state.dart';
 import 'api_service.dart';
+
+void _wsLog(String message) {
+  if (kDebugMode) debugPrint(message);
+}
 
 class WebSocketMessage {
   final String type;
@@ -26,7 +32,8 @@ class WebSocketMessage {
       data: json['data'],
       conversationId: json['conversationId'] as String?,
       userId: json['userId'] as String?,
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 
@@ -55,30 +62,48 @@ class WebSocketService {
 
   WebSocketChannel? _channel;
   bool _isConnected = false;
+  bool _connecting = false;
   StreamSubscription? _subscription;
-  final Map<String, void Function(WebSocketMessage)> _listeners = {};
+  final Map<String, List<void Function(WebSocketMessage)>> _listeners = {};
   int _reconnectAttempts = 0;
+
+  /// Outgoing messages queued while disconnected. Flushed on connect.
+  final List<WebSocketMessage> _outbox = [];
 
   bool get isConnected => _isConnected;
 
   Future<void> connect() async {
-    if (_isConnected) return;
+    if (_isConnected || _connecting) return;
+    _connecting = true;
 
     try {
+      // Refresh the token before connecting so reconnects don't loop on
+      // an expired access token.
+      try {
+        await ApiService.ensureFreshToken();
+      } catch (_) {
+        // Token refresh failure clears auth; nothing to connect with.
+        return;
+      }
       final token = await AuthService.getAccessToken();
       if (token == null) {
-        print('WebSocket: No access token available');
+        _wsLog('WebSocket: No access token available');
         return;
       }
 
-      // Use HTTP URL for WebSocket connection
-      final wsUrl = kBaseUrl.replaceFirst('http', 'ws') + '/ws?token=$token';
-      print('WebSocket: Connecting to $wsUrl');
+      // Authenticate via Authorization header so the token never appears
+      // in the URL (and therefore in server/proxy logs).
+      final wsUrl = kBaseUrl.replaceFirst('http', 'ws') + '/ws';
+      _wsLog('WebSocket: Connecting');
 
       // Clean up any previous channel before reconnecting
       await _cleanup();
 
-      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      final socket = await WebSocket.connect(
+        wsUrl,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      _channel = IOWebSocketChannel(socket);
 
       // Wait for the handshake to complete before marking connected
       await _channel!.ready;
@@ -89,26 +114,29 @@ class WebSocketService {
       _subscription = _channel!.stream.listen(
         _handleMessage,
         onError: (error) {
-          print('WebSocket error: $error');
+          _wsLog('WebSocket error: $error');
           _isConnected = false;
           _scheduleReconnect();
         },
         onDone: () {
-          print('WebSocket connection closed');
+          _wsLog('WebSocket connection closed');
           _isConnected = false;
           _scheduleReconnect();
         },
       );
 
-      print('WebSocket: Connected successfully');
+      _wsLog('WebSocket: Connected successfully');
+      _flushOutbox();
     } on SocketException catch (e) {
-      print('WebSocket: Network/DNS failure - $e');
+      _wsLog('WebSocket: Network/DNS failure - $e');
       _isConnected = false;
       _scheduleReconnect();
     } catch (e) {
-      print('WebSocket: Failed to connect - $e');
+      _wsLog('WebSocket: Failed to connect - $e');
       _isConnected = false;
       _scheduleReconnect();
+    } finally {
+      _connecting = false;
     }
   }
 
@@ -129,8 +157,6 @@ class WebSocketService {
           jsonDecode(message as String) as Map<dynamic, dynamic>);
       final wsMessage = WebSocketMessage.fromJson(json);
 
-      print('WebSocket: Received ${wsMessage.type} message');
-
       // Handle different message types
       switch (wsMessage.type) {
         case 'message':
@@ -143,23 +169,31 @@ class WebSocketService {
           _handleTypingIndicator(wsMessage);
           break;
         case 'read':
-          _handleReadReceipt(wsMessage);
+          await _handleReadReceipt(wsMessage);
           break;
         case 'online_status':
           _handleOnlineStatus(wsMessage);
           break;
         case 'error':
-          print('WebSocket error from server: ${wsMessage.data}');
+          _wsLog('WebSocket error from server: ${wsMessage.data}');
           break;
-        default:
-          // Notify listeners
-          final listener = _listeners[wsMessage.type];
-          if (listener != null) {
-            listener(wsMessage);
-          }
       }
+      // Notify registered listeners (all types, including handled ones).
+      _notifyListeners(wsMessage);
     } catch (e) {
-      print('WebSocket: Failed to parse message - $e');
+      _wsLog('WebSocket: Failed to parse message - $e');
+    }
+  }
+
+  void _notifyListeners(WebSocketMessage message) {
+    final callbacks = _listeners[message.type];
+    if (callbacks == null) return;
+    for (final fn in List.of(callbacks)) {
+      try {
+        fn(message);
+      } catch (e) {
+        _wsLog('WebSocket listener error: $e');
+      }
     }
   }
 
@@ -212,46 +246,89 @@ class WebSocketService {
   void _handleTypingIndicator(WebSocketMessage message) {
     final data =
         Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
-    // Update typing indicator in UI
-    print('User ${data['userId']} is typing: ${data['isTyping']}');
+    final userId = data['userId']?.toString() ?? message.userId ?? '';
+    final isTyping = data['isTyping'] == true;
+    NotificationState.instance.setUserTyping(userId, isTyping);
   }
 
-  void _handleReadReceipt(WebSocketMessage message) {
+  Future<void> _handleReadReceipt(WebSocketMessage message) async {
     final data =
         Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
-    // Mark messages as read in UI
-    NotificationState.instance
-        .markConversationRead(data['conversationId'] as String);
+    final convId = data['conversationId']?.toString() ??
+        message.conversationId ??
+        '';
+    if (convId.isEmpty) return;
+
+    // If the read event came from me (e.g. another device), clear my badge.
+    // If it came from another participant, only update read ticks on my
+    // messages — never clear MY unread count.
+    final currentUser = await AuthService.currentUser;
+    final currentUserId = currentUser?['id']?.toString();
+    final readerId = data['userId']?.toString() ?? message.userId;
+    if (readerId != null && readerId == currentUserId) {
+      NotificationState.instance.markConversationRead(convId);
+    } else {
+      NotificationState.instance.markConversationMessagesRead(convId);
+    }
   }
 
   void _handleOnlineStatus(WebSocketMessage message) {
     final data =
         Map<String, dynamic>.from(message.data as Map<dynamic, dynamic>);
-    // Update online status in UI
-    print(
-        'User ${data['userId']} is ${data['isOnline'] ? 'online' : 'offline'}');
+    final userId = data['userId']?.toString() ?? message.userId ?? '';
+    final isOnline = data['isOnline'] == true;
+    NotificationState.instance.setUserOnline(userId, isOnline);
   }
 
-  void sendMessage(WebSocketMessage message) {
+  /// Low-level send. Returns true if the message was written to the socket
+  /// or queued for delivery on reconnect; false only on serialization errors.
+  bool _send(WebSocketMessage message) {
     if (!_isConnected || _channel == null) {
-      print('WebSocket: Not connected, cannot send message');
-      return;
+      _outbox.add(message);
+      // Kick off a connection attempt in the background.
+      unawaited(connect());
+      return true;
     }
 
     try {
       _channel!.sink.add(jsonEncode(message.toJson()));
+      return true;
     } catch (e) {
-      print('WebSocket: Failed to send message - $e');
+      _wsLog('WebSocket: Failed to send message - $e');
+      _outbox.add(message);
+      return true;
     }
   }
 
-  void sendChatMessage({
+  void _flushOutbox() {
+    if (_outbox.isEmpty || _channel == null) return;
+    final pending = List<WebSocketMessage>.from(_outbox);
+    _outbox.clear();
+    for (final msg in pending) {
+      try {
+        _channel!.sink.add(jsonEncode(msg.toJson()));
+      } catch (_) {
+        _outbox.add(msg);
+      }
+    }
+  }
+
+  /// Send a chat text message. Returns true if sent or queued for retry
+  /// once the connection is restored.
+  bool sendMessage(String conversationId, String text) {
+    return sendChatMessage(
+      conversationId: conversationId,
+      content: text,
+    );
+  }
+
+  bool sendChatMessage({
     required String conversationId,
     required String content,
     String type = 'TEXT',
     String? attachmentUrl,
   }) {
-    sendMessage(WebSocketMessage(
+    return _send(WebSocketMessage(
       type: 'message',
       data: {
         'conversationId': conversationId,
@@ -267,7 +344,9 @@ class WebSocketService {
     required String conversationId,
     required bool isTyping,
   }) {
-    sendMessage(WebSocketMessage(
+    // Typing indicators are ephemeral — drop rather than queue.
+    if (!_isConnected || _channel == null) return;
+    _send(WebSocketMessage(
       type: 'typing',
       data: {'isTyping': isTyping},
       conversationId: conversationId,
@@ -275,7 +354,7 @@ class WebSocketService {
   }
 
   void markConversationAsRead(String conversationId) {
-    sendMessage(WebSocketMessage(
+    _send(WebSocketMessage(
       type: 'read',
       data: {'conversationId': conversationId},
       conversationId: conversationId,
@@ -283,7 +362,7 @@ class WebSocketService {
   }
 
   void subscribeToConversation(String conversationId) {
-    sendMessage(WebSocketMessage(
+    _send(WebSocketMessage(
       type: 'subscribe',
       data: {},
       conversationId: conversationId,
@@ -291,20 +370,23 @@ class WebSocketService {
   }
 
   void unsubscribeFromConversation(String conversationId) {
-    sendMessage(WebSocketMessage(
+    _send(WebSocketMessage(
       type: 'unsubscribe',
       data: {},
       conversationId: conversationId,
     ));
   }
 
+  /// Register a listener for a message type. Multiple listeners per type
+  /// are supported.
   void addListener(
       String messageType, void Function(WebSocketMessage) listener) {
-    _listeners[messageType] = listener;
+    _listeners.putIfAbsent(messageType, () => []).add(listener);
   }
 
-  void removeListener(String messageType) {
-    _listeners.remove(messageType);
+  void removeListener(
+      String messageType, void Function(WebSocketMessage) listener) {
+    _listeners[messageType]?.remove(listener);
   }
 
   Timer? _reconnectTimer;
@@ -313,8 +395,7 @@ class WebSocketService {
     _reconnectTimer?.cancel();
 
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      print(
-          'WebSocket: Stopping reconnect attempts. Check network/backend URL.');
+      _wsLog('WebSocket: Stopping reconnect attempts.');
       return;
     }
 
@@ -324,10 +405,9 @@ class WebSocketService {
       delaySeconds = _maxReconnectDelaySeconds;
     }
 
-    print(
+    _wsLog(
         'WebSocket: Scheduling reconnect in ${delaySeconds}s (attempt $_reconnectAttempts/$_maxReconnectAttempts)');
     _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
-      print('WebSocket: Attempting to reconnect...');
       connect();
     });
   }
@@ -335,9 +415,9 @@ class WebSocketService {
   Future<void> disconnect() async {
     _reconnectTimer?.cancel();
     _reconnectAttempts = 0;
+    _outbox.clear();
     await _cleanup();
     _isConnected = false;
-    print('WebSocket: Disconnected');
   }
 
   void dispose() {

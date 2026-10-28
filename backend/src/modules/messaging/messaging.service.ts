@@ -174,6 +174,13 @@ export async function sendMessage(
   });
   if (!membership) throw new AuthError(403, 'Not a participant in this conversation');
 
+  // Attachment URLs: only allow http(s) or server-relative /uploads/ paths.
+  // Reject javascript:, data: and other dangerous schemes.
+  if (attachmentUrl) {
+    const ok = attachmentUrl.startsWith('/uploads/') || /^https?:\/\//i.test(attachmentUrl);
+    if (!ok) throw new AuthError(400, 'Invalid attachment URL');
+  }
+
   const msg = await prisma.message.create({
     data: {
       conversationId,
@@ -257,10 +264,17 @@ export async function markMessagesDelivered(conversationId: string, userId: stri
 /**
  * Mark specific messages as READ by IDs.
  */
-export async function markMessagesReadByIds(messageIds: string[], userId: string) {
+export async function markMessagesReadByIds(conversationId: string, messageIds: string[], userId: string) {
+  // Verify the caller is a participant before marking anything read.
+  const membership = await prisma.conversationParticipant.findUnique({
+    where: { conversationId_userId: { conversationId, userId } },
+  });
+  if (!membership) throw new AuthError(403, 'Not a participant in this conversation');
+
   await prisma.message.updateMany({
     where: {
       id: { in: messageIds },
+      conversationId,
       senderId: { not: userId },
       status: { in: ['SENT', 'DELIVERED'] },
     },
@@ -293,10 +307,11 @@ export async function resolveUserIdsByPhones(phones: string[]): Promise<string[]
 }
 
 async function getSupportAdminUserId(): Promise<string> {
-  // Choose any ADMIN user as the support sender.
-  // This keeps schema changes minimal (no separate Support table).
+  // Deterministically pick the first active ADMIN (by createdAt) as the
+  // support sender. Keeps schema changes minimal (no separate Support table).
   const admin = await prisma.user.findFirst({
-    where: { role: 'ADMIN' },
+    where: { role: 'ADMIN', isActive: true },
+    orderBy: { createdAt: 'asc' },
     select: { id: true },
   });
   if (!admin) throw new AuthError(500, 'No admin user available for support');

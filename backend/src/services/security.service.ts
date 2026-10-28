@@ -113,6 +113,9 @@ export async function freezeAccount(userId: string, reason?: string): Promise<bo
 }
 
 export async function unfreezeAccount(userId: string): Promise<boolean> {
+  // Revoke existing sessions: unfreezing should not resurrect old tokens.
+  await prisma.refreshToken.deleteMany({ where: { userId } });
+
   await prisma.userSecuritySettings.update({
     where: { userId },
     data: {

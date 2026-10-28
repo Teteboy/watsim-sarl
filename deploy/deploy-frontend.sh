@@ -5,7 +5,7 @@
 # =============================================================
 set -e
 
-REMOTE_USER="root"           # Change to your VPS user
+REMOTE_USER="deploy"           # Change to your VPS user
 REMOTE_HOST="YOUR_VPS_IP"    # Your DigitalOcean droplet IP
 REMOTE_DIR="/var/www/watsim/frontend"
 
@@ -17,7 +17,7 @@ echo "=== Uploading frontend to VPS ==="
 rsync -avz --delete out/ $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/
 
 echo "=== Setting permissions ==="
-ssh $REMOTE_USER@$REMOTE_HOST "chown -R www-data:www-data $REMOTE_DIR && chmod -R 755 $REMOTE_DIR"
+ssh $REMOTE_USER@$REMOTE_HOST "chmod -R u=rwX,go=rX $REMOTE_DIR"
 
 echo ""
 echo "Frontend deployed to https://YOUR_DOMAIN"

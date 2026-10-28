@@ -1,4 +1,5 @@
 import 'package:local_auth/local_auth.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Service for handling biometric authentication (fingerprint, face ID)
@@ -11,17 +12,29 @@ class BiometricService {
 
   /// Check if the device supports biometrics
   static Future<bool> isDeviceSupported() async {
-    return await _localAuth.isDeviceSupported();
+    try {
+      return await _localAuth.isDeviceSupported();
+    } catch (_) {
+      return false; // unsupported platform (web/desktop)
+    }
   }
 
   /// Check if biometrics are available on this device
   static Future<bool> canCheckBiometrics() async {
-    return await _localAuth.canCheckBiometrics;
+    try {
+      return await _localAuth.canCheckBiometrics;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Get available biometric types on this device
   static Future<List<BiometricType>> getAvailableBiometrics() async {
-    return await _localAuth.getAvailableBiometrics();
+    try {
+      return await _localAuth.getAvailableBiometrics();
+    } catch (_) {
+      return [];
+    }
   }
 
   /// Check if fingerprint is available
@@ -72,7 +85,10 @@ class BiometricService {
       );
       return didAuthenticate;
     } catch (e) {
-      print('Biometric authentication error: $e');
+      assert(() {
+        debugPrint('Biometric authentication error: $e');
+        return true;
+      }());
       return false;
     }
   }

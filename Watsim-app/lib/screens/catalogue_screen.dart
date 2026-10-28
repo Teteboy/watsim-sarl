@@ -6,7 +6,6 @@ import '../services/api_service.dart';
 import 'bnpl_simulator_screen.dart';
 import '../notification_state.dart';
 import 'notifications_screen.dart';
-import 'messaging_screen.dart';
 import 'wallet_screen.dart';
 import '../order_state.dart';
 import '../wallet_state.dart';
@@ -917,8 +916,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _pageController.dispose();
     super.dispose();
   }
-
-  void _rebuild() => setState(() {});
 
   List<String> get _images {
     final urls = widget.product.imageUrls;

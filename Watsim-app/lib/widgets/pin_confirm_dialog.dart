@@ -45,7 +45,17 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
       _error = null;
     });
 
-    final valid = await ApiService.verifyTransactionPin(pin);
+    bool valid;
+    try {
+      valid = await ApiService.verifyTransactionPin(pin);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _verifying = false;
+        _error = e is ApiException ? e.message : 'Vérification impossible. Veuillez réessayer.';
+      });
+      return;
+    }
 
     if (!mounted) return;
 

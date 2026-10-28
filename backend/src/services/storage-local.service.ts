@@ -4,6 +4,9 @@ import { randomUUID } from 'crypto';
 import { env } from '../config/env';
 
 const UPLOAD_DIR = resolve(process.cwd(), 'uploads');
+// KYC documents contain sensitive identity data and must NEVER be served by the
+// unauthenticated /uploads static route. They live outside the public dir.
+const KYC_UPLOAD_DIR = resolve(process.cwd(), 'uploads-private');
 
 async function ensureUploadDir(): Promise<void> {
   try {
@@ -13,15 +16,32 @@ async function ensureUploadDir(): Promise<void> {
   }
 }
 
+async function ensureKycDir(): Promise<void> {
+  try {
+    await fs.mkdir(KYC_UPLOAD_DIR, { recursive: true });
+  } catch {
+    // Directory already exists
+  }
+}
+
 export async function uploadKycDocument(userId: string, originalName: string, buffer: Buffer, contentType: string): Promise<string> {
-  await ensureUploadDir();
+  await ensureKycDir();
   const ext = originalName.includes('.')
     ? originalName.split('.').pop()
     : contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
   const filename = `kyc_${userId}_${Date.now()}_${randomUUID().slice(0, 8)}.${ext}`;
-  const filepath = resolve(UPLOAD_DIR, filename);
+  const filepath = resolve(KYC_UPLOAD_DIR, filename);
   await fs.writeFile(filepath, buffer);
   return filename;
+}
+
+/** Read a KYC document from the private (non-public) storage dir. */
+export async function getKycFileBuffer(filename: string): Promise<Buffer> {
+  // Guard against path traversal — KYC filenames are generated server-side.
+  const safe = filename.replace(/[^a-zA-Z0-9_.-]/g, '');
+  const filepath = resolve(KYC_UPLOAD_DIR, safe);
+  if (!filepath.startsWith(KYC_UPLOAD_DIR)) throw new Error('Invalid filename');
+  return fs.readFile(filepath);
 }
 
 export async function uploadProfilePicture(userId: string, buffer: Buffer, contentType: string): Promise<string> {

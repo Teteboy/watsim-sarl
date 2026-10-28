@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import '../widgets/pin_confirm_dialog.dart';
 import '../notification_state.dart';
 import '../order_state.dart';
 import '../wallet_state.dart';
@@ -10,8 +10,6 @@ import '../services/api_service.dart';
 import 'deposit_screen.dart';
 import 'catalogue_screen.dart';
 import '../main.dart';
-import 'balance_check_screen.dart';
-import 'bnpl_simulator_screen.dart';
 import 'wallet_screen.dart';
 import 'order_detail_screen.dart';
 import 'notifications_screen.dart';
@@ -32,12 +30,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _showAllPayments = false;
   int _notifCount = 0;
   int _slideshowIndex = 0;
-  int _walletBalance = 0;
   late final PageController _slideshowController;
 
   bool _loading = true;
   Map<String, dynamic>? _profile;
-  Map<String, dynamic>? _wallet;
 
   // Slideshow items (publicity/ads) loaded from backend only
   List<_SlideshowItem> _slideshowItems = const [];
@@ -81,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         NotificationState.instance.syncWithBackend(),
       ]);
 
-      final [products, bestOffers, wallet, profile, publicities] =
+      final [_, bestOffers, __, profile, publicities] =
           await Future.wait([
         ApiService.fetchProducts(limit: 6),
         ApiService.fetchBestOffers(limit: 8),
@@ -99,35 +95,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ProfileState.instance.updateUser(profileMap);
       }
 
-      final productList = products as List? ?? const [];
       final bestOfferList = bestOffers as List? ?? const [];
-      final walletMap = wallet as Map<String, dynamic>;
-      final balance = (walletMap['balance'] as num?)?.toInt() ?? 0;
 
       // syncWithBackend() already set the exact balance and transactions above
 
-      final safeProducts = productList
-          .map((e) => Map<String, dynamic>.from(e as Map<dynamic, dynamic>))
-          .toList();
-      final safeBestOffers = bestOfferList
-          .map((e) => Map<String, dynamic>.from(e as Map<dynamic, dynamic>))
-          .toList();
-
-      final priceToInt = (dynamic v) {
-        if (v is num) return v.toInt();
-        if (v is String) {
-          final cleaned = v.replaceAll(RegExp(r'[^0-9]'), '');
-          return int.tryParse(cleaned) ?? 0;
-        }
-        return 0;
-      };
-
-      final fmt = (int v) {
-        if (v < 1000) return '$v';
-        return '${v ~/ 1000},${(v % 1000).toString().padLeft(3, '0')}';
-      };
-
-      Color _parseColor(String colorStr) {
+      Color parseColor(String colorStr) {
         try {
           return Color(int.parse(colorStr.replaceAll('#', '0xFF')));
         } catch (_) {
@@ -137,7 +109,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       setState(() {
         _loading = false;
-        _walletBalance = balance;
         _profile = profileMap;
         _publicities = publicities as List<Map<String, dynamic>>;
 
@@ -150,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           }
           // Fallback for pre-formatted strings - still parse gallery
           final colorStr = p['color']?.toString() ?? '#4DB049';
-          final color = _parseColor(colorStr);
+          final color = parseColor(colorStr);
           final catMap = p['category'] as Map<String, dynamic>?;
           final catName = catMap?['name']?.toString() ??
               p['category']?.toString() ??
@@ -243,92 +214,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       debugPrint('Home data load error: $e');
       if (!mounted) return;
       setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _runDiagnostics() async {
-    final results = await ApiService.diagnoseConnection();
-    if (!mounted) return;
-
-    final jsonText = const JsonEncoder.withIndent('  ').convert(results);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Connection Diagnostics'),
-        content: SingleChildScrollView(
-          child: SelectableText(
-            jsonText,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              Navigator.pop(ctx);
-            },
-            icon: const Icon(Icons.copy, size: 18),
-            label: Text(LanguageService().isFrench ? 'Copier' : 'Copy'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(LanguageService().isFrench ? 'Fermer' : 'Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showDataDebug() async {
-    // Fetch fresh data to show what's coming from backend
-    try {
-      final [products, bestOffers, profile] = await Future.wait([
-        ApiService.fetchProducts(limit: 6),
-        ApiService.fetchBestOffers(limit: 8),
-        ApiService.fetchProfile(),
-      ]);
-
-      if (!mounted) return;
-
-      final data = {
-        'profile': profile,
-        'products': products,
-        'bestOffers': bestOffers,
-      };
-
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('API Data Debug'),
-          content: SingleChildScrollView(
-            child: SelectableText(
-              const JsonEncoder.withIndent('  ').convert(data),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Error'),
-          content: Text('Failed to fetch debug data: $e'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
     }
   }
 
@@ -854,11 +739,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 6),
                       TextButton.icon(
-                        onPressed: () => Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    const MainShell(initialIndex: 1))),
+                        onPressed: () => MainShell.switchToTab(context, 1),
                         icon: const Icon(Icons.explore, size: 16),
                         label: const Text('Parcourir le catalogue'),
                       ),
@@ -1089,11 +970,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               fontSize: 13, color: AppColors.textMuted)),
                       const SizedBox(height: 20),
                       GestureDetector(
-                        onTap: () => Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    const MainShell(initialIndex: 1))),
+                        onTap: () => MainShell.switchToTab(context, 1),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 24, vertical: 12),
@@ -1437,182 +1314,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _publicityCard(BuildContext context, Map<String, dynamic> publicity) {
-    final String name = publicity['name']?.toString() ?? 'Publicité';
-    final String imageUrl =
-        ApiService.resolveImageUrl(publicity['imageUrl']?.toString());
-    final String position = publicity['position']?.toString() ?? '';
-
-    String merchant = '';
-    final rawMerchant = publicity['merchant'];
-    if (rawMerchant is Map<String, dynamic>) {
-      merchant = rawMerchant['businessName']?.toString() ??
-          rawMerchant['name']?.toString() ??
-          '';
-    } else if (rawMerchant is String) {
-      merchant = rawMerchant;
-    }
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PublicityDetailScreen(publicity: publicity),
-          ),
-        );
-      },
-      child: Container(
-        width: 280,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Publicity image
-            imageUrl.isNotEmpty
-                ? Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.primaryGreen,
-                            AppColors.primaryDark
-                          ],
-                        ),
-                      ),
-                    ),
-                    loadingBuilder: (_, child, progress) {
-                      if (progress == null) return child;
-                      return Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppColors.primaryGreen,
-                              AppColors.primaryDark
-                            ],
-                          ),
-                        ),
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2),
-                        ),
-                      );
-                    },
-                  )
-                : Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [AppColors.primaryGreen, AppColors.primaryDark],
-                      ),
-                    ),
-                  ),
-            // Gradient overlay for text readability
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.8),
-                  ],
-                  stops: const [0.4, 1.0],
-                ),
-              ),
-            ),
-            // Publicity badge
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'PUBLICITÉ',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-            // Text content
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Spacer(),
-                  Text(
-                    name,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (merchant.isNotEmpty)
-                    Text(
-                      'par $merchant',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
-                    ),
-                    child: const Text(
-                      'Voir l\'offre',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ── Language switcher ────────────────────────────────
   Widget _buildLanguageSwitcher() {
     final lang = LanguageProvider.of(context);
@@ -1697,11 +1398,13 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
     try {
       // Search for user by phone or email
       final result = await ApiService.searchUser(identifier);
+      if (!mounted) return;
       setState(() {
         _recipientName = result?['fullName'];
         _isVerifying = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() {
         _recipientName = null;
         _isVerifying = false;
@@ -1725,26 +1428,30 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
       return;
     }
 
+    if (_isProcessing) return;
     setState(() => _isProcessing = true);
 
     try {
+      final confirmed = await showPinConfirmDialog(context);
+      if (!mounted || !confirmed) return;
       final result = await ApiService.transferMoney(
         recipientIdentifier: identifier,
         amount: amount,
         note: note.isNotEmpty ? note : null,
       );
 
+      if (!mounted) return;
       if (result['success'] == true) {
-        Navigator.pop(context);
+        WalletState.instance.syncWithBackend();
         _showSuccess(lang.homeTransferSuccess(
             amount.toString(), result['recipientName'] ?? identifier));
       } else {
         _showError(result['message'] ?? 'Transfer failed');
       }
     } catch (e) {
-      _showError(lang.errorTransferFailed);
+      if (mounted) _showError(lang.errorTransferFailed);
     } finally {
-      setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -1791,7 +1498,6 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final lang = LanguageService();
-    final theme = Theme.of(context);
 
     return Container(
       decoration: const BoxDecoration(

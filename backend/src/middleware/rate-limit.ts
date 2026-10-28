@@ -1,12 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import { getRedis } from '../config/redis';
 
 export async function registerRateLimit(app: FastifyInstance): Promise<void> {
-  // Skip redis-backed rate limiting when using mock (no real Redis)
   await app.register(rateLimit, {
     global: true,
-    max: 10000,
+    max: 300,
     timeWindow: '1 minute',
     keyGenerator: (req) => {
       const u = (req as { authUser?: { id: string } }).authUser;

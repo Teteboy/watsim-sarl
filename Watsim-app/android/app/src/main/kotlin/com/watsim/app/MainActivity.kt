@@ -1,4 +1,4 @@
-package com.example.wimps
+package com.watsim.app
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

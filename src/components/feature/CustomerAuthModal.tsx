@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useCustomerAuth } from '@/hooks/useCustomerAuth';
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
 export default function CustomerAuthModal({ open, onClose, onSuccess, initialMode = 'login' }: Props) {
   const { login, register } = useCustomerAuth();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+  useEffect(() => { setMode(initialMode); }, [initialMode]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');

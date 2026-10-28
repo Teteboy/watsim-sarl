@@ -3,7 +3,6 @@ import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../services/api_service.dart';
 import '../services/language_service.dart';
-import '../main.dart';
 
 class CreditScoreScreen extends StatefulWidget {
   const CreditScoreScreen({super.key});

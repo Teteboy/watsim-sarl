@@ -12,13 +12,9 @@ const AUTH_KEY = 'watsim_customer_auth';
 export function getCustomerAuthState(): CustomerAuthState {
   try {
     const raw = sessionStorage.getItem(AUTH_KEY);
-    if (raw) return JSON.parse(raw) as CustomerAuthState;
+    if (raw && tokenStore.access && tokenStore.getUser()?.role === 'CUSTOMER') return JSON.parse(raw) as CustomerAuthState;
   } catch {
     // ignore
-  }
-  const stored = tokenStore.getUser();
-  if (stored && stored.role === 'CUSTOMER') {
-    return { isAuthenticated: true, customerEmail: stored.email, fullName: stored.fullName ?? null };
   }
   return { isAuthenticated: false, customerEmail: null, fullName: null };
 }
@@ -59,6 +55,7 @@ export function useCustomerAuth() {
 
   const logout = useCallback(async () => {
     await authApi.logout();
+    tokenStore.clear();
     sessionStorage.removeItem(AUTH_KEY);
     setAuthState({ isAuthenticated: false, customerEmail: null, fullName: null });
   }, []);

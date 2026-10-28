@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/app_theme.dart';
@@ -24,7 +23,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _user;
-  Map<String, dynamic>? _wallet;
 
   @override
   void initState() {
@@ -41,28 +39,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _onWalletChanged() {
     if (!mounted) return;
-    // Refresh wallet data from state
-    setState(() {
-      _wallet = {
-        'balance': WalletState.instance.balance,
-        'currency': 'FCFA',
-      };
-    });
+    setState(() {});
   }
 
   Future<void> _load() async {
     try {
       final cached = await AuthService.getUser();
       if (cached != null && mounted) setState(() => _user = cached);
-      final [profile, wallet] = await Future.wait([
+      final [profile, _] = await Future.wait([
         ApiService.fetchProfile(),
         ApiService.fetchWallet(),
       ]);
       if (!mounted) return;
-      await AuthService.saveUser(profile as Map<String, dynamic>);
+      await AuthService.saveUser(profile);
+      if (!mounted) return;
       setState(() {
-        _user = profile as Map<String, dynamic>;
-        _wallet = wallet as Map<String, dynamic>;
+        _user = profile;
       });
     } catch (_) {}
   }

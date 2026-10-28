@@ -10,9 +10,12 @@ const AUTH_KEY = 'watsim_merchant_auth';
 
 export function getMerchantAuthState(): MerchantAuthState {
   const stored = tokenStore.getUser();
-  if (stored && stored.role === 'MERCHANT') {
-    return { isAuthenticated: true, merchantEmail: stored.email };
-  }
+  try {
+    const raw = sessionStorage.getItem(AUTH_KEY);
+    if (raw && tokenStore.access && stored?.role === 'MERCHANT') {
+      return JSON.parse(raw) as MerchantAuthState;
+    }
+  } catch { /* ignore storage error */ }
   // Clean up any stale merchant-only session flag when the current user is not a merchant
   try { sessionStorage.removeItem(AUTH_KEY); } catch { /* ignore storage error */ }
   return { isAuthenticated: false, merchantEmail: null };
@@ -56,6 +59,7 @@ export function useMerchantAuth() {
 
   const logout = useCallback(async () => {
     await authApi.logout();
+    tokenStore.clear();
     sessionStorage.removeItem(AUTH_KEY);
     setAuthState({ isAuthenticated: false, merchantEmail: null });
   }, []);

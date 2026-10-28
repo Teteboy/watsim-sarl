@@ -42,7 +42,7 @@ class ProfileState extends ChangeNotifier {
       await AuthService.saveUser(profile);
       notifyListeners();
     } catch (e) {
-      debugPrint('ProfileState sync error: $e');
+      apiLog('ProfileState sync error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();

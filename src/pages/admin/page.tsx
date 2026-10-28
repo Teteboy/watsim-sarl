@@ -74,8 +74,7 @@ export default function AdminDashboard() {
         onToggle={() => setSidebarCollapsed((v) => !v)}
         onLogout={() => {
           // fallback: clear local admin session and redirect
-          tokenStore.setTokens(null as any, null as any);
-          tokenStore.setUser(null);
+          tokenStore.clear();
           window.location.href = '/admin/login';
         }}
       />
@@ -83,8 +82,7 @@ export default function AdminDashboard() {
         sidebarCollapsed={sidebarCollapsed}
         breadcrumb={['WATSIM', 'Dashboard']}
         onLogout={() => {
-          tokenStore.setTokens(null as any, null as any);
-          tokenStore.setUser(null);
+          tokenStore.clear();
           window.location.href = '/admin/login';
         }}
       />

@@ -28,7 +28,7 @@ export default function AdminLoginPage() {
     if (success) {
       navigate('/admin');
     } else {
-      setError("Identifiants incorrects. Essayez admin@watsim.cm / Admin@123");
+      setError("Identifiants incorrects. Veuillez réessayer.");
     }
   };
 
@@ -129,10 +129,7 @@ export default function AdminLoginPage() {
                 Zone sécurisée
               </p>
               <p className="text-xs" style={{ color: '#6B7280', fontFamily: 'Poppins, sans-serif' }}>
-                Démo : <code
-                  className="px-1 py-0.5 rounded"
-                  style={{ background: 'rgba(77,176,89,0.15)', color: '#014945' }}
-                >admin@watsim.cm</code> / <code className="px-1 py-0.5 rounded" style={{ background: 'rgba(77,176,89,0.15)', color: '#014945' }}>Admin@123</code>
+                Accès réservé aux administrateurs autorisés.
               </p>
             </div>
           </div>

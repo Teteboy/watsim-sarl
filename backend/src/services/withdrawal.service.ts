@@ -13,6 +13,10 @@ export interface WithdrawalRequest {
   provider: WithdrawalProvider;
   reference: string;
   metadata?: Record<string, unknown>;
+  /** 'WALLET' (default) debits the wallet; 'REWARDS' consumes the referral rewards ledger instead. */
+  debitSource?: 'WALLET' | 'REWARDS' | 'PREDEBITED';
+  /** Referral-ledger consumption transaction to release (mark FAILED) if the payout fails. */
+  rewardsConsumptionId?: string;
 }
 
 export interface WithdrawalResult {
@@ -298,10 +302,13 @@ function getPayoutAdapter(provider: WithdrawalProvider): PayoutAdapter {
 export async function processWithdrawal(
   request: WithdrawalRequest
 ): Promise<WithdrawalResult> {
-  const { userId, amount, phoneNumber, provider, reference, metadata } = request;
+  const { userId, amount, phoneNumber, provider, reference, metadata, debitSource, rewardsConsumptionId } = request;
+  const debitWallet = debitSource !== 'REWARDS';
+  let walletDebited = debitSource === 'PREDEBITED';
+  let payoutAccepted = false;
 
   // Validate minimum amount
-  if (amount < 500) {
+  if (!Number.isFinite(amount) || amount < 500) {
     return {
       success: false,
       withdrawalId: '',
@@ -312,23 +319,26 @@ export async function processWithdrawal(
   }
 
   try {
-    // Check and deduct wallet balance atomically before initiating payout
-    const wallet = await prisma.wallet.findUnique({ where: { userId } });
-    if (!wallet || wallet.balance < amount) {
-      return {
-        success: false,
-        withdrawalId: '',
-        providerRef: '',
-        status: 'FAILED',
-        message: `Insufficient wallet balance. Available: ${wallet?.balance ?? 0} FCFA`,
-      };
-    }
+    // Check and deduct wallet balance atomically before initiating payout.
+    // For REWARDS-funded withdrawals the funds were already reserved in the
+    // referral ledger by the caller, so the wallet is untouched.
+    if (debitWallet && debitSource !== 'PREDEBITED') {
+      const debit = await prisma.wallet.updateMany({
+        where: { userId, balance: { gte: amount } },
+        data: { balance: { decrement: amount } },
+      });
+      if (debit.count !== 1) {
+        return {
+          success: false,
+          withdrawalId: '',
+          providerRef: '',
+          status: 'FAILED',
+          message: 'Insufficient wallet balance.',
+        };
+      }
 
-    // Deduct balance first to prevent double-spend
-    await prisma.wallet.update({
-      where: { userId },
-      data: { balance: { decrement: amount } },
-    });
+      walletDebited = true;
+    }
 
     // Get the appropriate adapter
     const adapter = getPayoutAdapter(provider);
@@ -341,13 +351,15 @@ export async function processWithdrawal(
       description: `WATSIM Rewards Withdrawal`,
     });
 
+    payoutAccepted = payoutResult.status !== 'FAILED';
+
     // Create transaction record
     const transaction = await prisma.transaction.create({
       data: {
         userId,
         type: 'WITHDRAWAL',
         amount,
-        status: payoutResult.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+        status: payoutResult.status,
         provider: provider,
         providerRef: payoutResult.providerRef,
         metadata: {
@@ -360,13 +372,23 @@ export async function processWithdrawal(
       },
     });
 
-    // If payout failed immediately, refund the wallet
+    // If payout failed immediately, refund the wallet or release the
+    // reserved rewards, depending on the debit source.
     if (payoutResult.status === 'FAILED') {
-      await prisma.wallet.update({
-        where: { userId },
-        data: { balance: { increment: amount } },
-      });
-      logger.info({ transactionId: transaction.id, amount }, 'Withdrawal failed immediately, wallet refunded');
+      if (debitWallet) {
+        await prisma.wallet.update({
+          where: { userId },
+          data: { balance: { increment: amount } },
+        });
+        walletDebited = false;
+        logger.info({ transactionId: transaction.id, amount }, 'Withdrawal failed immediately, wallet refunded');
+      } else if (rewardsConsumptionId) {
+        await prisma.transaction.update({
+          where: { id: rewardsConsumptionId },
+          data: { status: 'FAILED' },
+        });
+        logger.info({ transactionId: transaction.id, amount }, 'Rewards withdrawal failed immediately, reservation released');
+      }
     } else {
       logger.info({ transactionId: transaction.id, amount }, 'Withdrawal initiated, wallet deducted');
     }
@@ -381,6 +403,17 @@ export async function processWithdrawal(
     };
   } catch (error) {
     logger.error({ error, userId, amount, provider }, 'Withdrawal processing failed');
+
+    if (walletDebited && !payoutAccepted) {
+      await prisma.wallet.update({ where: { userId }, data: { balance: { increment: amount } } });
+    }
+
+    // Release the reserved rewards on unexpected failure
+    if (!debitWallet && rewardsConsumptionId && !payoutAccepted) {
+      await prisma.transaction
+        .update({ where: { id: rewardsConsumptionId }, data: { status: 'FAILED' } })
+        .catch(() => {});
+    }
 
     // Create failed transaction record
     const transaction = await prisma.transaction.create({
@@ -438,7 +471,13 @@ export async function checkWithdrawalStatus(
 
   // Update transaction status if changed
   if (result.status !== transaction.status) {
-    await prisma.transaction.update({
+    await prisma.$transaction(async (tx) => {
+    const claimed = await tx.transaction.updateMany({
+      where: { id: transactionId, status: 'PENDING' },
+      data: { status: result.status },
+    });
+    if (claimed.count !== 1) return;
+    await tx.transaction.update({
       where: { id: transactionId },
       data: {
         status: result.status,
@@ -450,15 +489,27 @@ export async function checkWithdrawalStatus(
       },
     });
 
-    // Refund wallet if withdrawal confirmed failed
+    // Refund wallet if withdrawal confirmed failed. For rewards-funded
+    // withdrawals, release the referral-ledger reservation instead.
     if (result.status === 'FAILED') {
+      const metadata = transaction.metadata as Record<string, unknown> | null;
+      const rewardsConsumptionId = metadata?.rewardsConsumptionId as string | undefined;
       const amount = Math.abs(transaction.amount);
-      await prisma.wallet.update({
-        where: { userId: transaction.userId },
-        data: { balance: { increment: amount } },
-      });
-      logger.info({ transactionId, amount }, 'Withdrawal confirmed failed, wallet refunded');
+      if (rewardsConsumptionId) {
+        await tx.transaction.update({
+          where: { id: rewardsConsumptionId },
+          data: { status: 'FAILED' },
+        });
+        logger.info({ transactionId, amount }, 'Rewards withdrawal confirmed failed, reservation released');
+      } else {
+        await tx.wallet.update({
+          where: { userId: transaction.userId },
+          data: { balance: { increment: amount } },
+        });
+        logger.info({ transactionId, amount }, 'Withdrawal confirmed failed, wallet refunded');
+      }
     }
+    });
   }
 
   return result;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getPublicCategories, simulateBnpl } from '@/lib/api';
+import { API_PREFIX, getPublicCategories, simulateBnpl } from '@/lib/api';
 import { resolveUploadUrl } from '@/lib/utils';
 
 export default function ShopPage() {
@@ -13,7 +13,7 @@ export default function ShopPage() {
   const [count, setCount] = useState<2 | 3 | 4 | 6>(3);
 
   useEffect(() => {
-    fetch(`${(import.meta.env?.VITE_API_PREFIX as string) ?? '/api/v1'}/products?limit=50`)
+    fetch(`${API_PREFIX}/products?limit=50`)
       .then(r => r.json())
       .then(data => setProducts(data.items || data || []))
       .catch(() => setProducts([]));
