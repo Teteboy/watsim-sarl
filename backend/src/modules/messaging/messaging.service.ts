@@ -20,11 +20,11 @@ export async function getUserConversations(userId: string): Promise<Conversation
           participants: {
             include: { user: { select: { id: true, fullName: true, role: true } } },
           },
-          // We need all message timestamps to compute unread.
-          // For v1 performance, we cap to the latest 200 messages per conversation.
+          // Only the latest message is needed for the list preview; unread
+          // counts come from indexed COUNT() queries below.
           messages: {
             orderBy: { createdAt: 'desc' },
-            take: 200,
+            take: 1,
             include: { sender: { select: { fullName: true } } },
           },
         },
@@ -33,7 +33,22 @@ export async function getUserConversations(userId: string): Promise<Conversation
     orderBy: { conversation: { updatedAt: 'desc' } },
   });
 
-  return participations.map((p) => {
+  // Unread counts: messages after the participant's lastReadAt (or all
+  // messages from others when never read). One indexed COUNT per
+  // conversation — far cheaper than hydrating 200 rows each.
+  const unreadCounts = await Promise.all(
+    participations.map((p) =>
+      prisma.message.count({
+        where: {
+          conversationId: p.conversationId,
+          senderId: { not: userId },
+          ...(p.lastReadAt ? { createdAt: { gt: p.lastReadAt } } : {}),
+        },
+      })
+    )
+  );
+
+  return participations.map((p, idx) => {
     const conv = p.conversation;
     const lastMsg = conv.messages[0];
     const otherParticipants = conv.participants
@@ -43,17 +58,7 @@ export async function getUserConversations(userId: string): Promise<Conversation
         fullName: pp.user.fullName,
         role: pp.user.role,
       }));
-
-    // Compute unread: messages after participant's lastReadAt.
-    // If never read, count all messages from other senders.
-    const lastReadAt = p.lastReadAt;
-    const unreadCount = conv.messages.filter((m) => {
-      if (m.senderId === userId) return false;
-      if (lastReadAt) {
-        return m.createdAt > lastReadAt;
-      }
-      return true;
-    }).length;
+    const unreadCount = unreadCounts[idx];
 
     return {
       id: conv.id,

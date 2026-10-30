@@ -70,7 +70,7 @@ export async function createDeliveryRequest(userId: string, input: CreateDeliver
   logger.info({ deliveryId: delivery.id, purchaseId: input.purchaseId, userId }, 'Delivery request created');
 
   // Notify user
-  await notifyUser(userId, `Votre demande de livraison pour "${purchase.product.name}" a été enregistrée. Nous vous contacterons bientôt.`);
+  await notifyUser(userId, 'delivery.requested', { product: purchase.product.name });
 
   return delivery;
 }
@@ -136,15 +136,15 @@ export async function updateDeliveryStatus(id: string, status: string, notes?: s
     data: { status, notes: notes || delivery.notes },
   });
 
-  // Notify user of status change
-  const statusMessages: Record<string, string> = {
-    PROCESSING: 'Votre livraison est en cours de préparation.',
-    SHIPPED: 'Votre commande a été expédiée! Elle arrive bientôt.',
-    DELIVERED: 'Votre commande a été livrée. Merci!',
-    CANCELLED: 'Votre demande de livraison a été annulée.',
+  // Notify user of status change (message keys localized in utils/messages.ts)
+  const statusMessageKeys: Record<string, string> = {
+    PROCESSING: 'delivery.processing',
+    SHIPPED: 'delivery.shipped',
+    DELIVERED: 'delivery.delivered',
+    CANCELLED: 'delivery.cancelled',
   };
-  if (statusMessages[status]) {
-    await notifyUser(delivery.userId, statusMessages[status]);
+  if (statusMessageKeys[status]) {
+    await notifyUser(delivery.userId, statusMessageKeys[status]);
   }
 
   // If delivered, update purchase status

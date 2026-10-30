@@ -55,7 +55,8 @@ class Product {
     final priceInt = (json['price'] as num?)?.toInt() ?? 0;
     final catMap = json['category'] as Map<String, dynamic>?;
     final catName = catMap?['name'] as String? ??
-        (json['categoryName'] as String? ?? 'General');
+        (json['categoryName'] as String? ??
+            LanguageService().generalCategory);
     final rawImgUrl = json['imageUrl'] as String? ?? '';
     final resolvedImgUrl = ApiService.resolveImageUrl(rawImgUrl);
     final imgUrl = resolvedImgUrl.isNotEmpty
@@ -92,7 +93,7 @@ class Product {
       id: json['id'] as String?,
       merchantId:
           merchantMap?['id'] as String? ?? json['merchantId'] as String?,
-      name: json['name'] as String? ?? 'Product',
+      name: json['name'] as String? ?? LanguageService().unknownProduct,
       price: '${fmt(priceInt)} FCFA',
       monthlyPrice: 'from ${fmt(monthly)} FCFA/month',
       icon: Icons.inventory_2_rounded,
@@ -395,9 +396,9 @@ class _CatalogueScreenState extends State<CatalogueScreen>
                   const Icon(Icons.swap_horiz_rounded,
                       color: Colors.white, size: 18),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Select a product to exchange — your paid amount carries over',
+                      lang.exchangeBanner,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -737,15 +738,15 @@ class _ProductCardState extends State<_ProductCard>
                                 ),
                               ],
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.swap_horiz_rounded,
+                                const Icon(Icons.swap_horiz_rounded,
                                     color: Colors.white, size: 13),
-                                SizedBox(width: 4),
+                                const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
-                                    'SELECT',
+                                    lang.selectCaps,
                                     textAlign: TextAlign.center,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
@@ -1311,20 +1312,21 @@ class _BnplOrdersScreenState extends State<BnplOrdersScreen>
   }
 
   Widget _orderList({required bool active}) {
+    final lang = LanguageService();
     final orders = active
         ? [
             _OrderData('Smartphone Samsung S23', '6/12', '15 000 FCFA',
-                AppColors.warning, 'IN PROGRESS'),
+                AppColors.warning, lang.ongoing),
             _OrderData('MacBook Air M2', '1/12', '45 000 FCFA',
-                AppColors.primaryGreen, 'ACTIVE'),
+                AppColors.primaryGreen, lang.activeStatus),
             _OrderData('Sony WH-1000XM5', '2/3', '83 000 FCFA',
-                AppColors.primaryGreen, 'ACTIVE'),
+                AppColors.primaryGreen, lang.activeStatus),
           ]
         : [
             _OrderData('Nike Air Zoom', '6/6', '95,000 FCFA',
-                AppColors.secondaryGreen, 'SETTLED'),
+                AppColors.secondaryGreen, lang.settledStatus),
             _OrderData('Nespresso Vertuo', '4/4', '155,000 FCFA',
-                AppColors.secondaryGreen, 'SETTLED'),
+                AppColors.secondaryGreen, lang.settledStatus),
           ];
 
     return ListView.separated(

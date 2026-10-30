@@ -171,7 +171,9 @@ class _PinSetupScreenState extends State<PinSetupScreen>
         _pin = '';
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message), backgroundColor: AppColors.error),
+        SnackBar(
+            content: Text(LanguageService().apiError(e)),
+            backgroundColor: AppColors.error),
       );
       _shake.forward(from: 0);
     } catch (_) {
@@ -181,8 +183,8 @@ class _PinSetupScreenState extends State<PinSetupScreen>
         _pin = '';
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to set PIN. Try again.'),
+        SnackBar(
+          content: Text(LanguageService().pinSetFailed),
           backgroundColor: AppColors.error,
         ),
       );
@@ -244,7 +246,9 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                     const SizedBox(height: 36),
 
                     Text(
-                      _confirm ? 'Confirm your PIN' : 'Create your PIN',
+                      _confirm
+                          ? LanguageService().confirmPinTitle
+                          : LanguageService().createPinTitle,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
@@ -256,8 +260,8 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                     const SizedBox(height: 8),
                     Text(
                       _confirm
-                          ? 'Re-enter the same PIN to confirm'
-                          : 'This PIN secures your transactions',
+                          ? LanguageService().reenterPinHint
+                          : LanguageService().pinSecures,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.55),
@@ -273,7 +277,7 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                     const SizedBox(height: 12),
 
                     Text(
-                      _confirm ? 'STEP 2 OF 2' : 'STEP 1 OF 2',
+                      LanguageService().stepCaps(_confirm ? 2 : 1, 2),
                       style: const TextStyle(
                         color: AppColors.primaryGreen,
                         fontSize: 11,
@@ -295,8 +299,8 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                           border: Border.all(
                               color: AppColors.error.withOpacity(0.4)),
                         ),
-                        child: const Text(
-                          'PINs do not match. Try again.',
+                        child: Text(
+                          LanguageService().pinsDontMatch,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: AppColors.error,
@@ -333,7 +337,7 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                     const SizedBox(height: 20),
 
                     Text(
-                      "Don't use simple combinations\nlike 1234 or 0000.",
+                      LanguageService().pinWarning,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.35),
@@ -517,18 +521,19 @@ class _KycScreenState extends State<KycScreen> {
 
   final _picker = ImagePicker();
 
-  final _docSteps = const [
-    _KycStep(
-        icon: Icons.credit_card_rounded,
-        title: 'ID Card — Front',
-        desc:
-            'Take a clear photo of the FRONT side of your national identity card. Make sure all text is legible and the card is fully visible.'),
-    _KycStep(
-        icon: Icons.flip_rounded,
-        title: 'ID Card — Back',
-        desc:
-            'Take a clear photo of the BACK side of your national identity card. Make sure all text is legible and the card is fully visible.'),
-  ];
+  List<_KycStep> get _docSteps {
+    final lang = LanguageService();
+    return [
+      _KycStep(
+          icon: Icons.credit_card_rounded,
+          title: lang.docFrontTitle,
+          desc: lang.docFrontDesc),
+      _KycStep(
+          icon: Icons.flip_rounded,
+          title: lang.docBackTitle,
+          desc: lang.docBackDesc),
+    ];
+  }
 
   @override
   void dispose() {
@@ -565,7 +570,7 @@ class _KycScreenState extends State<KycScreen> {
     } catch (e) {
       setState(() {
         _uploading = false;
-        _uploadError = 'Could not open camera. Please grant camera permission.';
+        _uploadError = LanguageService().cameraError;
       });
     }
   }
@@ -591,12 +596,12 @@ class _KycScreenState extends State<KycScreen> {
     } on ApiException catch (e) {
       setState(() {
         _uploading = false;
-        _uploadError = e.message;
+        _uploadError = LanguageService().apiError(e);
       });
     } catch (e) {
       setState(() {
         _uploading = false;
-        _uploadError = 'Upload failed. Check your internet connection.';
+        _uploadError = LanguageService().uploadFailedConn;
       });
     }
   }
@@ -653,7 +658,7 @@ class _KycScreenState extends State<KycScreen> {
             onChanged: (_) => setState(() {}),
             style: const TextStyle(
                 fontFamily: 'DM Sans', color: AppColors.textPrimary),
-            decoration: _inputDecoration('Full Legal Name',
+            decoration: _inputDecoration(LanguageService().fullLegalName,
                 icon: Icons.person_outline_rounded),
             textCapitalization: TextCapitalization.words,
           ),
@@ -665,7 +670,7 @@ class _KycScreenState extends State<KycScreen> {
             onChanged: (_) => setState(() {}),
             style: const TextStyle(
                 fontFamily: 'DM Sans', color: AppColors.textPrimary),
-            decoration: _inputDecoration('Date of Birth (DD/MM/YYYY)',
+            decoration: _inputDecoration(LanguageService().dobLabel,
                 icon: Icons.cake_outlined),
             keyboardType: TextInputType.datetime,
           ),
@@ -684,17 +689,21 @@ class _KycScreenState extends State<KycScreen> {
                       fontFamily: 'DM Sans',
                       color: AppColors.textPrimary,
                       fontSize: 14),
-                  decoration: _inputDecoration('ID Type'),
+                  decoration:
+                      _inputDecoration(LanguageService().idTypeLabel),
                   dropdownColor: Colors.white,
                   icon: const Icon(Icons.expand_more_rounded,
                       color: AppColors.primaryGreen),
-                  items: const [
+                  items: [
                     'National ID',
                     'Passport',
                     'Driver\'s License',
                     'Residence Permit',
                   ]
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .map((t) => DropdownMenuItem(
+                          value: t,
+                          child:
+                              Text(LanguageService().idTypeDisplay(t))))
                       .toList(),
                   onChanged: (v) => setState(() => _idType = v!),
                 ),
@@ -708,8 +717,9 @@ class _KycScreenState extends State<KycScreen> {
                   onChanged: (_) => setState(() {}),
                   style: const TextStyle(
                       fontFamily: 'DM Sans', color: AppColors.textPrimary),
-                  decoration:
-                      _inputDecoration('ID Number', icon: Icons.tag_rounded),
+                  decoration: _inputDecoration(
+                      LanguageService().idNumberLabel,
+                      icon: Icons.tag_rounded),
                   textCapitalization: TextCapitalization.characters,
                 ),
               ),
@@ -727,15 +737,14 @@ class _KycScreenState extends State<KycScreen> {
                 height: 1.4),
             textAlign: TextAlign.start,
             textDirection: TextDirection.ltr,
-            decoration: _inputDecoration('Residential Address',
+            decoration: _inputDecoration(
+                LanguageService().residentialAddress,
                 icon: Icons.home_outlined),
             keyboardType: TextInputType.streetAddress,
           ),
           const SizedBox(height: 20),
 
-          const InfoBanner(
-              text:
-                  'This information must match your official identity documents exactly.'),
+          InfoBanner(text: LanguageService().kycInfoBanner),
         ],
       ),
     );
@@ -773,13 +782,14 @@ class _KycScreenState extends State<KycScreen> {
             ),
             clipBehavior: Clip.antiAlias,
             child: _uploading
-                ? const Column(
+                ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(color: AppColors.primaryGreen),
-                      SizedBox(height: 14),
-                      Text('Opening camera...',
-                          style: TextStyle(
+                      const CircularProgressIndicator(
+                          color: AppColors.primaryGreen),
+                      const SizedBox(height: 14),
+                      Text(LanguageService().openingCamera,
+                          style: const TextStyle(
                               color: AppColors.primaryGreen,
                               fontWeight: FontWeight.w600)),
                     ],
@@ -799,14 +809,14 @@ class _KycScreenState extends State<KycScreen> {
                                 color: AppColors.primaryDark.withOpacity(0.75),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.camera_alt_rounded,
+                                  const Icon(Icons.camera_alt_rounded,
                                       size: 14, color: Colors.white),
-                                  SizedBox(width: 6),
-                                  Text('Retake',
-                                      style: TextStyle(
+                                  const SizedBox(width: 6),
+                                  Text(LanguageService().retakeLabel,
+                                      style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600)),
@@ -830,17 +840,17 @@ class _KycScreenState extends State<KycScreen> {
                                 size: 34, color: AppColors.primaryGreen),
                           ),
                           const SizedBox(height: 14),
-                          const Text(
-                            'Tap to take a photo',
-                            style: TextStyle(
+                          Text(
+                            LanguageService().tapPhoto,
+                            style: const TextStyle(
                                 color: AppColors.primaryGreen,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 15),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'Use your camera to capture the document',
-                            style: TextStyle(
+                          Text(
+                            LanguageService().useCameraDoc,
+                            style: const TextStyle(
                                 color: AppColors.textMuted, fontSize: 12),
                           ),
                         ],
@@ -868,19 +878,18 @@ class _KycScreenState extends State<KycScreen> {
           ),
         ],
         const SizedBox(height: 16),
-        const InfoBanner(
-            text:
-                'Your documents are encrypted and stored securely. We comply with all data protection regulations.'),
+        InfoBanner(text: LanguageService().kycPrivacyBanner),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final stepLang = LanguageService();
     final stepTitles = [
-      'Personal Information',
-      'ID Card — Front',
-      'ID Card — Back',
+      stepLang.stepPersonalInfo,
+      stepLang.docFrontTitle,
+      stepLang.docBackTitle,
     ];
 
     return Scaffold(
@@ -901,15 +910,15 @@ class _KycScreenState extends State<KycScreen> {
         centerTitle: true,
         title: Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Image(
+          children: [
+            const Image(
               image: AssetImage('assets/images/logo_green.png'),
               width: 56,
               height: 56,
               fit: BoxFit.contain,
             ),
-            SizedBox(width: 10),
-            Text('Identity Verification',
+            const SizedBox(width: 10),
+            Text(LanguageService().identityVerification,
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -948,7 +957,7 @@ class _KycScreenState extends State<KycScreen> {
                   ),
                   const SizedBox(height: 28),
 
-                  Text('Step ${_step + 1} of $_totalSteps',
+                  Text(stepLang.kycStepOf(_step + 1, _totalSteps),
                       style: const TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 13,
@@ -999,8 +1008,9 @@ class _KycScreenState extends State<KycScreen> {
                               width: 22,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2.5, color: Colors.white))
-                          : Text(
-                              isLastStep ? 'Submit Verification' : 'Continue'),
+                          : Text(isLastStep
+                              ? LanguageService().submitVerification
+                              : LanguageService().continueLabel),
                     );
                   },
                 ),

@@ -111,11 +111,12 @@ class _ExchangeConfirmSheetState extends State<ExchangeConfirmSheet> {
   }
 
   void _confirm() async {
+    final lang = LanguageProvider.of(context);
     final pinValid =
         await ApiService.verifyTransactionPin(_pinCtrl.text.trim());
     if (!mounted) return;
     if (!pinValid) {
-      setState(() => _pinError = "Incorrect PIN. Please try again.");
+      setState(() => _pinError = lang.incorrectPinFull);
       return;
     }
 
@@ -142,20 +143,22 @@ class _ExchangeConfirmSheetState extends State<ExchangeConfirmSheet> {
       if (result.overpay > 0) {
         WalletState.instance.refundOverpay(newProduct.name, result.overpay);
         NotificationState.instance.addGenericNotification(
-          "Exchange Complete — Refund",
-          "${fmtAmount(result.overpay)} refunded to your wallet after exchanging ${order.product.name} for ${newProduct.name}.",
+          lang.notifExchangeRefundTitle,
+          lang.exchangeRefundBody(fmtAmount(result.overpay),
+              order.product.name, newProduct.name),
         );
       } else {
         NotificationState.instance.addGenericNotification(
-          "Exchange Complete",
-          "Your accumulated funds exactly covered ${newProduct.name}. Order marked complete.",
+          lang.notifExchangeCompleteTitle,
+          lang.exchangeExactCoverBody(newProduct.name),
         );
       }
     } else {
       // Partially covered — user continues contributing
       NotificationState.instance.addGenericNotification(
-        "Product Exchanged",
-        "Switched to ${newProduct.name}. ${fmtAmount(widget.accumulated)} transferred. ${fmtAmount(widget.remaining)} still needed.",
+        lang.notifProductExchanged,
+        lang.productExchangedBody(newProduct.name, fmtAmount(widget.accumulated),
+            fmtAmount(widget.remaining)),
       );
     }
 
@@ -210,7 +213,7 @@ class _ExchangeConfirmSheetState extends State<ExchangeConfirmSheet> {
                 const SizedBox(height: 16),
                 Text(
                   widget.willComplete
-                      ? 'Exchange Complete! 🎉'
+                      ? lang.exchangeCompleteTitle
                       : lang.exchangeConfirmed,
                   style: const TextStyle(
                       fontSize: 20,
@@ -221,10 +224,14 @@ class _ExchangeConfirmSheetState extends State<ExchangeConfirmSheet> {
                 Text(
                   widget.willComplete
                       ? widget.overpayPreview > 0
-                          ? "Exchanged for ${newProduct.name} and fully paid off.\n${fmtAmount(widget.overpayPreview)} refunded to your wallet."
-                          : "Your accumulated funds exactly covered ${newProduct.name}. Order is complete!"
-                      : "Exchanged for ${newProduct.name}.\n${fmtAmount(widget.accumulated)} transferred. "
-                          "Keep contributing ${fmtAmount(widget.remaining)} more with your ${order.paymentFrequency.toLowerCase()} payments.",
+                          ? lang.exchangedFullyPaid(newProduct.name,
+                              fmtAmount(widget.overpayPreview))
+                          : lang.exchangedExactDone(newProduct.name)
+                      : lang.exchangedPartial(
+                          newProduct.name,
+                          fmtAmount(widget.accumulated),
+                          fmtAmount(widget.remaining),
+                          order.paymentFrequency.toLowerCase()),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       fontSize: 14,
@@ -245,7 +252,7 @@ class _ExchangeConfirmSheetState extends State<ExchangeConfirmSheet> {
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary)),
               const SizedBox(height: 6),
-              Text("Enter your 4-digit PIN to confirm the exchange.",
+              Text(lang.pinConfirmExchangeDesc,
                   style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.textSecondary,
@@ -333,7 +340,7 @@ class _ExchangeConfirmSheetState extends State<ExchangeConfirmSheet> {
                 maxLength: 4,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                    labelText: "4-digit PIN",
+                    labelText: lang.pin4Label,
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     counterText: "",
                     errorText: _pinError),
@@ -408,7 +415,7 @@ class _ExchangeConfirmSheetState extends State<ExchangeConfirmSheet> {
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                          const Text("Current",
+                          Text(lang.current,
                               style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.textMuted,
@@ -726,7 +733,6 @@ class _DeliverySheetState extends State<DeliverySheet> {
       // Notify user that delivery details have been received
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          final isFr = LanguageService().isFrench;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: AppColors.primaryGreen,
@@ -746,11 +752,7 @@ class _DeliverySheetState extends State<DeliverySheet> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          widget.extended
-                              ? (isFr
-                                  ? 'Demande de livraison reçue!'
-                                  : 'Delivery request received!')
-                              : 'Delivery request received!',
+                          lang.deliveryDetailsReceived,
                           style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
@@ -759,10 +761,8 @@ class _DeliverySheetState extends State<DeliverySheet> {
                         const SizedBox(height: 2),
                         Text(
                           widget.extended
-                              ? (isFr
-                                  ? 'Vos informations ont été enregistrées. Vous recevrez votre produit bientôt.'
-                                  : 'Your information has been saved. You will receive your product soon.')
-                              : 'Your details have been received. You will receive your product shortly.',
+                              ? lang.deliveryDetailsBody
+                              : lang.deliveryConfirmedThanks,
                           style: const TextStyle(
                               color: Colors.white70, fontSize: 12),
                         ),
@@ -776,9 +776,7 @@ class _DeliverySheetState extends State<DeliverySheet> {
         }
       });
     } else {
-      setState(() => _pinError = lang.isFrench
-          ? 'PIN incorrect. Veuillez réessayer.'
-          : 'Incorrect PIN. Please try again.');
+      setState(() => _pinError = lang.incorrectPinFull);
     }
   }
 
@@ -972,35 +970,35 @@ class _SimpleDeliveryForm extends StatelessWidget {
           const SizedBox(height: 22),
 
           // Full Name
-          _fieldLabel('FULL NAME'),
+          _fieldLabel(lang.fullNameLabel),
           const SizedBox(height: 6),
           TextFormField(
             controller: nameCtrl,
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-                labelText: 'Full name',
-                hintText: 'e.g. Jean-Paul Mbarga',
+            decoration: InputDecoration(
+                labelText: lang.fullNameField,
+                hintText: lang.hintName,
                 prefixIcon: Icon(Icons.person_outline_rounded)),
             validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Name is required' : null,
+                v == null || v.trim().isEmpty ? lang.nameRequired : null,
           ),
           const SizedBox(height: 14),
 
           // Phone Number
-          _fieldLabel('PHONE NUMBER'),
+          _fieldLabel(lang.phoneNumberLabel),
           const SizedBox(height: 6),
           TextFormField(
             controller: phoneCtrl,
             keyboardType: TextInputType.phone,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-              labelText: 'Phone number',
-              hintText: 'e.g. +237 6XX XXX XXX',
+            decoration: InputDecoration(
+              labelText: lang.phoneField,
+              hintText: lang.hintPhonePlus,
               prefixIcon: Icon(Icons.phone_outlined),
             ),
             validator: (v) => v == null || v.trim().isEmpty
-                ? 'Phone number is required'
+                ? lang.phoneRequired
                 : null,
           ),
           const SizedBox(height: 14),
@@ -1012,13 +1010,13 @@ class _SimpleDeliveryForm extends StatelessWidget {
             controller: professionCtrl,
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-              labelText: 'Your profession',
-              hintText: 'e.g. Engineer, Teacher, Trader…',
+            decoration: InputDecoration(
+              labelText: lang.professionField,
+              hintText: lang.hintJob,
               prefixIcon: Icon(Icons.work_outline_rounded),
             ),
             validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Profession is required' : null,
+                v == null || v.trim().isEmpty ? lang.professionRequired : null,
           ),
           const SizedBox(height: 18),
 
@@ -1027,7 +1025,7 @@ class _SimpleDeliveryForm extends StatelessWidget {
             const Icon(Icons.badge_outlined,
                 size: 16, color: AppColors.primaryGreen),
             const SizedBox(width: 6),
-            const Text('ID CARD PHOTOS',
+            Text(lang.idCardPhotos,
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -1040,7 +1038,7 @@ class _SimpleDeliveryForm extends StatelessWidget {
                 color: AppColors.primaryGreen.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text('OPTIONAL',
+              child: Text(lang.optionalTag,
                   style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
@@ -1049,8 +1047,8 @@ class _SimpleDeliveryForm extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 8),
-          const Text(
-            'Attach a photo of your national ID card (front and back). This helps us verify your identity faster.',
+          Text(
+            lang.idPhotoDesc,
             style: TextStyle(
                 fontSize: 12, color: AppColors.textSecondary, height: 1.4),
           ),
@@ -1089,8 +1087,8 @@ class _SimpleDeliveryForm extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         idFrontPhoto != null
-                            ? 'Front captured ✓'
-                            : 'Tap to capture\nFRONT side',
+                            ? lang.frontCaptured
+                            : lang.tapCaptureFront,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
@@ -1140,8 +1138,8 @@ class _SimpleDeliveryForm extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         idBackPhoto != null
-                            ? 'Back captured ✓'
-                            : 'Tap to capture\nBACK side',
+                            ? lang.backCaptured
+                            : lang.tapCaptureBack,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
@@ -1161,38 +1159,38 @@ class _SimpleDeliveryForm extends StatelessWidget {
           const SizedBox(height: 14),
 
           // Neighbourhood
-          _fieldLabel('NEIGHBOURHOOD'),
+          _fieldLabel(lang.neighbourhoodCaps),
           const SizedBox(height: 6),
           TextFormField(
             controller: neighbourhoodCtrl,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-                labelText: 'Neighbourhood',
-                hintText: 'e.g. Bastos, Nlongkak…',
+            decoration: InputDecoration(
+                labelText: lang.neighbourhoodField,
+                hintText: lang.hintQuarter,
                 prefixIcon: Icon(Icons.location_city_outlined)),
             validator: (v) => v == null || v.trim().isEmpty
-                ? 'Neighbourhood is required'
+                ? lang.neighbourhoodRequired
                 : null,
           ),
           const SizedBox(height: 14),
 
           // City
-          _fieldLabel('CITY'),
+          _fieldLabel(lang.cityCaps),
           const SizedBox(height: 6),
           TextFormField(
             controller: cityCtrl,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-                labelText: 'City',
-                hintText: 'e.g. Yaoundé, Douala…',
+            decoration: InputDecoration(
+                labelText: lang.city,
+                hintText: lang.hintCity,
                 prefixIcon: Icon(Icons.location_on_outlined)),
             validator: (v) =>
-                v == null || v.trim().isEmpty ? 'City is required' : null,
+                v == null || v.trim().isEmpty ? lang.cityRequired : null,
           ),
           const SizedBox(height: 14),
 
           // Delivery Time
-          _fieldLabel('DELIVERY TIME'),
+          _fieldLabel(lang.deliveryTimeCaps),
           const SizedBox(height: 6),
           GestureDetector(
             onTap: onDeliveryTimePick,
@@ -1215,8 +1213,8 @@ class _SimpleDeliveryForm extends StatelessWidget {
                 Expanded(
                     child: Text(
                   deliveryTime != null
-                      ? 'Delivery at ${deliveryTime!.format(context)}'
-                      : 'Select delivery time',
+                      ? '${lang.deliveryAtLabel} ${deliveryTime!.format(context)}'
+                      : lang.selectDeliveryTime,
                   style: TextStyle(
                       fontSize: 14,
                       color: deliveryTime != null
@@ -1339,112 +1337,112 @@ class _ExtendedDeliveryForm extends StatelessWidget {
           const SizedBox(height: 22),
 
           // Nom (Last Name)
-          _fieldLabel('NOM'),
+          _fieldLabel(lang.isFrench ? 'NOM' : 'LAST NAME'),
           const SizedBox(height: 6),
           TextFormField(
             controller: lastNameCtrl,
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-                labelText: 'Nom',
-                hintText: 'e.g. Mbarga',
+            decoration: InputDecoration(
+                labelText: lang.lastNameField,
+                hintText: lang.hintSurname,
                 prefixIcon: Icon(Icons.person_outline_rounded)),
             validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Le nom est requis' : null,
+                v == null || v.trim().isEmpty ? lang.lastNameRequired : null,
           ),
           const SizedBox(height: 14),
 
           // Prénom (First Name)
-          _fieldLabel('PRÉNOM'),
+          _fieldLabel(lang.isFrench ? 'PRÉNOM' : 'FIRST NAME'),
           const SizedBox(height: 6),
           TextFormField(
             controller: firstNameCtrl,
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-                labelText: 'Prénom',
-                hintText: 'e.g. Jean-Paul',
+            decoration: InputDecoration(
+                labelText: lang.firstNameField,
+                hintText: lang.hintFirstName,
                 prefixIcon: Icon(Icons.person_outline_rounded)),
             validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Le prénom est requis' : null,
+                v == null || v.trim().isEmpty ? lang.firstNameRequired : null,
           ),
           const SizedBox(height: 14),
 
           // Tel (Phone Number)
-          _fieldLabel('TEL'),
+          _fieldLabel(lang.telCaps),
           const SizedBox(height: 6),
           TextFormField(
             controller: phoneCtrl,
             keyboardType: TextInputType.phone,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-              labelText: 'Téléphone',
-              hintText: 'e.g. +237 6XX XXX XXX',
+            decoration: InputDecoration(
+              labelText: lang.phoneField,
+              hintText: lang.hintPhonePlus,
               prefixIcon: Icon(Icons.phone_outlined),
             ),
             validator: (v) => v == null || v.trim().isEmpty
-                ? 'Le numéro de téléphone est requis'
+                ? lang.phoneRequired
                 : null,
           ),
           const SizedBox(height: 14),
 
           // Lieu résidence
-          _fieldLabel('LIEU RÉSIDENCE'),
+          _fieldLabel(lang.residenceCaps),
           const SizedBox(height: 6),
           TextFormField(
             controller: residenceCtrl,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-                labelText: 'Lieu de résidence',
-                hintText: 'e.g. Bastos, Yaoundé',
+            decoration: InputDecoration(
+                labelText: lang.residenceField,
+                hintText: lang.hintQuarterCity,
                 prefixIcon: Icon(Icons.home_outlined)),
             validator: (v) => v == null || v.trim().isEmpty
-                ? 'Le lieu de résidence est requis'
+                ? lang.residenceRequired
                 : null,
           ),
           const SizedBox(height: 14),
 
           // Lieu livraison
-          _fieldLabel('LIEU LIVRAISON'),
+          _fieldLabel(lang.deliveryLocationCaps),
           const SizedBox(height: 6),
           TextFormField(
             controller: deliveryLocationCtrl,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-                labelText: 'Lieu de livraison',
-                hintText: 'e.g. Carrefour Nlongkak',
+            decoration: InputDecoration(
+                labelText: lang.deliveryLocationField,
+                hintText: lang.hintLandmark,
                 prefixIcon: Icon(Icons.location_on_outlined)),
             validator: (v) => v == null || v.trim().isEmpty
-                ? 'Le lieu de livraison est requis'
+                ? lang.deliveryLocationRequired
                 : null,
           ),
           const SizedBox(height: 14),
 
           // Couleur
-          _fieldLabel('COULEUR'),
+          _fieldLabel(lang.colorCaps),
           const SizedBox(height: 6),
           TextFormField(
             controller: colorCtrl,
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-              labelText: 'Couleur souhaitée',
-              hintText: 'e.g. Noir, Blanc, Rouge…',
+            decoration: InputDecoration(
+              labelText: lang.colorField,
+              hintText: lang.hintColor,
               prefixIcon: Icon(Icons.color_lens_outlined),
             ),
           ),
           const SizedBox(height: 14),
 
           // Pointure
-          _fieldLabel('POINTURE'),
+          _fieldLabel(lang.shoeSizeCaps),
           const SizedBox(height: 6),
           TextFormField(
             controller: shoeSizeCtrl,
             keyboardType: TextInputType.number,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-              labelText: 'Pointure',
-              hintText: 'e.g. 42, 38…',
+            decoration: InputDecoration(
+              labelText: lang.shoeSizeField,
+              hintText: lang.hintSize,
               prefixIcon: Icon(Icons.straighten_outlined),
             ),
           ),
@@ -1457,30 +1455,30 @@ class _ExtendedDeliveryForm extends StatelessWidget {
             controller: professionCtrl,
             textCapitalization: TextCapitalization.words,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-              labelText: 'Profession',
-              hintText: 'e.g. Ingénieur, Enseignant, Commerçant…',
+            decoration: InputDecoration(
+              labelText: lang.professionField,
+              hintText: lang.hintJob,
               prefixIcon: Icon(Icons.work_outline_rounded),
             ),
             validator: (v) => v == null || v.trim().isEmpty
-                ? 'La profession est requise'
+                ? lang.professionRequired
                 : null,
           ),
           const SizedBox(height: 14),
 
           // CNI
-          _fieldLabel('CNI'),
+          _fieldLabel(lang.cniLabel.toUpperCase()),
           const SizedBox(height: 6),
           TextFormField(
             controller: cniCtrl,
             onChanged: (_) => onFieldChanged(),
-            decoration: const InputDecoration(
-              labelText: 'Numéro CNI',
-              hintText: 'e.g. 123456789',
+            decoration: InputDecoration(
+              labelText: lang.cniField,
+              hintText: lang.hintIdNum,
               prefixIcon: Icon(Icons.badge_outlined),
             ),
             validator: (v) => v == null || v.trim().isEmpty
-                ? 'Le numéro CNI est requis'
+                ? lang.cniRequired
                 : null,
           ),
           const SizedBox(height: 18),
@@ -1554,8 +1552,8 @@ class _ExtendedDeliveryForm extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         idFrontPhoto != null
-                            ? 'Recto capturé ✓'
-                            : 'Capturer\nRECTO',
+                            ? lang.frontCaptured
+                            : lang.tapCaptureFront,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
@@ -1605,8 +1603,8 @@ class _ExtendedDeliveryForm extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         idBackPhoto != null
-                            ? 'Verso capturé ✓'
-                            : 'Capturer\nVERSO',
+                            ? lang.backCaptured
+                            : lang.tapCaptureBack,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
@@ -1626,7 +1624,7 @@ class _ExtendedDeliveryForm extends StatelessWidget {
           const SizedBox(height: 14),
 
           // Delivery Time
-          _fieldLabel('HEURE DE LIVRAISON'),
+          _fieldLabel(lang.deliveryTimeCaps),
           const SizedBox(height: 6),
           GestureDetector(
             onTap: onDeliveryTimePick,
@@ -1649,8 +1647,8 @@ class _ExtendedDeliveryForm extends StatelessWidget {
                 Expanded(
                     child: Text(
                   deliveryTime != null
-                      ? 'Livraison à ${deliveryTime!.format(context)}'
-                      : 'Sélectionner l\'heure de livraison',
+                      ? '${lang.deliveryAtLabel} ${deliveryTime!.format(context)}'
+                      : lang.selectDeliveryTime,
                   style: TextStyle(
                       fontSize: 14,
                       color: deliveryTime != null
@@ -1737,11 +1735,11 @@ class _DeliveryPinStep extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.divider)),
           child: Column(children: [
-            _summaryRow(Icons.person_outline_rounded, 'Recipient', name),
+            _summaryRow(Icons.person_outline_rounded, lang.recipientLabel, name),
             const SizedBox(height: 8),
-            _summaryRow(Icons.phone_outlined, 'Phone', phone),
+            _summaryRow(Icons.phone_outlined, lang.phoneLabel, phone),
             const SizedBox(height: 8),
-            _summaryRow(Icons.inventory_2_outlined, 'Product', productName),
+            _summaryRow(Icons.inventory_2_outlined, lang.productLabel, productName),
           ]),
         ),
         const SizedBox(height: 20),
@@ -1753,7 +1751,7 @@ class _DeliveryPinStep extends StatelessWidget {
           maxLength: 4,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
-            labelText: '4-digit PIN',
+            labelText: lang.pin4Label,
             prefixIcon: const Icon(Icons.lock_outline_rounded),
             counterText: '',
             errorText: pinError,
@@ -1844,24 +1842,9 @@ class ReceiptView extends StatelessWidget {
     return 'RCP-${rand.nextInt(900000) + 100000}';
   }
 
-  String _monthName(int m) => [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ][m - 1];
-
-  String get _today {
+  String _today(LanguageService lang) {
     final d = DateTime.now();
-    return '${d.day} ${_monthName(d.month)} ${d.year}';
+    return '${d.day} ${lang.monthAbbr(d.month)} ${d.year}';
   }
 
   @override
@@ -1914,11 +1897,7 @@ class ReceiptView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      detailedFees
-                          ? 'Your details have been received!'
-                          : (lang.isFrench
-                              ? 'Vos informations ont été reçues !'
-                              : 'Your details have been received!'),
+                      lang.detailsReceived,
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -1926,11 +1905,7 @@ class ReceiptView extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      detailedFees
-                          ? 'Thank you! Your delivery request is confirmed. You will receive your product shortly.'
-                          : (lang.isFrench
-                              ? 'Merci ! Votre demande de livraison est confirmée. Vous recevrez votre produit sous peu.'
-                              : 'Thank you! Your delivery request is confirmed. You will receive your product shortly.'),
+                      lang.deliveryConfirmedThanks,
                       style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -1973,17 +1948,17 @@ class ReceiptView extends StatelessWidget {
               border: Border.all(color: AppColors.divider)),
           child: Column(children: [
             if (detailedFees)
-              _section('CUSTOMER DETAILS', [
-                _rRow('Full Name', name),
-                _rRow('Phone', phone),
+              _section(lang.customerDetails, [
+                _rRow(lang.fullNameField, name),
+                _rRow(lang.phoneLabel, phone),
                 _rRow('Profession', profession),
-                _rRow('ID Front',
-                    idFrontPhoto != null ? '✓ Photo captured' : 'Not provided'),
-                _rRow('ID Back',
-                    idBackPhoto != null ? '✓ Photo captured' : 'Not provided'),
-                _rRow('Neighbourhood', neighbourhood),
-                _rRow('City', city),
-                _rRow('Delivery Time',
+                _rRow(lang.idFrontLabel,
+                    idFrontPhoto != null ? lang.photoCaptured : lang.notProvided),
+                _rRow(lang.idBackLabel,
+                    idBackPhoto != null ? lang.photoCaptured : lang.notProvided),
+                _rRow(lang.neighbourhoodLabel, neighbourhood),
+                _rRow(lang.cityLabel, city),
+                _rRow(lang.deliveryTimeLabel,
                     deliveryTime != null ? deliveryTime!.format(context) : '—'),
               ])
             else
@@ -2024,11 +1999,11 @@ class ReceiptView extends StatelessWidget {
                   ]),
             const Divider(height: 1, color: AppColors.divider),
             if (detailedFees)
-              _section('ORDER DETAILS', [
-                _rRow('Order #', order.orderNumber),
-                _rRow('Product', order.product.name),
-                _rRow('Category', order.product.category),
-                _rRow('Request Date', _today),
+              _section(lang.orderDetailsCaps, [
+                _rRow(lang.orderNumberShort, order.orderNumber),
+                _rRow(lang.productLabel, order.product.name),
+                _rRow(lang.categoryLabel, order.product.category),
+                _rRow(lang.requestDate, _today(lang)),
               ])
             else
               _section(lang.isFrench ? 'DÉTAILS COMMANDE' : 'ORDER DETAILS', [
@@ -2037,16 +2012,16 @@ class ReceiptView extends StatelessWidget {
                 _rRow(lang.isFrench ? 'Produit' : 'Product', order.product.name),
                 _rRow(lang.isFrench ? 'Catégorie' : 'Category',
                     order.product.category),
-                _rRow(lang.isFrench ? 'Date demande' : 'Request Date', _today),
+                _rRow(lang.requestDate, _today(lang)),
               ]),
             const Divider(height: 1, color: AppColors.divider),
             if (detailedFees)
-              _section('PRICING BREAKDOWN', [
-                _rRow('Base Price', fmtAmount(order.basePrice)),
+              _section(lang.pricingBreakdown, [
+                _rRow(lang.basePrice, fmtAmount(order.basePrice)),
                 if (order.accountCreationFee > 0)
-                  _rRow('Account Creation Fee',
+                  _rRow(lang.accountCreationFee,
                       '+ ${fmtAmount(order.accountCreationFee)}'),
-                _rRow('Delivery Fee', '+ ${fmtAmount(order.deliveryFee)}'),
+                _rRow(lang.deliveryFeeLabel, '+ ${fmtAmount(order.deliveryFee)}'),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
@@ -2054,7 +2029,7 @@ class ReceiptView extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text('Collection Fee',
+                          Text(lang.pickUpFee,
                               style: TextStyle(
                                   fontSize: 13, color: AppColors.textSecondary)),
                           const SizedBox(width: 8),
@@ -2085,15 +2060,15 @@ class ReceiptView extends StatelessWidget {
                     ],
                   ),
                 ),
-                _rRow('Stocking Fee', '+ ${fmtAmount(order.stockingFee)}'),
+                _rRow(lang.stockingFee, '+ ${fmtAmount(order.stockingFee)}'),
                 const Divider(height: 12, color: AppColors.divider),
-                _rRow('Total Fees', fmtAmount(order.totalFees)),
-                _rRow('Payment Plan', order.planDurationLabel),
-                _rRow('Frequency', order.paymentFrequency),
-                _rRow('Contributions Made',
+                _rRow(lang.totalFees, fmtAmount(order.totalFees)),
+                _rRow(lang.paymentPlan, order.planDurationLabel),
+                _rRow(lang.frequencyLabel, order.paymentFrequency),
+                _rRow(lang.contributionsMade,
                     '${order.paidInstallments.length}/${order.totalInstallments}'),
-                _rRow('Accumulated Funds', fmtAmount(order.accumulatedFunds)),
-                if (remaining > 0) _rRow('Remaining', fmtAmount(remaining)),
+                _rRow(lang.accumulatedFunds, fmtAmount(order.accumulatedFunds)),
+                if (remaining > 0) _rRow(lang.remainingLabel, fmtAmount(remaining)),
               ])
             else
               _section(
@@ -2252,13 +2227,11 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
   Future<void> _confirmTransfer() async {
     final lang = LanguageProvider.of(context);
     if (_pinCtrl.text.trim().isEmpty) {
-      setState(() => _pinError = lang.isFrench
-          ? 'Veuillez entrer votre PIN.'
-          : 'Please enter your PIN.');
+      setState(() => _pinError = lang.enterPinRequired);
       return;
     }
     if (widget.sourceOrder.id == null) {
-      setState(() => _pinError = 'Order is not linked to a backend purchase.');
+      setState(() => _pinError = lang.orderNotLinked);
       return;
     }
     setState(() {
@@ -2272,9 +2245,7 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
     if (!pinValid) {
       if (mounted) {
         setState(() {
-          _pinError = lang.isFrench
-              ? 'PIN incorrect. Veuillez réessayer.'
-              : 'Incorrect PIN. Please try again.';
+          _pinError = lang.incorrectPinFull;
           _busy = false;
         });
       }
@@ -2298,16 +2269,14 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
     } on ApiException catch (e) {
       if (mounted) {
         setState(() {
-          _pinError = e.message;
+          _pinError = lang.apiError(e);
           _busy = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _pinError = lang.isFrench
-              ? 'Échec du transfert. Réessayez.'
-              : 'Transfer failed. Please try again.';
+          _pinError = lang.transferFailedRetry;
           _busy = false;
         });
       }
@@ -2429,7 +2398,7 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFFFFB74D)),
                 ),
-                child: const Row(
+                child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.info_outline_rounded,
@@ -2437,7 +2406,7 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
                       SizedBox(width: 10),
                       Expanded(
                           child: Text(
-                        'No payments made yet. Make at least one instalment before transferring.',
+                        lang.noPaymentsMadeYet,
                         style: TextStyle(
                             fontSize: 13,
                             color: Color(0xFFF57C00),
@@ -2451,8 +2420,8 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
                 keyboardType: TextInputType.phone,
                 maxLength: 15,
                 decoration: InputDecoration(
-                  labelText: 'Recipient phone number',
-                  hintText: 'e.g. 655000001',
+                  labelText: lang.recipientPhoneLabel,
+                  hintText: lang.hintPhoneNum,
                   prefixIcon: const Icon(Icons.phone_outlined),
                   counterText: '',
                   errorText: _phoneError,
@@ -2504,8 +2473,7 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
                                     color: Color(0xFFB71C1C))),
                             SizedBox(height: 4),
                             Text(
-                              'This number does not have a verified WatSim account. '
-                              'Check the number or ask the recipient to register on WatSim.',
+                              lang.noWatsimAccountBody,
                               style: TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFFE53935),
@@ -2536,12 +2504,12 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
                               .replaceAll(RegExp(r'[\s\-]'), '');
                           if (phone.isEmpty) {
                             setState(() =>
-                                _phoneError = 'Please enter a phone number.');
+                                _phoneError = lang.enterPhoneRequired);
                             return;
                           }
                           if (phone.length < 8) {
                             setState(() =>
-                                _phoneError = 'Enter a valid phone number.');
+                                _phoneError = lang.enterValidPhone);
                             return;
                           }
                           setState(() => _isVerifying = true);
@@ -2596,8 +2564,8 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
                     color: AppColors.textPrimary)),
             const SizedBox(height: 6),
             Text(
-              'Enter your 4-digit PIN to send ${fmtAmount(_netAmount)} '
-              'to ${_phoneCtrl.text.trim()}.',
+              lang.pinToSendAmount(
+                  fmtAmount(_netAmount), _phoneCtrl.text.trim()),
               style: const TextStyle(
                   fontSize: 13, color: AppColors.textSecondary, height: 1.4),
             ),
@@ -2696,7 +2664,7 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
               obscureText: true,
               maxLength: 4,
               decoration: InputDecoration(
-                labelText: '4-digit PIN',
+                labelText: lang.pin4Label,
                 prefixIcon: const Icon(Icons.lock_outline_rounded),
                 counterText: '',
                 errorText: _pinError,
@@ -2709,9 +2677,7 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
             ),
             const SizedBox(height: 6),
             Text(
-              lang.isFrench
-                  ? 'Votre PIN de connexion est requis.'
-                  : 'Your login PIN is required.',
+              lang.loginPinRequired,
               style: const TextStyle(
                   fontSize: 11,
                   color: AppColors.textMuted,
@@ -2790,8 +2756,8 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
                     color: AppColors.textPrimary)),
             const SizedBox(height: 8),
             Text(
-              '${fmtAmount(_netAmount)} has been sent to\n'
-              '${_phoneCtrl.text.trim()}\'s WatSim wallet.',
+              lang.sentToWallet(
+                  fmtAmount(_netAmount), _phoneCtrl.text.trim()),
               textAlign: TextAlign.center,
               style: const TextStyle(
                   fontSize: 14, color: AppColors.textSecondary, height: 1.5),
@@ -2810,8 +2776,7 @@ class _WatSimTransferSheetState extends State<WatSimTransferSheet> {
                 const SizedBox(width: 10),
                 Flexible(
                     child: Text(
-                  '20% service fee of ${fmtAmount(_deduction)} was deducted '
-                  'from your accumulated funds.',
+                  lang.feeDeducted20(fmtAmount(_deduction)),
                   style: const TextStyle(
                       fontSize: 12, color: Color(0xFFF57C00), height: 1.4),
                 )),
@@ -2883,13 +2848,11 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
   Future<void> _confirm() async {
     final lang = LanguageProvider.of(context);
     if (_pinCtrl.text.trim().isEmpty) {
-      setState(() => _pinError = lang.isFrench
-          ? 'Veuillez entrer votre PIN.'
-          : 'Please enter your PIN.');
+      setState(() => _pinError = lang.enterPinRequired);
       return;
     }
     if (widget.order.id == null) {
-      setState(() => _pinError = 'Order is not linked to a backend purchase.');
+      setState(() => _pinError = lang.orderNotLinked);
       return;
     }
     setState(() {
@@ -2903,9 +2866,7 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
     if (!pinValid) {
       if (mounted) {
         setState(() {
-          _pinError = lang.isFrench
-              ? 'PIN incorrect. Veuillez réessayer.'
-              : 'Incorrect PIN. Please try again.';
+          _pinError = lang.incorrectPinFull;
           _busy = false;
         });
       }
@@ -2920,23 +2881,22 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
       OrderState.instance.removeOrder(widget.order.orderNumber);
       final net = (result['refund'] as num?)?.toInt() ?? _netAmount;
       NotificationState.instance.addGenericNotification(
-        'Withdrawal Processed',
-        '${fmtAmount(net)} credited to your wallet after 30% charge (${fmtAmount(_charge)}) on ${widget.order.product.name}.',
+        lang.notifWithdrawalProcessed,
+        lang.withdrawalProcessedBody(fmtAmount(net), fmtAmount(_charge),
+            widget.order.product.name),
       );
       if (mounted) setState(() => _done = true);
     } on ApiException catch (e) {
       if (mounted) {
         setState(() {
-          _pinError = e.message;
+          _pinError = lang.apiError(e);
           _busy = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _pinError = lang.isFrench
-              ? 'Échec du retrait. Réessayez.'
-              : 'Withdrawal failed. Please try again.';
+          _pinError = lang.withdrawFailedRetry;
           _busy = false;
         });
       }
@@ -2990,7 +2950,7 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                           color: AppColors.textPrimary)),
                   const SizedBox(height: 8),
                   Text(
-                    '${fmtAmount(_netAmount)} has been added to your wallet.',
+                    lang.amountAddedToWallet(fmtAmount(_netAmount)),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         fontSize: 14,
@@ -2998,7 +2958,7 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                         height: 1.5),
                   ),
                   const SizedBox(height: 8),
-                  Text('New balance: ${WalletState.instance.balanceFormatted}',
+                  Text('${lang.newBalanceLabel}: ${WalletState.instance.balanceFormatted}',
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -3021,8 +2981,8 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
               const SizedBox(height: 6),
               Text(
                 lang.isFrench
-                    ? 'Entrez votre PIN de connexion à 4 chiffres pour confirmer le retrait.'
-                    : 'Enter your 4-digit login PIN to confirm the withdrawal.',
+                    ? 'Entrez votre PIN à 4 chiffres pour confirmer le retrait.'
+                    : 'Enter your 4-digit PIN to confirm the withdrawal.',
                 style: const TextStyle(
                     fontSize: 13, color: AppColors.textSecondary, height: 1.4),
               ),
@@ -3034,13 +2994,13 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.divider)),
                 child: Column(children: [
-                  _summaryRow('Accumulated', fmtAmount(_accumulated),
+                  _summaryRow(lang.accumulated, fmtAmount(_accumulated),
                       color: AppColors.textPrimary),
                   const SizedBox(height: 8),
-                  _summaryRow('30% Charge', '- ${fmtAmount(_charge)}',
+                  _summaryRow(lang.charge30Label, '- ${fmtAmount(_charge)}',
                       color: const Color(0xFFF57C00)),
                   const Divider(height: 16),
-                  _summaryRow('You Receive', fmtAmount(_netAmount),
+                  _summaryRow(lang.youReceive, fmtAmount(_netAmount),
                       color: AppColors.primaryGreen, bold: true),
                 ]),
               ),
@@ -3052,7 +3012,7 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                 maxLength: 4,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                    labelText: '4-digit PIN',
+                    labelText: lang.pin4Label,
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     counterText: '',
                     errorText: _pinError),
@@ -3062,9 +3022,7 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
               ),
               const SizedBox(height: 6),
               Text(
-                lang.isFrench
-                    ? 'Votre PIN de connexion est requis.'
-                    : 'Your login PIN is required.',
+                lang.loginPinRequired,
                 style: const TextStyle(
                     fontSize: 11,
                     color: AppColors.textMuted,
@@ -3115,8 +3073,8 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary)),
               const SizedBox(height: 6),
-              const Text(
-                  'Withdraw the money accumulated on this product. A 30% processing charge applies.',
+              Text(
+                  lang.withdrawProductBody,
                   style: TextStyle(
                       fontSize: 13,
                       color: AppColors.textSecondary,
@@ -3137,9 +3095,9 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                       const Icon(Icons.warning_amber_rounded,
                           color: Color(0xFFF57C00), size: 20),
                       const SizedBox(width: 10),
-                      const Expanded(
+                      Expanded(
                           child: Text(
-                        '30% of accumulated funds will be deducted as a processing charge.',
+                        lang.charge30Warning,
                         style: TextStyle(
                             fontSize: 13,
                             color: Color(0xFFF57C00),
@@ -3157,17 +3115,17 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppColors.divider)),
                 child: Column(children: [
-                  _summaryRow('Instalments Paid',
+                  _summaryRow(lang.instalmentsCount,
                       '${widget.order.paidInstallments.length}/${widget.order.totalInstallments}',
                       color: AppColors.textSecondary),
                   const SizedBox(height: 10),
-                  _summaryRow('Accumulated Amount', fmtAmount(_accumulated),
+                  _summaryRow(lang.accumulatedAmount, fmtAmount(_accumulated),
                       color: AppColors.textPrimary),
                   const SizedBox(height: 10),
-                  _summaryRow('30% Processing Charge', '− ${fmtAmount(_charge)}',
+                  _summaryRow(lang.processingCharge30, '− ${fmtAmount(_charge)}',
                       color: const Color(0xFFF57C00)),
                   const Divider(height: 20),
-                  _summaryRow('Amount You Receive', fmtAmount(_netAmount),
+                  _summaryRow(lang.amountYouReceive, fmtAmount(_netAmount),
                       color: AppColors.primaryGreen, bold: true, large: true),
                 ]),
               ),
@@ -3193,13 +3151,13 @@ class _WithdrawSheetState extends State<WithdrawSheet> {
                       border: Border.all(color: const Color(0xFFFFB74D))),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Icon(Icons.info_outline_rounded,
                           color: Color(0xFFF57C00), size: 20),
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'No payments have been made yet. Make at least one instalment to enable withdrawal.',
+                          lang.noPaymentsWithdraw,
                           style: TextStyle(
                               fontSize: 13,
                               color: Color(0xFFF57C00),

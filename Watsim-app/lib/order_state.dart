@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'screens/catalogue_screen.dart';
 import 'services/api_service.dart';
+import 'services/language_service.dart';
 
 class ConfirmedOrder {
   /// Backend BNPL purchase id (null for demo/offline orders).
@@ -214,24 +215,27 @@ class ConfirmedOrder {
 
   /// Human-readable label for one payment period.
   String get frequencyPeriodLabel {
-    if (paymentFrequency == 'Daily') return 'day';
-    if (paymentFrequency == 'Weekly') return 'week';
-    return 'month';
+    final lang = LanguageService();
+    if (paymentFrequency == 'Daily') return lang.dayWord;
+    if (paymentFrequency == 'Weekly') return lang.weekWord;
+    return lang.monthWord;
   }
 
   /// Suffix used in amount labels, e.g. "/day", "/week", "/month".
   String get frequencySuffix {
-    if (paymentFrequency == 'Daily') return '/day';
-    if (paymentFrequency == 'Weekly') return '/week';
-    return '/month';
+    final lang = LanguageService();
+    if (paymentFrequency == 'Daily') return lang.perDay;
+    if (paymentFrequency == 'Weekly') return lang.perWeek;
+    return lang.perMonthLabel;
   }
 
   /// Human-readable plan duration label.
   /// Daily in 3 months → "90 days", Weekly → "12 weeks", Monthly → "3 months".
   String get planDurationLabel {
-    if (paymentFrequency == 'Daily') return '${months * 30} days';
-    if (paymentFrequency == 'Weekly') return '${months * 4} weeks';
-    return '$months month${months > 1 ? 's' : ''}';
+    final lang = LanguageService();
+    if (paymentFrequency == 'Daily') return lang.durationDays(months * 30);
+    if (paymentFrequency == 'Weekly') return lang.durationWeeks(months * 4);
+    return lang.durationMonths(months);
   }
 
   // ── Index tracking (always on totalInstallments scale) ──────────────────
@@ -269,7 +273,7 @@ class ConfirmedOrder {
   /// e.g. "Instalment 2/90" for daily, "2/12" weekly, "2/3" monthly.
   String get installmentLabel {
     final current = currentInstallmentIndex + 1;
-    return 'Instalment $current/$totalInstallments';
+    return LanguageService().instalmentCount(current, totalInstallments);
   }
 
   /// Due date for a given installment index.
@@ -309,50 +313,25 @@ class ConfirmedOrder {
   /// Human-readable label for the next payment due date.
   /// e.g. "Next payment: 15 Jun" or "Next payment: Today"
   String get nextPaymentLabel {
-    if (isFullyPaid) return 'All paid ✓';
+    final lang = LanguageService();
+    if (isFullyPaid) return lang.allPaidCheck;
     final due = nextDue;
     final today = DateTime.now();
     final isToday = due.year == today.year &&
         due.month == today.month &&
         due.day == today.day;
-    if (isToday) return 'Next payment: Today';
-    const monthNames = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
-    return 'Next payment: ${due.day} ${monthNames[due.month - 1]}';
+    if (isToday) return lang.nextPaymentToday;
+    return lang.nextPaymentOn('${due.day} ${lang.monthAbbr(due.month)}');
   }
 
   /// Human-readable label for the contribution end date.
   /// e.g. "Ends 15 Jun 2026" or "Completed ✓"
   String get contributionEndLabel {
-    if (isFullyPaid) return 'Completed ✓';
-    const monthNames = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
+    final lang = LanguageService();
+    if (isFullyPaid) return lang.completedCheck;
     final end = installmentDueDate(totalInstallments - 1);
-    return 'Ends ${end.day} ${monthNames[end.month - 1]} ${end.year}';
+    return lang.endsOnDate(
+        '${end.day} ${lang.monthAbbr(end.month)} ${end.year}');
   }
 }
 
@@ -464,13 +443,15 @@ class OrderState extends ChangeNotifier {
           merchantId:
               (p['merchant'] as Map<String, dynamic>?)?['id'] as String? ??
                   p['merchantId'] as String?,
-          name: product['name'] as String? ?? 'Unknown Product',
+          name: product['name'] as String? ??
+              LanguageService().unknownProduct,
           price: '${_formatPrice(price)} FCFA',
-          monthlyPrice: '${_formatPrice(instalmentAmount)} FCFA/month',
+          monthlyPrice:
+              '${_formatPrice(instalmentAmount)} FCFA${LanguageService().perMonthLabel}',
           icon: Icons.shopping_bag_rounded,
           category: (product['category'] as Map<String, dynamic>?)?['name']
                   as String? ??
-              'General',
+              LanguageService().generalCategory,
           cashback: 0,
           color: const Color(0xFF014945),
           imageUrl: product['imageUrl'] as String? ?? '',

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'services/api_service.dart';
+import 'services/language_service.dart';
 
 // Attachment Types
 enum AttachmentType { image, audio, file }
@@ -94,15 +96,16 @@ class Conversation {
     final dt = messages.last.timestamp;
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    final lang = LanguageService();
+    if (diff.inMinutes < 1) return lang.justNow;
+    if (diff.inMinutes < 60) return lang.minutesAgoFmt(diff.inMinutes);
     if (diff.inHours < 24) {
       final h = dt.hour.toString().padLeft(2, '0');
       final m = dt.minute.toString().padLeft(2, '0');
       return '$h:$m';
     }
-    if (diff.inDays == 1) return 'Yesterday';
-    return '${diff.inDays}d ago';
+    if (diff.inDays == 1) return lang.yesterday;
+    return lang.daysAgoFmt(diff.inDays);
   }
 }
 
@@ -275,14 +278,27 @@ class NotificationState extends ChangeNotifier {
       _conversations.fold(0, (sum, c) => sum + c.unreadCount);
 
   void addMessageToConversation(String convId, AppMessage msg) {
-    final conv = getConversation(convId);
-    if (conv != null) {
-      conv.messages.add(msg);
-      if (!msg.isMe && activeConversationId != convId) {
-        conv.unreadCount++;
-      }
-      notifyListeners();
+    var conv = getConversation(convId);
+    if (conv == null) {
+      // Unknown conversation (e.g. someone started a new chat with us):
+      // create a placeholder so the message isn't dropped, then refresh
+      // the list from the backend to fill in title/participants.
+      conv = Conversation(
+        id: convId,
+        name: LanguageService().chatFallback,
+        iconCodePoint: 0xe7fd,
+        iconColor: 0xFF1A5F7A,
+        isSystem: false,
+        messages: [],
+      );
+      _conversations.add(conv);
+      _scheduleConversationSync();
     }
+    conv.messages.add(msg);
+    if (!msg.isMe && activeConversationId != convId) {
+      conv.unreadCount++;
+    }
+    notifyListeners();
   }
 
   void markConversationRead(String convId) {
@@ -342,13 +358,92 @@ class NotificationState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Timer? _conversationSyncTimer;
+
+  /// Debounced refresh of the conversation list — used when a socket event
+  /// references a conversation we don't know about yet.
+  void _scheduleConversationSync() {
+    if (_conversationSyncTimer?.isActive ?? false) return;
+    _conversationSyncTimer =
+        Timer(const Duration(seconds: 2), refreshConversations);
+  }
+
+  /// Fetch conversations from the backend and merge them into state.
+  Future<void> refreshConversations() async {
+    try {
+      final currentUser = await AuthService.currentUser;
+      final currentUserId = currentUser?['id'] as String?;
+      final raw = await ApiService.fetchConversations();
+      final mapped = raw
+          .map((e) => _mapRawConversation(e, currentUserId))
+          .where((c) => c.id.isNotEmpty)
+          .toList();
+      syncConversations(mapped);
+    } catch (_) {}
+  }
+
+  Conversation _mapRawConversation(dynamic e, String? currentUserId) {
+    final id = (e['id'] ?? e['conversationId'] ?? '').toString();
+    final title = (e['title'] ?? e['name'] ?? id).toString();
+    final unread = (e['unreadCount'] ?? e['unread'] ?? 0);
+    final last = e['lastMessage'] as Map<String, dynamic>?;
+    final List<AppMessage> messages = [];
+    if (last != null) {
+      final tsRaw = last['createdAt'] ?? last['created_at'];
+      DateTime ts;
+      if (tsRaw is String) {
+        ts = DateTime.tryParse(tsRaw) ?? DateTime.now();
+      } else if (tsRaw is int) {
+        ts = DateTime.fromMillisecondsSinceEpoch(tsRaw);
+      } else {
+        ts = DateTime.now();
+      }
+      final senderMap = last['sender'] as Map<String, dynamic>?;
+      final senderId =
+          (senderMap?['id'] ?? last['senderId'] ?? last['fromId'] ?? '')
+              .toString();
+      messages.add(AppMessage(
+        id: last['id']?.toString() ?? '${id}_last',
+        conversationId: id,
+        senderId: senderId.isNotEmpty ? senderId : null,
+        text: (last['text'] ?? last['body'] ?? '').toString(),
+        isMe: senderId.isNotEmpty && senderId == currentUserId,
+        timestamp: ts,
+        status: (last['status'] as String?) ?? 'SENT',
+      ));
+    }
+    final isSupport = title.toLowerCase().contains('watsim support');
+    return Conversation(
+      id: id,
+      name: title,
+      iconCodePoint: (e['iconCodePoint'] ?? 0xe7fd) as int,
+      iconColor: (e['iconColor'] ?? 0xFF1A5F7A) as int,
+      isSystem: isSupport || (e['isSystem'] ?? false) as bool,
+      messages: messages,
+      unreadCount: unread is num ? unread.toInt() : 0,
+    );
+  }
+
   void updateConversation(dynamic conversation) {
     final convData = conversation as Map<String, dynamic>?;
     if (convData == null) return;
     final id = convData['id']?.toString();
     if (id == null || id.isEmpty) return;
-    final conv = getConversation(id);
-    if (conv == null) return;
+    var conv = getConversation(id);
+    if (conv == null) {
+      // New conversation pushed over the socket — insert it rather than
+      // dropping the update.
+      conv = Conversation(
+        id: id,
+        name: convData['title']?.toString() ?? LanguageService().chatFallback,
+        iconCodePoint:
+            (convData['iconCodePoint'] ?? 0xe7fd) as int,
+        iconColor: (convData['iconColor'] ?? 0xFF1A5F7A) as int,
+        isSystem: (convData['isSystem'] ?? false) as bool,
+        messages: [],
+      );
+      _conversations.add(conv);
+    }
     final unread = convData['unreadCount'] ?? convData['unread'];
     if (unread is num) conv.unreadCount = unread.toInt();
     final last = convData['lastMessage'] as Map<String, dynamic>?;

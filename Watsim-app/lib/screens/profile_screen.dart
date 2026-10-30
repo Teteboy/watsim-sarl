@@ -94,8 +94,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       NotificationState.instance.onProfileUpdated(updatedUser);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile picture updated successfully'),
+        SnackBar(
+          content: Text(LanguageService().profilePicUpdated),
           backgroundColor: AppColors.primaryGreen,
         ),
       );
@@ -104,7 +104,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Navigator.pop(context); // Close loading dialog if open
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to upload image: $e'),
+          content: Text(LanguageService().uploadImageFailed(
+              e is ApiException ? e.message : e.toString())),
           backgroundColor: Colors.red,
         ),
       );
@@ -236,7 +237,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             Text(
                               _user?['kycStatus'] == 'VERIFIED'
                                   ? lang.identityVerified
-                                  : (_user?['kycStatus'] ?? 'KYC Pending'),
+                                  : (_user?['kycStatus']?.toString() ??
+                                      lang.kycPendingLabel),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -693,7 +695,8 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update profile: $e'),
+            content: Text(LanguageService().updateProfileFailed(
+                e is ApiException ? LanguageService().apiError(e) : '$e')),
             backgroundColor: Colors.red,
           ),
         );
@@ -724,8 +727,8 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
           _loading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile picture updated successfully'),
+          SnackBar(
+            content: Text(LanguageService().profilePicUpdated),
             backgroundColor: AppColors.primaryGreen,
           ),
         );
@@ -735,7 +738,8 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to upload image: $e'),
+            content: Text(LanguageService().uploadImageFailed(
+                e is ApiException ? e.message : e.toString())),
             backgroundColor: Colors.red,
           ),
         );

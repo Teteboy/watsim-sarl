@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../services/language_service.dart';
 
 /// Reusable PIN confirmation dialog for sensitive operations
 /// (transfers, withdrawals, etc.)
@@ -35,9 +36,10 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
   }
 
   Future<void> _verify() async {
+    final lang = LanguageProvider.of(context);
     final pin = _pinCtrl.text.trim();
     if (pin.isEmpty || pin.length < 4) {
-      setState(() => _error = 'Veuillez entrer votre PIN (4 chiffres)');
+      setState(() => _error = lang.enterPinError);
       return;
     }
     setState(() {
@@ -52,7 +54,7 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
       if (!mounted) return;
       setState(() {
         _verifying = false;
-        _error = e is ApiException ? e.message : 'Vérification impossible. Veuillez réessayer.';
+        _error = e is ApiException ? lang.apiError(e) : lang.verifyFailed;
       });
       return;
     }
@@ -64,7 +66,7 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
     } else {
       setState(() {
         _verifying = false;
-        _error = 'PIN incorrect. Veuillez réessayer.';
+        _error = lang.incorrectPinFull;
         _pinCtrl.clear();
       });
     }
@@ -72,6 +74,7 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = LanguageProvider.of(context);
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
@@ -88,7 +91,7 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              widget.title ?? 'Confirmer avec PIN',
+              widget.title ?? lang.pinDialogTitle,
               style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
@@ -101,9 +104,9 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Entrez votre code PIN pour confirmer cette opération.',
-            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          Text(
+            lang.pinDialogBody,
+            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -151,7 +154,7 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
       actions: [
         TextButton(
           onPressed: _verifying ? null : () => Navigator.of(context).pop(false),
-          child: Text('Annuler',
+          child: Text(lang.cancel,
               style: TextStyle(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w500)),
@@ -171,7 +174,7 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
                   height: 18,
                   child: CircularProgressIndicator(
                       color: Colors.white, strokeWidth: 2))
-              : const Text('Confirmer',
+              : Text(lang.confirm,
                   style: TextStyle(fontWeight: FontWeight.w600)),
         ),
       ],

@@ -673,7 +673,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       // ApiException already includes the backend message/raw body (see ApiService._decode)
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message), backgroundColor: AppColors.error),
+        SnackBar(
+            content: Text(LanguageService().apiError(e)),
+            backgroundColor: AppColors.error),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1041,7 +1043,7 @@ class _FingerprintScanSheetState extends State<_FingerprintScanSheet>
 
     // Perform actual biometric authentication
     final authenticated = await BiometricService.authenticate(
-      localizedReason: 'Authenticate to access your WATSIM account',
+      localizedReason: LanguageService().biometricAuthReason,
     );
 
     if (!mounted) return;

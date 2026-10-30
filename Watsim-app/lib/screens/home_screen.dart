@@ -125,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           final catMap = p['category'] as Map<String, dynamic>?;
           final catName = catMap?['name']?.toString() ??
               p['category']?.toString() ??
-              'General';
+              LanguageService().generalCategory;
 
           // Parse gallery images from backend
           final List<String> galleryUrls = [];
@@ -467,8 +467,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                             ?.toString()
                                             .toLowerCase() ==
                                         'pending'
-                                    ? 'Pending'
-                                    : 'Unverified'),
+                                    ? lang.pendingLabel
+                                    : lang.unverified),
                             style: TextStyle(
                                 color: _profile?['kycStatus'] == 'VERIFIED'
                                     ? AppColors.primaryGreen
@@ -525,9 +525,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
                     final qualityLabel = () {
                       if (creditScore >= 800) return lang.excellent;
-                      if (creditScore >= 650) return 'GOOD';
-                      if (creditScore >= 500) return 'FAIR';
-                      if (creditScore > 0) return 'LOW';
+                      if (creditScore >= 650) return lang.scoreGood;
+                      if (creditScore >= 500) return lang.scoreFair;
+                      if (creditScore > 0) return lang.scoreLow;
                       return '—';
                     }();
 
@@ -725,9 +725,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         color: AppColors.textMuted,
                       ),
                       const SizedBox(height: 6),
-                      const Flexible(
+                      Flexible(
                         child: Text(
-                          'Les publicités en vedette apparaîtront ici',
+                          lang.featuredAdsHere,
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
@@ -741,7 +741,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       TextButton.icon(
                         onPressed: () => MainShell.switchToTab(context, 1),
                         icon: const Icon(Icons.explore, size: 16),
-                        label: const Text('Parcourir le catalogue'),
+                        label: Text(lang.browseCatalogue),
                       ),
                     ],
                   ),
@@ -810,7 +810,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     children: [
                                       Text(
                                           item.price.isEmpty
-                                              ? 'PUBLICITÉ'
+                                              ? lang.adLabel
                                               : lang.buyNow,
                                           style: TextStyle(
                                               color: item.price.isEmpty
@@ -845,7 +845,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                     .withOpacity(0.7),
                                                 fontSize: 11)),
                                       ] else if (item.monthly.isNotEmpty) ...[
-                                        Text('par ${item.monthly}',
+                                        Text('${lang.perLabel} ${item.monthly}',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
@@ -864,7 +864,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                 BorderRadius.circular(7)),
                                         child: Text(
                                             item.price.isEmpty
-                                                ? 'Voir l\'offre'
+                                                ? lang.viewOffer
                                                 : lang.explore,
                                             style: const TextStyle(
                                                 color: Colors.white,
@@ -1047,7 +1047,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'No exclusive offers available',
+                        lang.noOffers,
                         style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 14,
@@ -1055,7 +1055,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Check back later for special deals',
+                        lang.checkBackDeals,
                         style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 12,
@@ -1194,8 +1194,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 color: const Color(0xFFFFF3E0),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text(
-                'ONGOING',
+              child: Text(
+                lang.ongoing,
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -1446,7 +1446,9 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
         _showSuccess(lang.homeTransferSuccess(
             amount.toString(), result['recipientName'] ?? identifier));
       } else {
-        _showError(result['message'] ?? 'Transfer failed');
+        _showError(result['message'] != null
+            ? lang.translateApiMessage(result['message'].toString())
+            : lang.errorTransferFailed);
       }
     } catch (e) {
       if (mounted) _showError(lang.errorTransferFailed);
@@ -1465,7 +1467,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: Text(lang.okLabel),
           ),
         ],
       ),
@@ -1473,6 +1475,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
   }
 
   void _showSuccess(String message) {
+    final lang = LanguageService();
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -1488,7 +1491,7 @@ class _TransferBottomSheetState extends State<_TransferBottomSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: Text(lang.okLabel),
           ),
         ],
       ),

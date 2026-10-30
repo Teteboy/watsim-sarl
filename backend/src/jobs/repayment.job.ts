@@ -17,7 +17,10 @@ export async function processRepaymentJob(): Promise<{ overdueMarked: number; au
   for (const inst of dueOverdue) {
     await prisma.instalment.updateMany({ where: { id: inst.id, status: { in: ['DUE', 'PARTIALLY_PAID'] } }, data: { status: 'OVERDUE' } });
     overdueMarked += 1;
-    await notifyUser(inst.purchase.userId, `Échéance en retard: ${inst.amount} XAF dû le ${inst.dueDate.toISOString().slice(0, 10)}`);
+    await notifyUser(inst.purchase.userId, 'instalment.overdue', {
+      amount: inst.amount,
+      date: inst.dueDate.toISOString().slice(0, 10),
+    });
 
     const wallet = inst.purchase.user.wallet;
     if (wallet) {

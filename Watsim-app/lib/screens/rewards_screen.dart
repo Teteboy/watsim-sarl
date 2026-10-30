@@ -57,7 +57,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               .map((h) => _CashbackEntry(
                     _getIconForType(h['type']),
                     _getColorForType(h['type']),
-                    h['title'] ?? 'Unknown',
+                    h['title'] ?? LanguageService().unknownTxLabel,
                     _formatDate(h['createdAt']),
                     '+${h['amount']} FCFA',
                     h['percentage'] ?? h['type'],
@@ -170,7 +170,8 @@ class _RewardsScreenState extends State<RewardsScreen> {
       if (!mounted) return;
 
       // Add to wallet state
-      WalletState.instance.topUp(_cashbackAmount, operator: 'Cashback Rewards');
+      WalletState.instance.topUp(_cashbackAmount,
+          operator: lang.cashbackRewardsOp);
 
       final int converted = _cashbackAmount;
 

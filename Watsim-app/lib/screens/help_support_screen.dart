@@ -422,7 +422,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                   final status = (ticket['status'] ?? 'OPEN').toString();
                   final priority = (ticket['priority'] ?? 'MEDIUM').toString();
                   final subject =
-                      (ticket['subject'] ?? 'No subject').toString();
+                      (ticket['subject'] ?? lang.noSubject).toString();
                   final createdAt = ticket['createdAt'] != null
                       ? DateTime.parse(ticket['createdAt'].toString())
                       : null;
@@ -469,7 +469,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
-                                  status,
+                                  lang.ticketStatusLabel(status),
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
@@ -490,7 +490,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                                 ),
                               ),
                               Text(
-                                priority,
+                                lang.ticketPriorityLabel(priority),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,

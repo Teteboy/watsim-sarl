@@ -62,7 +62,8 @@ class _ReferralScreenState extends State<ReferralScreen> {
 
         _referrals = (data['referrals'] as List?)
                 ?.map((r) => ReferralItem(
-                      name: r['referredName']?.toString() ?? 'Unknown',
+                      name: r['referredName']?.toString() ??
+                          LanguageService().unknownTxLabel,
                       status: r['status']?.toString() ?? 'PENDING',
                       firstReward:
                           (r['firstRewardAmount'] as num?)?.toInt() ?? 1000,
@@ -157,7 +158,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _editError = e.message;
+        _editError = lang.apiError(e);
         _isSaving = false;
       });
     } catch (e) {
@@ -827,10 +828,10 @@ class _ReferralScreenState extends State<ReferralScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                _step('1', 'Share your referral code with friends'),
-                _step('2', 'Friend signs up using your code'),
-                _step('3', 'You both earn 1000 FCFA on their first deposit'),
-                _step('4', 'You earn 0.6% when they complete a BNPL purchase'),
+                _step('1', lang.refStep1),
+                _step('2', lang.refStep2),
+                _step('3', lang.refStep3),
+                _step('4', lang.refStep4),
               ],
             ),
           ),
@@ -840,22 +841,23 @@ class _ReferralScreenState extends State<ReferralScreen> {
   }
 
   Widget _buildStatusChip(String status) {
+    final lang = LanguageService();
     Color color;
     String label;
 
     switch (status) {
       case 'COMPLETED':
         color = AppColors.primaryGreen;
-        label = 'Completed';
+        label = lang.tabCompleted;
         break;
       case 'FIRST_REWARDED':
         color = Colors.blue;
-        label = 'First Reward';
+        label = lang.firstReward;
         break;
       case 'PENDING':
       default:
         color = AppColors.warning;
-        label = 'Pending';
+        label = lang.pendingLabel;
     }
 
     return StatusChip(

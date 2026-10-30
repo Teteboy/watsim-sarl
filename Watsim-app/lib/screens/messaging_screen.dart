@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -55,56 +56,10 @@ class _MessagingScreenState extends State<MessagingScreen> {
   Future<void> _loadConversations() async {
     setState(() => _loading = true);
     try {
-      final currentUser = await AuthService.currentUser;
-      final currentUserId = currentUser?['id'] as String?;
-      final raw = await ApiService.fetchConversations();
-      final mapped = raw
-          .map((e) {
-            final id = (e['id'] ?? e['conversationId'] ?? '').toString();
-            final title = (e['title'] ?? e['name'] ?? id).toString();
-            final unread = (e['unreadCount'] ?? e['unread'] ?? 0);
-            final last = e['lastMessage'] as Map<String, dynamic>?;
-            final List<AppMessage> messages = [];
-            if (last != null) {
-              final tsRaw = last['createdAt'] ?? last['created_at'];
-              DateTime ts;
-              if (tsRaw is String) {
-                ts = DateTime.tryParse(tsRaw) ?? DateTime.now();
-              } else if (tsRaw is int) {
-                ts = DateTime.fromMillisecondsSinceEpoch(tsRaw);
-              } else {
-                ts = DateTime.now();
-              }
-              final senderMap = last['sender'] as Map<String, dynamic>?;
-              final senderId =
-                  (senderMap?['id'] ?? last['senderId'] ?? last['fromId'] ?? '')
-                      .toString();
-              messages.add(AppMessage(
-                id: last['id']?.toString() ?? '${id}_last',
-                conversationId: id,
-                senderId: senderId.isNotEmpty ? senderId : null,
-                text: (last['text'] ?? last['body'] ?? '').toString(),
-                isMe: senderId.isNotEmpty && senderId == currentUserId,
-                timestamp: ts,
-                status: (last['status'] as String?) ?? 'SENT',
-              ));
-            }
-            final isSupport = title.toLowerCase().contains('watsim support');
-            return Conversation(
-              id: id,
-              name: title,
-              iconCodePoint: (e['iconCodePoint'] ?? 0xe7fd) as int,
-              iconColor: (e['iconColor'] ?? 0xFF1A5F7A) as int,
-              isSystem: isSupport || (e['isSystem'] ?? false) as bool,
-              messages: messages,
-              unreadCount: unread is num ? unread.toInt() : 0,
-            );
-          })
-          .where((c) => c.id.isNotEmpty)
-          .toList();
-
-      // Add backend conversations to global state so ChatScreen can resolve them.
-      NotificationState.instance.syncConversations(mapped);
+      // Shared mapper lives in NotificationState so socket-triggered
+      // refreshes render identically.
+      await NotificationState.instance.refreshConversations();
+      final mapped = List.of(NotificationState.instance.conversations);
 
       // Mark messages as DELIVERED for all conversations with unread messages
       for (final conv in mapped) {
@@ -125,7 +80,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
         _loading = false;
       });
       final message = e is ApiException
-          ? e.message
+          ? LanguageService().apiError(e)
           : (LanguageService().isFrench
               ? 'Impossible de charger les conversations.'
               : 'Could not load conversations.');
@@ -513,7 +468,7 @@ class _NewChatSheetState extends State<_NewChatSheet> {
     } catch (e) {
       if (!mounted) return;
       final message = e is ApiException
-          ? e.message
+          ? LanguageService().apiError(e)
           : (LanguageService().isFrench
               ? 'Impossible de démarrer le chat'
               : 'Could not start chat');
@@ -538,7 +493,7 @@ class _NewChatSheetState extends State<_NewChatSheet> {
     } catch (e) {
       if (!mounted) return;
       final message = e is ApiException
-          ? e.message
+          ? LanguageService().apiError(e)
           : (LanguageService().isFrench
               ? 'Impossible d\'ouvrir le support'
               : 'Could not open support');
@@ -674,7 +629,7 @@ class _ChatScreenState extends State<ChatScreen> {
       NotificationState.instance.getConversation(widget.convId) ??
       Conversation(
         id: widget.convId,
-        name: 'Chat',
+        name: LanguageService().chatFallback,
         iconCodePoint: 0xe7fd,
         iconColor: 0xFF1A5F7A,
         isSystem: false,
@@ -703,9 +658,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initConversation() async {
-    // Mark messages as delivered first, then as read (user is viewing)
-    await ApiService.markMessagesDelivered(widget.convId);
-    await ApiService.markConversationRead(widget.convId);
+    // Mark messages as delivered then read (user is viewing) — run in
+    // parallel with the history fetch so it doesn't block first paint.
+    unawaited(ApiService.markMessagesDelivered(widget.convId)
+        .then((_) => ApiService.markConversationRead(widget.convId)));
     NotificationState.instance.markConversationRead(widget.convId);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     await _loadBackendMessages(widget.convId);
@@ -855,6 +811,24 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) return;
       final oldExtent = _scroll.hasClients ? _scroll.position.maxScrollExtent : 0.0;
       final oldOffset = _scroll.hasClients ? _scroll.offset : 0.0;
+      // Reconcile optimistic `local_*` messages: the WS broadcast excludes
+      // the sender, so the local placeholder keeps its temporary id and would
+      // duplicate the real backend row once history is fetched. Drop a local
+      // message when a fetched one from me has the same text within a minute.
+      final fetchedMine = mapped.where((m) => m.isMe).toList();
+      bool isReconciledLocal(AppMessage m) {
+        if (!m.id.startsWith('local_')) return false;
+        return fetchedMine.any((f) =>
+            f.text == m.text &&
+            f.timestamp.difference(m.timestamp).abs() <
+                const Duration(minutes: 1));
+      }
+
+      final conv0 = NotificationState.instance.getConversation(targetConvId);
+      if (conv0 != null) {
+        conv0.messages.removeWhere(isReconciledLocal);
+      }
+      _backendMessages.removeWhere(isReconciledLocal);
       final previousIds = _backendMessages.map((m) => m.id).toSet();
       final addedOlder = mapped.any((m) => !previousIds.contains(m.id));
       final merged = {for (final m in _backendMessages) m.id: m};
@@ -970,7 +944,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!accepted) {
       _ctrl.text = text;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('The message could not be sent.')),
+        SnackBar(content: Text(LanguageService().messageNotSent)),
       );
       return;
     }
@@ -988,7 +962,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // that could remain stuck forever; inform the user at queue time instead.
     if (!wasConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message will be sent when reconnected')),
+        SnackBar(content: Text(LanguageService().messageSentOnReconnect)),
       );
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());

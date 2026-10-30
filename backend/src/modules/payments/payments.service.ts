@@ -198,7 +198,7 @@ export async function handleProviderResult(transactionId: string, status: 'COMPL
   if (!t) return;
   if (t.type === 'REPAYMENT' && t.purchaseId) await processSecondReward(t.purchaseId);
   await enqueueScoreUpdate(t.userId);
-  await notifyUser(t.userId, `Paiement de ${t.amount} XAF confirmé.`);
+  await notifyUser(t.userId, 'payment.confirmed', { amount: t.amount });
   if (t.type === 'PURCHASE' && t.purchaseId) {
     const purchase = await prisma.bnplPurchase.findUnique({
       where: { id: t.purchaseId },

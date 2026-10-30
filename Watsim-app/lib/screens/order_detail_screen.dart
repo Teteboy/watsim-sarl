@@ -8,7 +8,6 @@ import '../order_state.dart';
 import '../wallet_state.dart';
 import '../notification_state.dart';
 import '../services/api_service.dart';
-import 'deposit_screen.dart';
 import 'catalogue_screen.dart';
 import '../services/language_service.dart';
 
@@ -62,21 +61,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return widget.order;
   }
 
-  String _monthName(int m) => [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ][m - 1];
-
   @override
   void initState() {
     super.initState();
@@ -129,13 +113,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         OrderState.instance.syncWithBackend(),
       ]);
       if (!mounted) return;
+      final lang = LanguageService();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Paiement envoyé. Solde synchronisé.')),
+        SnackBar(content: Text(lang.paymentSentSynced)),
       );
     } catch (e) {
       if (!mounted) return;
+      final lang = LanguageService();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e is ApiException ? e.message : 'Paiement impossible. Veuillez réessayer.')),
+        SnackBar(content: Text(e is ApiException
+            ? lang.apiError(e)
+            : lang.paymentImpossible)),
       );
     } finally {
       if (mounted) setState(() => _paying = false);
@@ -209,6 +197,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       builder: (_) => DeliverySheet(
         order: order,
         onDeliveryConfirmed: () {
+          final lang = LanguageService();
           // Mark delivery as requested — order stays visible in history
           order.markDeliveryRequested();
           // Fire notification
@@ -223,7 +212,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
               content: Row(
-                children: const [
+                children: [
                   Icon(Icons.local_shipping_rounded,
                       color: Colors.white, size: 22),
                   SizedBox(width: 12),
@@ -233,7 +222,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Delivery details received!',
+                          lang.deliveryDetailsReceived,
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
@@ -241,7 +230,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Your details have been received. You will receive your product shortly.',
+                          lang.deliveryDetailsBody,
                           style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
@@ -294,9 +283,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final now = DateTime.now();
     final end = _planEndDate;
     final diff = end.difference(DateTime(now.year, now.month, now.day)).inDays;
-    if (diff <= 0) return 'Ended';
-    if (diff == 1) return '1 day left';
-    return '$diff days left';
+    final lang = LanguageService();
+    if (diff <= 0) return lang.endedLabel;
+    if (diff == 1) return lang.oneDayLeft;
+    return lang.daysLeftFmt(diff);
   }
 
   @override
@@ -307,7 +297,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     final endDate = _planEndDate;
     final endDateStr =
-        '${endDate.day} ${_monthName(endDate.month)} ${endDate.year}';
+        '${endDate.day} ${lang.monthAbbr(endDate.month)} ${endDate.year}';
     final countdown = _countdownText();
 
     return Scaffold(
@@ -391,9 +381,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        _row('Order number', order.orderNumber),
+                        _row(lang.orderNumber, order.orderNumber),
                         const Divider(height: 20),
-                        _row('Status', isFullyPaid ? 'Completed' : 'Ongoing',
+                        _row(
+                            lang.status,
+                            isFullyPaid
+                                ? lang.tabCompleted
+                                : lang.ongoingStatus,
                             valueColor: isFullyPaid
                                 ? AppColors.textMuted
                                 : AppColors.primaryGreen),
@@ -401,21 +395,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         // Countdown to plan termination (replaces Plan)
                         if (!isFullyPaid) ...[
                           _rowWithBadge(
-                            'Time remaining',
+                            lang.timeRemaining,
                             countdown,
                             badgeColor:
                                 AppColors.primaryGreen.withOpacity(0.12),
                             badgeTextColor: AppColors.primaryGreen,
                           ),
                         ] else ...[
-                          _row('Time remaining', 'Completed ✓',
+                          _row(lang.timeRemaining, lang.completedCheck,
                               valueColor: AppColors.primaryGreen),
                         ],
                         const Divider(height: 20),
                         // End date of the contribution (replaces Next due)
                         _row(
-                          isFullyPaid ? 'Completed on' : 'Contribution ends',
-                          isFullyPaid ? 'All paid \u2713' : endDateStr,
+                          isFullyPaid
+                              ? lang.completedOn
+                              : lang.contributionEnds,
+                          isFullyPaid ? lang.allPaidCheck : endDateStr,
                           valueColor:
                               isFullyPaid ? AppColors.primaryGreen : null,
                         ),
@@ -489,8 +485,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           Expanded(
                             child: _ActionButton(
                               icon: Icons.swap_horiz_rounded,
-                              label: 'Exchange',
-                              subtitle: 'Swap for same price',
+                              label: lang.exchangeLabel,
+                              subtitle: lang.exchangeSubLabel,
                               color: const Color(0xFF607D8B),
                               onTap: _handleExchange,
                             ),
@@ -499,8 +495,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           Expanded(
                             child: _ActionButton(
                               icon: Icons.account_balance_wallet_outlined,
-                              label: 'Withdraw',
-                              subtitle: '30% charge applies',
+                              label: lang.withdrawLabel,
+                              subtitle: lang.withdrawSubLabel,
                               color: const Color(0xFFF57C00),
                               onTap: _handleWithdraw,
                             ),
@@ -509,8 +505,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           Expanded(
                             child: _ActionButton(
                               icon: Icons.local_shipping_rounded,
-                              label: 'Deliver',
-                              subtitle: 'Request delivery',
+                              label: lang.deliverLabel,
+                              subtitle: lang.deliverSubLabel,
                               color: AppColors.primaryGreen,
                               onTap: _handleDeliver,
                             ),
@@ -618,8 +614,8 @@ class _PaymentProgressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'PAYMENT PROGRESS',
+          Text(
+            LanguageProvider.of(context).paymentProgress,
             style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -630,7 +626,7 @@ class _PaymentProgressCard extends StatelessWidget {
 
           // ── Paid bar ───────────────────────────────────────────────────
           _BarRow(
-            label: 'Paid',
+            label: LanguageProvider.of(context).paidChip,
             amount: _fmt(paid),
             percent: paidPctInt,
             fillRatio: paidPct,
@@ -641,7 +637,7 @@ class _PaymentProgressCard extends StatelessWidget {
 
           // ── Remaining bar ──────────────────────────────────────────────
           _BarRow(
-            label: 'Remaining',
+            label: LanguageProvider.of(context).remainingLabel,
             amount: _fmt(remaining),
             percent: remainPctInt,
             fillRatio: remainPct,
@@ -825,7 +821,7 @@ class _ExchangeSheetState extends State<_ExchangeSheet> {
       setState(() => _done = true);
       widget.onExchanged();
     } else {
-      setState(() => _pinError = 'Incorrect PIN. Please try again.');
+      setState(() => _pinError = LanguageService().incorrectPinFull);
     }
   }
 
@@ -947,7 +943,7 @@ class _ExchangeSheetState extends State<_ExchangeSheet> {
                 maxLength: 4,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                    labelText: '4-digit PIN',
+                    labelText: lang.pin4Label,
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     counterText: '',
                     errorText: _pinError),
@@ -1134,7 +1130,7 @@ class _DeliveryCompletedBanner extends StatelessWidget {
                   color: AppColors.primaryGreen)),
           SizedBox(height: 2),
           Text(
-              'Your product was successfully delivered. Thank you for using WatSim!',
+              lang.deliveredThankYou,
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
         ])),
       ]),
@@ -1177,14 +1173,14 @@ class _PayNowSection extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text('Wallet: ${wallet.balanceFormatted}',
+                Text('${lang.walletLabel}: ${wallet.balanceFormatted}',
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: hasAnyFunds
                             ? AppColors.primaryGreen
                             : AppColors.warning)),
-                Text('Accumulated: ${_fmtAccumulated(order.accumulatedFunds)}',
+                Text('${lang.accumulatedLabel2}: ${_fmtAccumulated(order.accumulatedFunds)}',
                     style: const TextStyle(
                         fontSize: 12, color: AppColors.textSecondary)),
               ])),
@@ -1333,7 +1329,8 @@ class _ContributionTrackerState extends State<_ContributionTracker> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '$paidCount of $total contributions made',
+                    LanguageService()
+                        .contributionsMadeOf(paidCount, total),
                     style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -1379,18 +1376,15 @@ class _ContributionTrackerState extends State<_ContributionTracker> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                      LanguageService().isFrench
-                          ? '${_fmt(accumulated)} accumulé'
-                          : '${_fmt(accumulated)} accumulated',
+                      LanguageService()
+                          .accumulatedAmountLabel(_fmt(accumulated)),
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryGreen)),
                   if (remainCount > 0)
                     Text(
-                        LanguageService().isFrench
-                            ? '$remainCount restant${remainCount > 1 ? 's' : ''}'
-                            : '$remainCount remaining',
+                        LanguageService().remainingCountFmt(remainCount),
                         style: const TextStyle(
                             fontSize: 12, color: AppColors.textMuted)),
                 ],
@@ -1430,11 +1424,12 @@ class _ContributionTrackerState extends State<_ContributionTracker> {
                   ? const Color(0xFFF57C00)
                   : AppColors.textMuted;
 
+          final statusLang = LanguageService();
           final String statusLabel = allDone
-              ? 'All paid'
+              ? statusLang.allPaidLabel
               : hasActive
-                  ? 'In progress'
-                  : 'Upcoming';
+                  ? statusLang.inProgressLabel
+                  : statusLang.upcomingLabel;
 
           return Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -1495,7 +1490,7 @@ class _ContributionTrackerState extends State<_ContributionTracker> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Contributions $startNum–$endNum',
+                                '${statusLang.contributionWord}s $startNum–$endNum',
                                 style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
@@ -1529,8 +1524,13 @@ class _ContributionTrackerState extends State<_ContributionTracker> {
                           ),
                           child: Text(
                             allDone
-                                ? '${endNum - startNum + 1}/${endNum - startNum + 1} paid'
-                                : '${(doneSlots - startIdx).clamp(0, endNum - startNum + 1)}/${endNum - startNum + 1} paid',
+                                ? statusLang.paidOf(
+                                    endNum - startNum + 1,
+                                    endNum - startNum + 1)
+                                : statusLang.paidOf(
+                                    (doneSlots - startIdx)
+                                        .clamp(0, endNum - startNum + 1),
+                                    endNum - startNum + 1),
                             style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -1676,7 +1676,7 @@ class _SlotProgressCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Contribution $index/$total',
+                      LanguageService().contributionsCount(index, total),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -1713,11 +1713,14 @@ class _SlotProgressCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  isComplete
-                      ? 'Complete'
-                      : isActive
-                          ? 'In Progress'
-                          : 'Upcoming',
+                  () {
+                    final lang = LanguageService();
+                    return isComplete
+                        ? lang.completeLabel
+                        : isActive
+                            ? lang.inProgressLabel
+                            : lang.upcomingLabel;
+                  }(),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -1776,7 +1779,7 @@ class _SlotProgressCard extends StatelessWidget {
               ),
               if (!isComplete)
                 Text(
-                  '${fmt(remaining)} left',
+                  LanguageService().leftAmount(fmt(remaining)),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1784,8 +1787,8 @@ class _SlotProgressCard extends StatelessWidget {
                   ),
                 )
               else
-                const Text(
-                  'Paid ✓',
+                Text(
+                  LanguageService().paidCheck,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

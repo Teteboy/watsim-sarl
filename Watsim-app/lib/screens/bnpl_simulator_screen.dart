@@ -235,7 +235,7 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     letterSpacing: 1)),
             const SizedBox(height: 6),
             Text(
-              'How long will it take you to finish contributing for this product?',
+              lang.durationPrompt,
               style:
                   const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
@@ -245,8 +245,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
               focusNode: _monthsFocusNode,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                hintText: '1-60 months',
-                suffixText: 'months',
+                hintText: lang.monthsHint,
+                suffixText: lang.monthsSuffix,
                 suffixStyle: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -277,13 +277,12 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                   showDialog(
                     context: context,
                     builder: (_) => AlertDialog(
-                      title: const Text('Maximum Duration'),
-                      content: const Text(
-                          'BNPL simulation is available for up to 60 months (5 years) maximum. The duration has been set to 60 months.'),
+                      title: Text(lang.maximumDuration),
+                      content: Text(lang.maxDurationBody),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('OK'),
+                          child: Text(lang.okLabel),
                         ),
                       ],
                     ),
@@ -376,7 +375,7 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Calculating your plan...',
+                      lang.calculatingPlan,
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -391,8 +390,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Payment Amount Options',
+                    Text(
+                      lang.paymentAmountOptions,
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -400,7 +399,7 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Based on $_selectedMonths ${_selectedMonths == 1 ? 'month' : 'months'} contribution period',
+                      lang.basedOnMonths(_selectedMonths!),
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.textSecondary),
                     ),
@@ -409,9 +408,9 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     _frequencyAmountTile(
                       icon: Icons.today_rounded,
                       label: lang.freqDaily,
-                      sublabel: '${_selectedMonths! * 30} payments',
+                      sublabel: lang.paymentsCount(_selectedMonths! * 30),
                       amount: _monthly ~/ 30,
-                      suffix: '/day',
+                      suffix: lang.perDay,
                       frequency: 'Daily',
                     ),
                     const SizedBox(height: 10),
@@ -419,9 +418,9 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     _frequencyAmountTile(
                       icon: Icons.date_range_rounded,
                       label: lang.freqWeekly,
-                      sublabel: '${_selectedMonths! * 4} payments',
+                      sublabel: lang.paymentsCount(_selectedMonths! * 4),
                       amount: _monthly ~/ 4,
-                      suffix: '/week',
+                      suffix: lang.perWeek,
                       frequency: 'Weekly',
                     ),
                     // Monthly only if > 1 month
@@ -430,9 +429,9 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                       _frequencyAmountTile(
                         icon: Icons.calendar_month_rounded,
                         label: lang.freqMonthly,
-                        sublabel: '$_selectedMonths payments',
+                        sublabel: lang.paymentsCount(_selectedMonths!),
                         amount: _monthly,
-                        suffix: '/month',
+                        suffix: lang.perMonthLabel,
                         frequency: 'Monthly',
                       ),
                     ],
@@ -457,8 +456,8 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Total Cost Breakdown',
+                    Text(
+                      lang.totalCostBreakdown,
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -469,13 +468,13 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     if (_downPayment > 0) ...[
                       const SizedBox(height: 6),
                       _row(
-                        'Down Payment (Paid Upfront)',
+                        lang.downPaymentUpfront,
                         '- ${_downPayment ~/ 1000},${(_downPayment % 1000).toString().padLeft(3, '0')} FCFA',
                         highlight: true,
                       ),
                       const SizedBox(height: 6),
                       _row(
-                        'Amount to Finance',
+                        lang.amountToFinance,
                         '${_financedAmount ~/ 1000},${(_financedAmount % 1000).toString().padLeft(3, '0')} FCFA',
                       ),
                     ],
@@ -483,20 +482,20 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                     if (_simulationResult != null) ...[
                       const SizedBox(height: 4),
                       _row(
-                        'Stocking Fee',
+                        lang.stockingFee,
                         '+ ${_stockingFee ~/ 1000},${(_stockingFee % 1000).toString().padLeft(3, '0')} FCFA',
                       ),
                       if (_accountCreationFee > 0) ...[
                         const SizedBox(height: 4),
                         _row(
-                          "Account Creation Fee${_isFirstPurchase ? ' (First Purchase)' : ' (Waived)'}",
+                          '${lang.accountCreationFee} ${_isFirstPurchase ? lang.firstPurchaseSuffix : lang.waivedSuffix}',
                           '+ ${_accountCreationFee ~/ 1000},${(_accountCreationFee % 1000).toString().padLeft(3, '0')} FCFA',
                           highlight: _isFirstPurchase,
                         ),
                       ],
                       const SizedBox(height: 4),
                       _row(
-                        'Delivery Fee',
+                        lang.deliveryFeeLabel,
                         '+ ${_deliveryFee ~/ 1000},${(_deliveryFee % 1000).toString().padLeft(3, '0')} FCFA',
                       ),
                       const SizedBox(height: 4),
@@ -507,7 +506,7 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                           children: [
                             Row(
                               children: [
-                                Text('Collection Fee',
+                                Text(lang.collectionFeeLabel,
                                     style: TextStyle(
                                         fontSize: 13,
                                         color: AppColors.textSecondary)),
@@ -543,7 +542,7 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                       ),
                       const SizedBox(height: 4),
                       _row(
-                        'Total Fees',
+                        lang.totalFees,
                         '+ ${_totalFees ~/ 1000},${(_totalFees % 1000).toString().padLeft(3, '0')} FCFA',
                         highlight: true,
                       ),
@@ -569,7 +568,7 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                           children: [
                             Row(
                               children: [
-                                Text('Collection Fee',
+                                Text(lang.collectionFeeLabel,
                                     style: TextStyle(
                                         fontSize: 13,
                                         color: AppColors.textSecondary)),
@@ -634,7 +633,7 @@ class _BnplSimulatorScreenState extends State<BnplSimulatorScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'This is your first BNPL purchase - account creation fee applies.',
+                                lang.firstPurchaseNote,
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.primaryGreen,
@@ -1104,17 +1103,17 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
                       '${basePrice ~/ 1000},${(basePrice % 1000).toString().padLeft(3, '0')} FCFA'),
                   const Divider(height: 20),
                   // New fee structure
-                  _planRow('Stocking Fee',
+                  _planRow(lang.stockingFee,
                       '+ ${stockingFee ~/ 1000},${(stockingFee % 1000).toString().padLeft(3, '0')} FCFA'),
                   const Divider(height: 20),
                   if (accountCreationFee > 0) ...[
                     _planRow(
-                        "Account Creation Fee${isFirstPurchase ? ' (First Purchase)' : ' (Waived)'}",
+                        '${lang.accountCreationFee} ${isFirstPurchase ? lang.firstPurchaseSuffix : lang.waivedSuffix}',
                         '+ ${accountCreationFee ~/ 1000},${(accountCreationFee % 1000).toString().padLeft(3, '0')} FCFA',
                         highlight: isFirstPurchase),
                     const Divider(height: 20),
                   ],
-                  _planRow('Delivery Fee',
+                  _planRow(lang.deliveryFeeLabel,
                       '+ ${deliveryFee ~/ 1000},${(deliveryFee % 1000).toString().padLeft(3, '0')} FCFA'),
                   const Divider(height: 20),
                   Padding(
@@ -1124,7 +1123,7 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
                       children: [
                         Row(
                           children: [
-                            Text('Collection Fee',
+                            Text(lang.collectionFeeLabel,
                                 style: TextStyle(
                                     fontSize: 13,
                                     color: AppColors.textSecondary)),
@@ -1157,7 +1156,7 @@ class _ConfirmPlanScreenState extends State<ConfirmPlanScreen> {
                     ),
                   ),
                   const Divider(height: 20),
-                  _planRow('Total Fees',
+                  _planRow(lang.totalFees,
                       '+ ${totalFees ~/ 1000},${(totalFees % 1000).toString().padLeft(3, '0')} FCFA',
                       highlight: true),
                   const Divider(height: 20),
@@ -1476,7 +1475,10 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
                 ? 'Paiement initié ! Veuillez approuver sur votre téléphone.'
                 : 'Payment initiated! Please approve on your phone.',
             ussdCode: result['payment']?['ussdCode'] as String?);
-        if (txId != null) _pollPaymentStatus(context, txId, 'Repayment');
+        if (txId != null) {
+          _pollPaymentStatus(
+              context, txId, LanguageService().repaymentLabel);
+        }
       }
       // Refresh orders after payment
       await OrderState.instance.syncWithBackend();
@@ -1486,8 +1488,8 @@ class _RepaymentScreenState extends State<RepaymentScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(LanguageService().isFrench
-                  ? 'Paiement échoué : ${e.message}'
-                  : 'Payment failed: ${e.message}'),
+                  ? 'Paiement échoué : ${LanguageService().apiError(e)}'
+                  : 'Payment failed: ${LanguageService().apiError(e)}'),
               backgroundColor: Colors.redAccent),
         );
       }
@@ -1842,7 +1844,10 @@ class _RepayProviderSheetState extends State<_RepayProviderSheet> {
                                 : const Color(0xFFD0E8E5)),
                       ),
                       child: Center(
-                        child: Text(p['name'] as String,
+                        child: Text(
+                            p['key'] == 'REFERRAL'
+                                ? lang.referralBalanceLabel
+                                : p['name'] as String,
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -2285,8 +2290,8 @@ class _PinConfirmSheetState extends State<_PinConfirmSheet> {
 
     if (!enabled || !available) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Biometric authentication not enabled or available'),
+        SnackBar(
+          content: Text(LanguageService().biometricUnavailable),
           backgroundColor: AppColors.error,
         ),
       );
@@ -2294,7 +2299,7 @@ class _PinConfirmSheetState extends State<_PinConfirmSheet> {
     }
 
     final authenticated = await BiometricService.authenticate(
-      localizedReason: 'Confirm purchase with biometric',
+      localizedReason: LanguageService().biometricPurchaseReason,
     );
 
     if (authenticated && mounted) {
@@ -2624,24 +2629,25 @@ class BnplPaymentStatusScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Fee Breakdown',
+                  Text(lang.feeBreakdown,
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textMuted,
                           letterSpacing: 1)),
                   const SizedBox(height: 14),
-                  _row('Base Price', _fmt(order.basePrice)),
+                  _row(lang.basePrice, _fmt(order.basePrice)),
                   if (order.accountCreationFee > 0)
-                    _row('Account Creation Fee',
+                    _row(lang.accountCreationFee,
                         '+ ${_fmt(order.accountCreationFee)}'),
-                  _row('Delivery Fee', '+ ${_fmt(order.deliveryFee)}'),
-                  _row('Collection Fee', '+ ${_fmt(order.collectionFee)}'),
-                  _row('Stocking Fee', '+ ${_fmt(order.stockingFee)}'),
+                  _row(lang.deliveryFeeLabel, '+ ${_fmt(order.deliveryFee)}'),
+                  _row(lang.collectionFeeLabel,
+                      '+ ${_fmt(order.collectionFee)}'),
+                  _row(lang.stockingFee, '+ ${_fmt(order.stockingFee)}'),
                   const Divider(height: 20),
-                  _row('Total Fees', _fmt(order.totalFees)),
+                  _row(lang.totalFees, _fmt(order.totalFees)),
                   const Divider(height: 20),
-                  _row('Grand Total', _fmt(order.grandTotal)),
+                  _row(lang.grandTotal, _fmt(order.grandTotal)),
                 ],
               ),
             ),

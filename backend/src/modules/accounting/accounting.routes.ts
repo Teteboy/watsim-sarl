@@ -172,17 +172,19 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
         });
 
         if (merchant?.userId) {
-          const { deliverNotificationToUser } = await import('../../services/notification.service');
+          const { deliverLocalizedNotificationToUser } = await import('../../services/notification.service');
 
-          const title = status === 'PAID' 
-            ? 'Virement effectué' 
-            : 'Demande de virement refusée';
-
-          const body = status === 'PAID'
-            ? `Votre demande de virement de ${updated.amount.toLocaleString()} FCFA a été payée.`
-            : `Votre demande de virement de ${updated.amount.toLocaleString()} FCFA a été refusée.${note ? ' Raison : ' + note : ''}`;
-
-          await deliverNotificationToUser(merchant.userId, title, body, 'system');
+          const paid = status === 'PAID';
+          await deliverLocalizedNotificationToUser(
+            merchant.userId,
+            paid ? 'payout.paid.title' : 'payout.rejected.title',
+            paid ? 'payout.paid.body' : 'payout.rejected.body',
+            'system',
+            {
+              amount: updated.amount.toLocaleString(),
+              reason: !paid && note ? ` Raison : ${note}` : '',
+            }
+          );
         }
       } catch (e) {
         req.log.error({ e }, 'Failed to send payout notification to merchant');

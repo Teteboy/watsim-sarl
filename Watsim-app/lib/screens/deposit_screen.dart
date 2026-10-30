@@ -34,19 +34,25 @@ class _DepositScreenState extends State<DepositScreen> {
   final _operators = [
     {
       'name': 'Orange Money',
-      'sub': 'Frais : 0% • Instantané',
+      'sub': LanguageService().isFrench
+          ? 'Frais : 0% • Instantané'
+          : 'Fee: 0% • Instant',
       'color': 0xFFFF6600,
       'logo': 'assets/images/orange-money.png'
     },
     {
       'name': 'MTN MoMo',
-      'sub': 'Frais : 0% • Instantané',
+      'sub': LanguageService().isFrench
+          ? 'Frais : 0% • Instantané'
+          : 'Fee: 0% • Instant',
       'color': 0xFFFFCC00,
       'logo': 'assets/images/momo.png'
     },
     {
       'name': 'Payer en espèces',
-      'sub': 'Frais : 0% • Collecté par un agent Watsim',
+      'sub': LanguageService().isFrench
+          ? 'Frais : 0% • Collecté par un agent Watsim'
+          : 'Fee: 0% • Collected by a Watsim agent',
       'color': 0xFF4CAF50,
       'logo': null
     },
@@ -109,7 +115,8 @@ class _DepositScreenState extends State<DepositScreen> {
             ussdCode: result['ussdCode'] as String?);
         // Start polling for payment status
         if (txId != null) {
-          _pollPaymentStatus(context, txId, 'Deposit');
+          _pollPaymentStatus(
+              context, txId, LanguageProvider.of(context).depositLabel);
         }
       } else {
         apiLog('DEPOSIT: Widget not mounted, skipping dialog');
@@ -119,7 +126,7 @@ class _DepositScreenState extends State<DepositScreen> {
       if (kDebugMode) debugPrint('DEPOSIT: ApiException = ${e.message}');
       setState(() {
         _paying = false;
-        _payError = e.message;
+        _payError = LanguageProvider.of(context).apiError(e);
       });
     } catch (e) {
       if (!mounted) return;
@@ -154,14 +161,19 @@ class _DepositScreenState extends State<DepositScreen> {
     try {
       final result = await ApiService.requestCashDeposit(amount: _cashRequestedAmount);
       final transactionId = result['transactionId'] as String?;
-      if (transactionId == null) throw const ApiException(500, 'Réponse de dépôt invalide.');
+      if (transactionId == null) {
+        throw ApiException(
+            500, LanguageService().invalidDepositResponse);
+      }
       WalletState.instance.cashDepositPending(_cashRequestedAmount, transactionId: transactionId);
       NotificationState.instance.onCashDepositPending(_amount);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _cashPending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text(LanguageProvider.of(context).apiError(e)),
+            backgroundColor: Colors.red),
       );
     }
   }
@@ -653,7 +665,7 @@ void _showSuccess(BuildContext context, String msg, {String? ussdCode}) {
             Navigator.pop(dialogContext);
             Navigator.pop(context);
           },
-          child: const Text('OK'),
+          child: Text(LanguageService().okLabel),
         ),
       ],
     ),

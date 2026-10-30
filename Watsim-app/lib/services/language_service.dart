@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_service.dart';
 
 // ─── Language Service (InheritedWidget + ChangeNotifier) ──────────────────
 class LanguageService extends ChangeNotifier {
@@ -1113,6 +1114,935 @@ class LanguageService extends ChangeNotifier {
   String get helloUser => _isFrench ? 'Bonjour' : 'Hello';
   String get guest => _isFrench ? 'Invité' : 'Guest';
   String get newBalanceLabel => _isFrench ? 'Nouveau solde' : 'New balance';
+
+  // ── Shared widgets ──────────────────────────────────────────────────────
+  String helloComma(String name) =>
+      _isFrench ? 'Bonjour, $name' : 'Hello, $name';
+  String get welcomeBackLabel =>
+      _isFrench ? 'Bon retour' : 'Welcome back';
+  String get stockUnknown => _isFrench ? 'Stock : --' : 'Stock: --';
+  String get outOfStock => _isFrench ? 'Rupture de stock' : 'Out of stock';
+  String lowStock(int stock) =>
+      _isFrench ? 'Stock faible : $stock' : 'Low stock: $stock';
+  String inStock(int stock) =>
+      _isFrench ? 'En stock : $stock' : 'In stock: $stock';
+
+  // ── PIN confirm dialog ──────────────────────────────────────────────────
+  String get pinDialogTitle =>
+      _isFrench ? 'Confirmer avec PIN' : 'Confirm with PIN';
+  String get pinDialogBody => _isFrench
+      ? 'Entrez votre code PIN pour confirmer cette opération.'
+      : 'Enter your PIN code to confirm this operation.';
+  String get enterPinError => _isFrench
+      ? 'Veuillez entrer votre PIN (4 chiffres)'
+      : 'Please enter your PIN (4 digits)';
+  String get verifyFailed => _isFrench
+      ? 'Vérification impossible. Veuillez réessayer.'
+      : 'Verification unavailable. Please try again.';
+  String get incorrectPinFull => _isFrench
+      ? 'PIN incorrect. Veuillez réessayer.'
+      : 'Incorrect PIN. Please try again.';
+  String get pin4Label =>
+      _isFrench ? 'PIN à 4 chiffres' : '4-digit PIN';
+  String get enterPinRequired => _isFrench
+      ? 'Veuillez entrer votre PIN.'
+      : 'Please enter your PIN.';
+  String get loginPinRequired => _isFrench
+      ? 'Votre PIN de connexion est requis.'
+      : 'Your login PIN is required.';
+  String get orderNotLinked => _isFrench
+      ? 'Commande non liée à un achat enregistré.'
+      : 'Order is not linked to a backend purchase.';
+  String get transferFailedRetry => _isFrench
+      ? 'Échec du transfert. Réessayez.'
+      : 'Transfer failed. Please try again.';
+  String get withdrawFailedRetry => _isFrench
+      ? 'Échec du retrait. Réessayez.'
+      : 'Withdrawal failed. Please try again.';
+
+  // ── Order sheets (delivery / transfer / withdraw / exchange) ────────────
+  String get notifExchangeRefundTitle => _isFrench
+      ? 'Échange terminé — Remboursement'
+      : 'Exchange Complete — Refund';
+  String exchangeRefundBody(String amount, String fromName, String toName) =>
+      _isFrench
+          ? '$amount remboursé sur votre portefeuille après l\'échange de $fromName contre $toName.'
+          : '$amount refunded to your wallet after exchanging $fromName for $toName.';
+  String get notifExchangeCompleteTitle =>
+      _isFrench ? 'Échange terminé' : 'Exchange Complete';
+  String exchangeExactCoverBody(String name) => _isFrench
+      ? 'Vos fonds accumulés ont couvert exactement $name. Commande marquée terminée.'
+      : 'Your accumulated funds exactly covered $name. Order marked complete.';
+  String get notifProductExchanged =>
+      _isFrench ? 'Produit échangé' : 'Product Exchanged';
+  String productExchangedBody(
+          String name, String transferred, String remaining) =>
+      _isFrench
+          ? 'Passé à $name. $transferred transférés. $remaining encore nécessaires.'
+          : 'Switched to $name. $transferred transferred. $remaining still needed.';
+  String get notifWithdrawalProcessed =>
+      _isFrench ? 'Retrait effectué' : 'Withdrawal Processed';
+  String withdrawalProcessedBody(
+          String net, String charge, String product) =>
+      _isFrench
+          ? '$net crédités sur votre portefeuille après des frais de 30% ($charge) sur $product.'
+          : '$net credited to your wallet after 30% charge ($charge) on $product.';
+  String get exchangeCompleteTitle =>
+      _isFrench ? 'Échange terminé ! 🎉' : 'Exchange Complete! 🎉';
+  String exchangedFullyPaid(String name, String refund) => _isFrench
+      ? 'Échangé contre $name et entièrement payé.\n$refund remboursés sur votre portefeuille.'
+      : 'Exchanged for $name and fully paid off.\n$refund refunded to your wallet.';
+  String exchangedExactDone(String name) => _isFrench
+      ? 'Vos fonds accumulés ont couvert exactement $name. La commande est terminée !'
+      : 'Your accumulated funds exactly covered $name. Order is complete!';
+  String exchangedPartial(
+          String name, String transferred, String remaining, String freq) =>
+      _isFrench
+          ? 'Échangé contre $name.\n$transferred transférés. '
+              'Continuez à cotiser $remaining avec vos paiements $freq.'
+          : 'Exchanged for $name.\n$transferred transferred. '
+              'Keep contributing $remaining more with your $freq payments.';
+  String get pinConfirmExchangeDesc => _isFrench
+      ? 'Entrez votre PIN à 4 chiffres pour confirmer l\'échange.'
+      : 'Enter your 4-digit PIN to confirm the exchange.';
+  String pinToSendAmount(String amount, String to) => _isFrench
+      ? 'Entrez votre PIN à 4 chiffres pour envoyer $amount à $to.'
+      : 'Enter your 4-digit PIN to send $amount to $to.';
+  String sentToWallet(String amount, String phone) => _isFrench
+      ? '$amount ont été envoyés au\nportefeuille WatSim de $phone.'
+      : '$amount has been sent to\n$phone\'s WatSim wallet.';
+  String feeDeducted20(String amount) => _isFrench
+      ? 'Des frais de service de 20% ($amount) ont été déduits de vos fonds accumulés.'
+      : '20% service fee of $amount was deducted from your accumulated funds.';
+  String get noWatsimAccountBody => _isFrench
+      ? 'Ce numéro n\'a pas de compte WatSim vérifié. Vérifiez le numéro ou demandez au destinataire de s\'inscrire sur WatSim.'
+      : 'This number does not have a verified WatSim account. Check the number or ask the recipient to register on WatSim.';
+  String get enterPhoneRequired => _isFrench
+      ? 'Veuillez entrer un numéro de téléphone.'
+      : 'Please enter a phone number.';
+  String get enterValidPhone => _isFrench
+      ? 'Entrez un numéro de téléphone valide.'
+      : 'Enter a valid phone number.';
+  String get recipientPhoneLabel => _isFrench
+      ? 'Téléphone du destinataire'
+      : 'Recipient phone number';
+  String amountAddedToWallet(String amount) => _isFrench
+      ? '$amount ont été ajoutés à votre portefeuille.'
+      : '$amount has been added to your wallet.';
+  String get withdrawProductBody => _isFrench
+      ? 'Retirez l\'argent accumulé sur ce produit. Des frais de traitement de 30% s\'appliquent.'
+      : 'Withdraw the money accumulated on this product. A 30% processing charge applies.';
+  String get charge30Warning => _isFrench
+      ? '30% des fonds accumulés seront déduits comme frais de traitement.'
+      : '30% of accumulated funds will be deducted as a processing charge.';
+  String get charge30Label =>
+      _isFrench ? 'Frais de 30%' : '30% Charge';
+  String get youReceive => _isFrench ? 'Vous recevez' : 'You Receive';
+  String get accumulatedAmount =>
+      _isFrench ? 'Montant accumulé' : 'Accumulated Amount';
+  String get processingCharge30 =>
+      _isFrench ? 'Frais de traitement (30%)' : '30% Processing Charge';
+  String get amountYouReceive =>
+      _isFrench ? 'Montant que vous recevez' : 'Amount You Receive';
+  String get noPaymentsWithdraw => _isFrench
+      ? 'Aucun paiement effectué. Payez au moins un versement pour pouvoir retirer.'
+      : 'No payments have been made yet. Make at least one instalment to enable withdrawal.';
+  String get detailsReceived => _isFrench
+      ? 'Vos informations ont été reçues !'
+      : 'Your details have been received!';
+  String get deliveryConfirmedThanks => _isFrench
+      ? 'Merci ! Votre demande de livraison est confirmée. Vous recevrez votre produit sous peu.'
+      : 'Thank you! Your delivery request is confirmed. You will receive your product shortly.';
+  String get customerDetails =>
+      _isFrench ? 'INFORMATIONS CLIENT' : 'CUSTOMER DETAILS';
+  String get photoCaptured =>
+      _isFrench ? '✓ Photo capturée' : '✓ Photo captured';
+  String get notProvided => _isFrench ? 'Non fourni' : 'Not provided';
+  String get capturedLabel => _isFrench ? '✓ Capturé' : '✓ Captured';
+  String get deliveryTimeLabel =>
+      _isFrench ? 'Heure de livraison' : 'Delivery Time';
+  String get orderDetailsCaps =>
+      _isFrench ? 'DÉTAILS COMMANDE' : 'ORDER DETAILS';
+  String get orderNumberShort => _isFrench ? 'Commande #' : 'Order #';
+  String get categoryLabel => _isFrench ? 'Catégorie' : 'Category';
+  String get requestDate => _isFrench ? 'Date de demande' : 'Request Date';
+  String get pricingBreakdown =>
+      _isFrench ? 'DÉTAIL DES PRIX' : 'PRICING BREAKDOWN';
+  String get basePrice => _isFrench ? 'Prix de base' : 'Base Price';
+  String get totalFees => _isFrench ? 'Frais totaux' : 'Total Fees';
+  String get paymentPlan =>
+      _isFrench ? 'Plan de paiement' : 'Payment Plan';
+  String get contributionsMade =>
+      _isFrench ? 'Contributions effectuées' : 'Contributions Made';
+  String get remainingLabel => _isFrench ? 'Restant' : 'Remaining';
+  String get idFrontLabel => _isFrench ? 'Photo CNI recto' : 'ID Front';
+  String get idBackLabel => _isFrench ? 'Photo CNI verso' : 'ID Back';
+  String get idPhotoFront => _isFrench ? 'Photo CNI recto' : 'ID Photo Front';
+  String get idPhotoBack => _isFrench ? 'Photo CNI verso' : 'ID Photo Back';
+  String get deliveryAtLabel =>
+      _isFrench ? 'Livraison à' : 'Delivery at';
+  String get selectDeliveryTime => _isFrench
+      ? 'Sélectionner l\'heure de livraison'
+      : 'Select delivery time';
+  String monthAbbr(int m) {
+    const fr = [
+      'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'
+    ];
+    const en = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return (_isFrench ? fr : en)[m - 1];
+  }
+
+  // ── Delivery form fields ────────────────────────────────────────────────
+  String get fullNameField => _isFrench ? 'Nom complet' : 'Full name';
+  String get nameRequired =>
+      _isFrench ? 'Le nom est requis' : 'Name is required';
+  String get phoneField => _isFrench ? 'Téléphone' : 'Phone number';
+  String get phoneRequired => _isFrench
+      ? 'Le numéro de téléphone est requis'
+      : 'Phone number is required';
+  String get professionField =>
+      _isFrench ? 'Votre profession' : 'Your profession';
+  String get professionRequired => _isFrench
+      ? 'La profession est requise'
+      : 'Profession is required';
+  String get idCardPhotos =>
+      _isFrench ? 'PHOTOS CNI' : 'ID CARD PHOTOS';
+  String get optionalTag => _isFrench ? 'OPTIONNEL' : 'OPTIONAL';
+  String get idPhotoDesc => _isFrench
+      ? 'Joignez une photo de votre carte nationale d\'identité (recto et verso). Cela nous aide à vérifier votre identité plus rapidement.'
+      : 'Attach a photo of your national ID card (front and back). This helps us verify your identity faster.';
+  String get frontCaptured =>
+      _isFrench ? 'Recto capturé ✓' : 'Front captured ✓';
+  String get backCaptured =>
+      _isFrench ? 'Verso capturé ✓' : 'Back captured ✓';
+  String get tapCaptureFront => _isFrench
+      ? 'Capturer\nRECTO'
+      : 'Tap to capture\nFRONT side';
+  String get tapCaptureBack => _isFrench
+      ? 'Capturer\nVERSO'
+      : 'Tap to capture\nBACK side';
+  String get neighbourhoodCaps =>
+      _isFrench ? 'QUARTIER' : 'NEIGHBOURHOOD';
+  String get neighbourhoodField =>
+      _isFrench ? 'Quartier' : 'Neighbourhood';
+  String get neighbourhoodRequired => _isFrench
+      ? 'Le quartier est requis'
+      : 'Neighbourhood is required';
+  String get cityCaps => _isFrench ? 'VILLE' : 'CITY';
+  String get cityRequired =>
+      _isFrench ? 'La ville est requise' : 'City is required';
+  String get deliveryTimeCaps =>
+      _isFrench ? 'HEURE DE LIVRAISON' : 'DELIVERY TIME';
+  String get lastNameField => _isFrench ? 'Nom' : 'Last name';
+  String get lastNameRequired => _isFrench
+      ? 'Le nom est requis'
+      : 'Last name is required';
+  String get firstNameField => _isFrench ? 'Prénom' : 'First name';
+  String get firstNameRequired => _isFrench
+      ? 'Le prénom est requis'
+      : 'First name is required';
+  String get telCaps => _isFrench ? 'TEL' : 'PHONE';
+  String get residenceCaps =>
+      _isFrench ? 'LIEU RÉSIDENCE' : 'RESIDENCE';
+  String get residenceField =>
+      _isFrench ? 'Lieu de résidence' : 'Place of residence';
+  String get residenceRequired => _isFrench
+      ? 'Le lieu de résidence est requis'
+      : 'Place of residence is required';
+  String get deliveryLocationCaps =>
+      _isFrench ? 'LIEU LIVRAISON' : 'DELIVERY LOCATION';
+  String get deliveryLocationField =>
+      _isFrench ? 'Lieu de livraison' : 'Delivery location';
+  String get deliveryLocationRequired => _isFrench
+      ? 'Le lieu de livraison est requis'
+      : 'Delivery location is required';
+  String get colorCaps => _isFrench ? 'COULEUR' : 'COLOUR';
+  String get colorField =>
+      _isFrench ? 'Couleur souhaitée' : 'Preferred colour';
+  String get shoeSizeCaps => _isFrench ? 'POINTURE' : 'SHOE SIZE';
+  String get shoeSizeField => _isFrench ? 'Pointure' : 'Shoe size';
+  String get cniField => _isFrench ? 'Numéro CNI' : 'ID number';
+  String get cniRequired => _isFrench
+      ? 'Le numéro CNI est requis'
+      : 'ID number is required';
+  String get recipientLabel =>
+      _isFrench ? 'Destinataire' : 'Recipient';
+  String get phoneLabel => _isFrench ? 'Téléphone' : 'Phone';
+  String get neighbourhoodLabel =>
+      _isFrench ? 'Quartier' : 'Neighbourhood';
+  String get cityLabel => _isFrench ? 'Ville' : 'City';
+  String get shoeSizeLabel => _isFrench ? 'Pointure' : 'Shoe Size';
+  String get colorLabel => _isFrench ? 'Couleur' : 'Colour';
+  String get residenceLabel =>
+      _isFrench ? 'Lieu résidence' : 'Residence';
+  String get deliveryLocationLabel =>
+      _isFrench ? 'Lieu livraison' : 'Delivery Location';
+  String get cniLabel => _isFrench ? 'CNI' : 'ID Number';
+
+  String minutesAgoFmt(int m) =>
+      _isFrench ? 'il y a ${m}min' : '${m}m ago';
+  String daysAgoFmt(int d) =>
+      _isFrench ? 'il y a ${d}j' : '${d}d ago';
+
+  // ── Wallet / order state strings ────────────────────────────────────────
+  String depositVia(String provider) =>
+      _isFrench ? 'Dépôt via $provider' : 'Deposit via $provider';
+  String withdrawalVia(String provider) =>
+      _isFrench ? 'Retrait via $provider' : 'Withdrawal via $provider';
+  String get withdrawalTx => _isFrench ? 'Retrait' : 'Withdrawal';
+  String get bnplPurchaseTx =>
+      _isFrench ? 'Achat BNPL' : 'BNPL Purchase';
+  String get bnplRepaymentTx =>
+      _isFrench ? 'Remboursement BNPL' : 'BNPL Repayment';
+  String get refundTx => _isFrench ? 'Remboursement' : 'Refund';
+  String get transactionTx => _isFrench ? 'Transaction' : 'Transaction';
+  String refundFor(String name) =>
+      _isFrench ? 'Remboursement — $name' : 'Refund — $name';
+  String transferReceivedTx(String sender) => _isFrench
+      ? 'Transfert reçu — $sender'
+      : 'Transfer received — $sender';
+  String get cashDepositTxTitle => _isFrench
+      ? 'Dépôt en espèces via un agent Watsim'
+      : 'Cash deposit via a Watsim agent';
+  String get cashAdjustmentPlus => _isFrench
+      ? 'Ajustement de dépôt en espèces (+)'
+      : 'Cash deposit adjustment (+)';
+  String get cashAdjustment => _isFrench
+      ? 'Ajustement de dépôt en espèces'
+      : 'Cash deposit adjustment';
+  String get dayWord => _isFrench ? 'jour' : 'day';
+  String get weekWord => _isFrench ? 'semaine' : 'week';
+  String get monthWord => _isFrench ? 'mois' : 'month';
+  String durationDays(int n) => _isFrench ? '$n jours' : '$n days';
+  String durationWeeks(int n) =>
+      _isFrench ? '$n semaines' : '$n weeks';
+  String durationMonths(int n) =>
+      _isFrench ? '$n mois' : '$n month${n > 1 ? 's' : ''}';
+  String get allPaidCheck => _isFrench ? 'Tout payé ✓' : 'All paid ✓';
+  String get nextPaymentToday => _isFrench
+      ? 'Prochain paiement : aujourd\'hui'
+      : 'Next payment: Today';
+  String nextPaymentOn(String dayMonth) =>
+      _isFrench ? 'Prochain paiement : $dayMonth' : 'Next payment: $dayMonth';
+  String get completedCheck => _isFrench ? 'Terminé ✓' : 'Completed ✓';
+  String endsOnDate(String date) =>
+      _isFrench ? 'Se termine le $date' : 'Ends $date';
+  String get unknownProduct =>
+      _isFrench ? 'Produit inconnu' : 'Unknown Product';
+  String get generalCategory => _isFrench ? 'Général' : 'General';
+  String get instalmentWord => _isFrench ? 'Versement' : 'Instalment';
+
+  // ── Misc screen strings ─────────────────────────────────────────────────
+  String get okLabel => 'OK';
+  String get pendingLabel => _isFrench ? 'En attente' : 'Pending';
+  String get unverified => _isFrench ? 'Non vérifié' : 'Unverified';
+  String get scoreGood => _isFrench ? 'BON' : 'GOOD';
+  String get scoreFair => _isFrench ? 'CORRECT' : 'FAIR';
+  String get scoreLow => _isFrench ? 'FAIBLE' : 'LOW';
+  String get featuredAdsHere => _isFrench
+      ? 'Les publicités en vedette apparaîtront ici'
+      : 'Featured ads will appear here';
+  String get adLabel => _isFrench ? 'PUBLICITÉ' : 'AD';
+  String get viewOffer => _isFrench ? 'Voir l\'offre' : 'View offer';
+  String get perLabel => _isFrench ? 'par' : 'per';
+  String get noOffers => _isFrench
+      ? 'Aucune offre exclusive disponible'
+      : 'No exclusive offers available';
+  String get checkBackDeals => _isFrench
+      ? 'Revenez plus tard pour des offres spéciales'
+      : 'Check back later for special deals';
+  String get ongoing => _isFrench ? 'EN COURS' : 'ONGOING';
+  String get paymentSentSynced => _isFrench
+      ? 'Paiement envoyé. Solde synchronisé.'
+      : 'Payment sent. Balance synchronised.';
+  String get profilePicUpdated => _isFrench
+      ? 'Photo de profil mise à jour'
+      : 'Profile picture updated successfully';
+  String uploadImageFailed(String e) => _isFrench
+      ? 'Échec du téléchargement de l\'image : $e'
+      : 'Failed to upload image: $e';
+  String updateProfileFailed(String e) => _isFrench
+      ? 'Échec de la mise à jour du profil : $e'
+      : 'Failed to update profile: $e';
+  String get updateSettingFailed => _isFrench
+      ? 'Échec de la mise à jour du paramètre'
+      : 'Failed to update setting';
+  String get freezeAccountFailed => _isFrench
+      ? 'Échec du gel du compte'
+      : 'Failed to freeze account';
+  String get pinChangedSuccess =>
+      _isFrench ? 'PIN modifié avec succès' : 'PIN changed successfully';
+  String get pinSetFailed => _isFrench
+      ? 'Échec de la définition du PIN. Réessayez.'
+      : 'Failed to set PIN. Try again.';
+  String get openingCamera =>
+      _isFrench ? 'Ouverture de la caméra...' : 'Opening camera...';
+  String get retake => _isFrench ? 'Reprendre' : 'Retake';
+  String get identityVerification =>
+      _isFrench ? 'Vérification d\'identité' : 'Identity Verification';
+  String stepOf(int step, int total) =>
+      _isFrench ? 'Étape $step sur $total' : 'Step $step of $total';
+  String get messageNotSent => _isFrench
+      ? 'Le message n\'a pas pu être envoyé.'
+      : 'The message could not be sent.';
+  String get messageSentOnReconnect => _isFrench
+      ? 'Le message sera envoyé à la reconnexion'
+      : 'Message will be sent when reconnected';
+  String get biometricUnavailable => _isFrench
+      ? 'Biométrie non activée ou indisponible'
+      : 'Biometric authentication not enabled or available';
+  String get maximumDuration =>
+      _isFrench ? 'Durée maximale' : 'Maximum Duration';
+  String get feeBreakdown =>
+      _isFrench ? 'Détail des frais' : 'Fee Breakdown';
+  String get collectionFeeLabel =>
+      _isFrench ? 'Frais de collecte' : 'Collection Fee';
+  String get walletLabel => _isFrench ? 'Portefeuille' : 'Wallet';
+  String get accumulatedLabel2 =>
+      _isFrench ? 'Accumulé' : 'Accumulated';
+
+  // ── History / statistics screen ─────────────────────────────────────────
+  String get receivedLabel => _isFrench ? 'Reçu' : 'Received';
+  String get spentLabel => _isFrench ? 'Dépensé' : 'Spent';
+  String get netLabel => 'Net';
+  String get browseOrdersBody => _isFrench
+      ? 'Parcourez notre catalogue et passez votre première\ncommande BNPL pour la voir ici.'
+      : 'Browse our catalogue and place your first\nBNPL order to see it here.';
+  String get noTxMatchFilters => _isFrench
+      ? 'Aucune transaction ne correspond à vos filtres'
+      : 'No transactions match your filters';
+  String get tryDifferentFilter => _isFrench
+      ? 'Essayez un autre filtre pour voir votre historique.'
+      : 'Try a different filter to see your history.';
+  String get firstDepositBody => _isFrench
+      ? 'Effectuez votre premier dépôt pour suivre\nvos transactions ici.'
+      : 'Make your first deposit to start\ntracking your transactions here.';
+  String get thisWeek => _isFrench ? 'Cette semaine' : 'This Week';
+  String get thisMonth => _isFrench ? 'Ce mois-ci' : 'This Month';
+  String get last3Months => _isFrench ? '3 derniers mois' : 'Last 3 Months';
+  String get thisYear => _isFrench ? 'Cette année' : 'This Year';
+  String get clearFilter =>
+      _isFrench ? 'Effacer le filtre' : 'Clear Filter';
+  String get periodWeek => _isFrench ? 'Semaine' : 'Week';
+  String get periodMonth => _isFrench ? 'Mois' : 'Month';
+  String get periodQuarter => _isFrench ? 'Trimestre' : 'Quarter';
+  String get periodYear => _isFrench ? 'Année' : 'Year';
+  String get incomeLabel => _isFrench ? 'Revenus' : 'Income';
+  String get expensesLabel => _isFrench ? 'Dépenses' : 'Expenses';
+  String get netBalance => _isFrench ? 'Solde net' : 'Net Balance';
+  String get statsAppearBody => _isFrench
+      ? 'Vos statistiques de dépenses apparaîtront\nici une fois vos transactions effectuées.'
+      : 'Your spending statistics will appear\nhere once you make transactions.';
+  String get chargebackNote => _isFrench
+      ? 'Des frais de rétrofacturation de 30% s\'appliquent à tous les retraits.'
+      : 'A 30% chargeback fee applies to all withdrawals.';
+  String get chargeback30 =>
+      _isFrench ? 'Rétrofacturation 30%' : '30% Chargeback';
+  String get deliveredStatus => _isFrench ? 'Livré' : 'Delivered';
+  String get inProgressStatus =>
+      _isFrench ? 'En cours' : 'In Progress';
+  String get orderedLabel => _isFrench ? 'Commandé' : 'Ordered';
+  String get nextDueLabel =>
+      _isFrench ? 'Prochaine échéance' : 'Next due';
+  String get planLabel => _isFrench ? 'Plan' : 'Plan';
+  String get withdrawnLabel => _isFrench ? 'Retiré' : 'Withdrawn';
+  String get requestedLabel => _isFrench ? 'Demandé' : 'Requested';
+  String get deliveryAction => _isFrench ? 'Livraison' : 'Delivery';
+
+  // ── Order detail screen ─────────────────────────────────────────────────
+  String get paymentImpossible => _isFrench
+      ? 'Paiement impossible. Veuillez réessayer.'
+      : 'Payment failed. Please try again.';
+  String get endedLabel => _isFrench ? 'Terminé' : 'Ended';
+  String get oneDayLeft => _isFrench ? '1 jour restant' : '1 day left';
+  String daysLeftFmt(int n) =>
+      _isFrench ? '$n jours restants' : '$n days left';
+  String get orderNumber =>
+      _isFrench ? 'N° de commande' : 'Order number';
+  String get timeRemaining =>
+      _isFrench ? 'Temps restant' : 'Time remaining';
+  String get completedOn => _isFrench ? 'Terminé le' : 'Completed on';
+  String get contributionEnds =>
+      _isFrench ? 'Fin de la contribution' : 'Contribution ends';
+  String get ongoingStatus => _isFrench ? 'En cours' : 'Ongoing';
+  String get paymentProgress => _isFrench
+      ? 'PROGRÈS DU PAIEMENT'
+      : 'PAYMENT PROGRESS';
+  String get deliveredThankYou => _isFrench
+      ? 'Votre produit a été livré avec succès. Merci d\'utiliser WatSim !'
+      : 'Your product was successfully delivered. Thank you for using WatSim!';
+  String contributionsMadeOf(int paid, int total) => _isFrench
+      ? '$paid versements sur $total effectués'
+      : '$paid of $total contributions made';
+  String accumulatedAmountLabel(String amt) =>
+      _isFrench ? '$amt accumulé' : '$amt accumulated';
+  String remainingCountFmt(int n) => _isFrench
+      ? '$n restant${n > 1 ? 's' : ''}'
+      : '$n remaining';
+  String get allPaidLabel => _isFrench ? 'Tout payé' : 'All paid';
+  String get upcomingLabel => _isFrench ? 'À venir' : 'Upcoming';
+  String contributionsCount(int i, int total) =>
+      _isFrench ? 'Versement $i/$total' : 'Contribution $i/$total';
+  String leftAmount(String amt) =>
+      _isFrench ? '$amt restant' : '$amt left';
+  String get paidCheck => _isFrench ? 'Payé ✓' : 'Paid ✓';
+  String get completeLabel => _isFrench ? 'Terminé' : 'Complete';
+  String get inProgressLabel =>
+      _isFrench ? 'En cours' : 'In Progress';
+
+  // ── BNPL simulator extras ───────────────────────────────────────────────
+  String get durationPrompt => _isFrench
+      ? 'Combien de temps vous faudra-t-il pour finir de cotiser pour ce produit ?'
+      : 'How long will it take you to finish contributing for this product?';
+  String get monthsHint => _isFrench ? '1-60 mois' : '1-60 months';
+  String get monthsSuffix => _isFrench ? 'mois' : 'months';
+  String get maxDurationBody => _isFrench
+      ? 'La simulation BNPL est disponible jusqu\'à 60 mois (5 ans) maximum. La durée a été définie à 60 mois.'
+      : 'BNPL simulation is available for up to 60 months (5 years) maximum. The duration has been set to 60 months.';
+  String get calculatingPlan => _isFrench
+      ? 'Calcul de votre plan...'
+      : 'Calculating your plan...';
+  String get paymentAmountOptions => _isFrench
+      ? 'Options de montant de paiement'
+      : 'Payment Amount Options';
+  String basedOnMonths(int n) => _isFrench
+      ? 'Basé sur une période de contribution de $n mois'
+      : 'Based on $n ${n == 1 ? 'month' : 'months'} contribution period';
+  String paymentsCount(int n) =>
+      _isFrench ? '$n versements' : '$n payments';
+  String get totalCostBreakdown => _isFrench
+      ? 'Détail du coût total'
+      : 'Total Cost Breakdown';
+  String get downPaymentUpfront => _isFrench
+      ? 'Apport initial (payé d\'avance)'
+      : 'Down Payment (Paid Upfront)';
+  String get amountToFinance =>
+      _isFrench ? 'Montant à financer' : 'Amount to Finance';
+  String get firstPurchaseSuffix =>
+      _isFrench ? '(Premier achat)' : '(First Purchase)';
+  String get waivedSuffix => _isFrench ? '(Exonéré)' : '(Waived)';
+  String get firstPurchaseNote => _isFrench
+      ? 'C\'est votre premier achat BNPL - les frais de création de compte s\'appliquent.'
+      : 'This is your first BNPL purchase - account creation fee applies.';
+  String get biometricPurchaseReason => _isFrench
+      ? 'Confirmez l\'achat par biométrie'
+      : 'Confirm purchase with biometric';
+  String get grandTotal => _isFrench ? 'Total général' : 'Grand Total';
+  String get referralBalanceLabel =>
+      _isFrench ? 'Solde de parrainage' : 'Referral Balance';
+  String get repaymentLabel =>
+      _isFrench ? 'Remboursement' : 'Repayment';
+
+  String get chatFallback => _isFrench ? 'Discussion' : 'Chat';
+  String get unknownTxLabel => _isFrench ? 'Inconnu' : 'Unknown';
+  String get cashbackRewardsOp =>
+      _isFrench ? 'Récompenses cashback' : 'Cashback Rewards';
+  String get refStep1 => _isFrench
+      ? 'Partagez votre code de parrainage avec vos amis'
+      : 'Share your referral code with friends';
+  String get refStep2 => _isFrench
+      ? 'Votre ami s\'inscrit avec votre code'
+      : 'Friend signs up using your code';
+  String get refStep3 => _isFrench
+      ? 'Vous gagnez tous les deux 1000 FCFA à son premier dépôt'
+      : 'You both earn 1000 FCFA on their first deposit';
+  String get refStep4 => _isFrench
+      ? 'Vous gagnez 0.6% lorsqu\'il finalise un achat BNPL'
+      : 'You earn 0.6% when they complete a BNPL purchase';
+  String get firstReward =>
+      _isFrench ? 'Première récompense' : 'First Reward';
+
+  // ── Security screen ─────────────────────────────────────────────────────
+  String get freezeConfirm => _isFrench
+      ? 'Êtes-vous sûr de vouloir geler votre compte ?'
+      : 'Are you sure you want to freeze your account?';
+  String get freezeBody => _isFrench
+      ? 'Une fois gelé, toutes les transactions et connexions seront bloquées. Vous pouvez dégeler à tout moment en contactant le support.'
+      : 'While frozen, all transactions and logins will be blocked. You can unfreeze at any time by contacting support.';
+  String get loadSecurityFailed => _isFrench
+      ? 'Échec du chargement des paramètres de sécurité'
+      : 'Failed to load security settings';
+  String get retryLabel => _isFrench ? 'Réessayer' : 'Retry';
+  String get notAvailableDevice => _isFrench
+      ? 'Non disponible sur cet appareil'
+      : 'Not available on this device';
+  String methodsActive(int n) => _isFrench
+      ? '$n méthode${n > 1 ? 's' : ''} active${n > 1 ? 's' : ''}'
+      : '$n method${n > 1 ? 's' : ''} active';
+  String get biometricTypes => _isFrench
+      ? 'Empreinte / Face ID / Iris'
+      : 'Fingerprint / Face ID / Iris';
+  String get biometricNotEnrolled => _isFrench
+      ? 'La biométrie n\'est pas disponible ou non configurée sur cet appareil. Vérifiez les paramètres de votre appareil.'
+      : 'Biometric authentication is not available on this device or not enrolled. Please check your device settings.';
+  String get fingerprintLabel =>
+      _isFrench ? 'Empreinte digitale' : 'Fingerprint';
+  String get faceIdLabel => 'Face ID';
+  String get verifiedExcl => _isFrench ? 'Vérifié !' : 'Verified!';
+  String get scanningLabel =>
+      _isFrench ? 'Numérisation…' : 'Scanning…';
+  String enabledSuffix(String label) =>
+      _isFrench ? '$label activé' : '$label enabled';
+  String placeOnSensor(String label) => _isFrench
+      ? 'Placez votre $label sur le capteur'
+      : 'Place your $label on the sensor';
+  String get stepCurrentPin => _isFrench
+      ? 'Entrez votre PIN actuel'
+      : 'Enter your current PIN';
+  String get stepNewPin => _isFrench
+      ? 'Entrez votre nouveau PIN'
+      : 'Enter your new PIN';
+  String get stepConfirmPin => _isFrench
+      ? 'Confirmez votre nouveau PIN'
+      : 'Confirm your new PIN';
+  String get pinsDontMatch => _isFrench
+      ? 'Les PIN ne correspondent pas. Réessayez.'
+      : 'PINs do not match. Try again.';
+  String changePinFailed(String e) => _isFrench
+      ? 'Échec de la modification du PIN : $e'
+      : 'Failed to change PIN: $e';
+  String get changePinTitle =>
+      _isFrench ? 'Modifier le PIN' : 'Change PIN';
+  String get accountFrozenDone =>
+      _isFrench ? 'Compte gelé' : 'Account Frozen';
+  String get freezingAccount =>
+      _isFrench ? 'Gel du compte…' : 'Freezing Account…';
+  String get frozenBody => _isFrench
+      ? 'Votre compte a été gelé.\nContactez le support pour le dégeler.'
+      : 'Your account has been frozen.\nContact support to unfreeze.';
+  String get securingAccount => _isFrench
+      ? 'Veuillez patienter pendant que nous sécurisons votre compte'
+      : 'Please wait while we secure your account';
+  String get biometricVerifyFailed => _isFrench
+      ? 'Vérification biométrique échouée. Veuillez réessayer.'
+      : 'Biometric verification failed. Please try again.';
+  String biometricEnableReason(String label) => _isFrench
+      ? 'Vérifiez votre $label pour activer la connexion biométrique'
+      : 'Verify your $label to enable biometric login';
+
+  String get kycPendingLabel =>
+      _isFrench ? 'KYC en attente' : 'KYC Pending';
+  String get exchangeBanner => _isFrench
+      ? 'Sélectionnez un produit à échanger — votre montant payé est reporté'
+      : 'Select a product to exchange — your paid amount carries over';
+  String get selectCaps => _isFrench ? 'SÉLECTIONNER' : 'SELECT';
+  String get activeStatus => _isFrench ? 'ACTIF' : 'ACTIVE';
+  String get settledStatus => _isFrench ? 'SOLDÉ' : 'SETTLED';
+
+  String get noSubject => _isFrench ? 'Sans objet' : 'No subject';
+  String get adNameFallback =>
+      _isFrench ? 'Publicité' : 'Advertisement';
+  String ticketStatusLabel(String status) {
+    switch (status) {
+      case 'OPEN':
+        return _isFrench ? 'OUVERT' : 'OPEN';
+      case 'IN_PROGRESS':
+        return _isFrench ? 'EN COURS' : 'IN PROGRESS';
+      case 'RESOLVED':
+        return _isFrench ? 'RÉSOLU' : 'RESOLVED';
+      case 'CLOSED':
+        return _isFrench ? 'FERMÉ' : 'CLOSED';
+      default:
+        return status;
+    }
+  }
+
+  String ticketPriorityLabel(String priority) {
+    switch (priority) {
+      case 'LOW':
+        return _isFrench ? 'BASSE' : 'LOW';
+      case 'MEDIUM':
+        return _isFrench ? 'MOYENNE' : 'MEDIUM';
+      case 'HIGH':
+        return _isFrench ? 'HAUTE' : 'HIGH';
+      case 'URGENT':
+        return _isFrench ? 'URGENTE' : 'URGENT';
+      default:
+        return priority;
+    }
+  }
+
+  // ── PIN setup / KYC (otp_screen) ────────────────────────────────────────
+  String get createPinTitle =>
+      _isFrench ? 'Créez votre PIN' : 'Create your PIN';
+  String get confirmPinTitle =>
+      _isFrench ? 'Confirmez votre PIN' : 'Confirm your PIN';
+  String get reenterPinHint => _isFrench
+      ? 'Ressaisissez le même PIN pour confirmer'
+      : 'Re-enter the same PIN to confirm';
+  String get pinSecures => _isFrench
+      ? 'Ce PIN sécurise vos transactions'
+      : 'This PIN secures your transactions';
+  String stepCaps(int a, int b) =>
+      _isFrench ? 'ÉTAPE $a SUR $b' : 'STEP $a OF $b';
+  String kycStepOf(int a, int b) =>
+      _isFrench ? 'Étape $a sur $b' : 'Step $a of $b';
+  String get pinWarning => _isFrench
+      ? 'N\'utilisez pas de combinaisons simples\ncomme 1234 ou 0000.'
+      : 'Don\'t use simple combinations\nlike 1234 or 0000.';
+  String get docFrontTitle =>
+      _isFrench ? 'Pièce d\'identité — Recto' : 'ID Card — Front';
+  String get docBackTitle =>
+      _isFrench ? 'Pièce d\'identité — Verso' : 'ID Card — Back';
+  String get docFrontDesc => _isFrench
+      ? 'Prenez une photo nette du RECTO de votre carte d\'identité nationale. Assurez-vous que tout le texte est lisible et que la carte est entièrement visible.'
+      : 'Take a clear photo of the FRONT side of your national identity card. Make sure all text is legible and the card is fully visible.';
+  String get docBackDesc => _isFrench
+      ? 'Prenez une photo nette du VERSO de votre carte d\'identité nationale. Assurez-vous que tout le texte est lisible et que la carte est entièrement visible.'
+      : 'Take a clear photo of the BACK side of your national identity card. Make sure all text is legible and the card is fully visible.';
+  String get cameraError => _isFrench
+      ? 'Impossible d\'ouvrir la caméra. Veuillez accorder la permission de la caméra.'
+      : 'Could not open camera. Please grant camera permission.';
+  String get uploadFailedConn => _isFrench
+      ? 'Échec du téléversement. Vérifiez votre connexion internet.'
+      : 'Upload failed. Check your internet connection.';
+  String get fullLegalName =>
+      _isFrench ? 'Nom légal complet' : 'Full Legal Name';
+  String get dobLabel => _isFrench
+      ? 'Date de naissance (JJ/MM/AAAA)'
+      : 'Date of Birth (DD/MM/YYYY)';
+  String get idTypeLabel => _isFrench ? 'Type de pièce' : 'ID Type';
+  String get idNumberLabel =>
+      _isFrench ? 'Numéro de pièce' : 'ID Number';
+  String get residentialAddress =>
+      _isFrench ? 'Adresse de résidence' : 'Residential Address';
+  String get kycInfoBanner => _isFrench
+      ? 'Ces informations doivent correspondre exactement à vos documents officiels.'
+      : 'This information must match your official identity documents exactly.';
+  String get tapPhoto => _isFrench
+      ? 'Touchez pour prendre une photo'
+      : 'Tap to take a photo';
+  String get useCameraDoc => _isFrench
+      ? 'Utilisez votre caméra pour capturer le document'
+      : 'Use your camera to capture the document';
+  String get kycPrivacyBanner => _isFrench
+      ? 'Vos documents sont chiffrés et stockés en toute sécurité. Nous respectons toutes les réglementations sur la protection des données.'
+      : 'Your documents are encrypted and stored securely. We comply with all data protection regulations.';
+  String get stepPersonalInfo =>
+      _isFrench ? 'Informations personnelles' : 'Personal Information';
+  String get submitVerification => _isFrench
+      ? 'Soumettre la vérification'
+      : 'Submit Verification';
+  String get retakeLabel => _isFrench ? 'Reprendre' : 'Retake';
+  String get onBadge => _isFrench ? 'ACTIF' : 'ON';
+  String idTypeDisplay(String t) {
+    if (!_isFrench) return t;
+    switch (t) {
+      case 'National ID':
+        return 'Carte d\'identité nationale';
+      case 'Passport':
+        return 'Passeport';
+      case 'Driver\'s License':
+        return 'Permis de conduire';
+      case 'Residence Permit':
+        return 'Titre de séjour';
+      default:
+        return t;
+    }
+  }
+
+  // ── Input hint examples ─────────────────────────────────────────────────
+  String get hintName =>
+      _isFrench ? 'ex. Jean-Paul Mbarga' : 'e.g. Jean-Paul Mbarga';
+  String get hintPhonePlus => _isFrench
+      ? 'ex. +237 6XX XXX XXX'
+      : 'e.g. +237 6XX XXX XXX';
+  String get hintJob => _isFrench
+      ? 'ex. Ingénieur, Enseignant, Commerçant…'
+      : 'e.g. Engineer, Teacher, Trader…';
+  String get hintQuarter =>
+      _isFrench ? 'ex. Bastos, Nlongkak…' : 'e.g. Bastos, Nlongkak…';
+  String get hintCity =>
+      _isFrench ? 'ex. Yaoundé, Douala…' : 'e.g. Yaoundé, Douala…';
+  String get hintSurname => _isFrench ? 'ex. Mbarga' : 'e.g. Mbarga';
+  String get hintFirstName =>
+      _isFrench ? 'ex. Jean-Paul' : 'e.g. Jean-Paul';
+  String get hintQuarterCity =>
+      _isFrench ? 'ex. Bastos, Yaoundé' : 'e.g. Bastos, Yaoundé';
+  String get hintLandmark => _isFrench
+      ? 'ex. Carrefour Nlongkak'
+      : 'e.g. Carrefour Nlongkak';
+  String get hintColor => _isFrench
+      ? 'ex. Noir, Blanc, Rouge…'
+      : 'e.g. Black, White, Red…';
+  String get hintSize => _isFrench ? 'ex. 42, 38…' : 'e.g. 42, 38…';
+  String get hintIdNum =>
+      _isFrench ? 'ex. 123456789' : 'e.g. 123456789';
+  String get hintPhoneNum =>
+      _isFrench ? 'ex. 655000001' : 'e.g. 655000001';
+
+
+  String get invalidDepositResponse => _isFrench
+      ? 'Réponse de dépôt invalide.'
+      : 'Invalid deposit response.';
+
+  String get status => _isFrench ? 'Statut' : 'Status';
+  String get paidChip => _isFrench ? 'Payé' : 'Paid';
+  String get contributionWord =>
+      _isFrench ? 'Cotisation' : 'Contribution';
+  String paidOf(int paid, int total) =>
+      _isFrench ? '$paid/$total payées' : '$paid/$total paid';
+
+  String get biometricAuthReason => _isFrench
+      ? 'Authentifiez-vous pour accéder à votre compte WATSIM'
+      : 'Authenticate to access your WATSIM account';
+
+  // ── API error translation ───────────────────────────────────────────────
+  /// Translates a backend/API error message into the current locale.
+  /// Falls back to the raw message when it is unknown.
+  String translateApiMessage(String msg) {
+    final lower = msg.toLowerCase();
+    String pick(String fr, String en) => _isFrench ? fr : en;
+    if (lower.contains('account is frozen')) {
+      return pick(
+          'Ce compte est gelé. Contactez le support pour le débloquer.',
+          'This account is frozen. Contact support to unfreeze.');
+    }
+    if (lower.contains('suspended') || lower.contains('deactivated')) {
+      return pick('Ce compte est suspendu ou désactivé.',
+          'This account is suspended or deactivated');
+    }
+    if (lower.contains('insufficient')) {
+      return pick('Solde insuffisant.', 'Insufficient balance');
+    }
+    if (lower.contains('incorrect pin') ||
+        lower.contains('invalid pin') ||
+        lower.contains('pin is incorrect')) {
+      return pick('PIN incorrect.', 'Incorrect PIN');
+    }
+    if (lower.contains('pin not configured') || lower.contains('no pin set')) {
+      return pick('PIN non configuré.', 'PIN not configured');
+    }
+    if (lower.contains('pin is required')) {
+      return pick('Le PIN est requis.', 'PIN is required');
+    }
+    if (lower.contains('minimum withdrawal')) {
+      return pick('Le montant de retrait minimum est de 1 000 FCFA.',
+          'Minimum withdrawal is 1000 FCFA');
+    }
+    if (lower.contains('minimum transfer')) {
+      return pick('Le montant minimum de transfert est de 100 FCFA.',
+          'Minimum transfer amount is 100 FCFA');
+    }
+    if (lower.contains('valid phone') || lower.contains('invalid phone')) {
+      return pick('Numéro de téléphone valide requis.',
+          'Valid phone number required');
+    }
+    if (lower.contains('recipient not found')) {
+      return pick(
+          'Destinataire introuvable. Vérifiez le numéro ou l\'email.',
+          'Recipient not found. Please check the phone number or email.');
+    }
+    if (lower.contains('cannot transfer to yourself')) {
+      return pick('Vous ne pouvez pas vous transférer à vous-même.',
+          'Cannot transfer to yourself');
+    }
+    if (lower.contains('sender not found')) {
+      return pick('Expéditeur introuvable.', 'Sender not found');
+    }
+    if (lower.contains('transfer failed')) {
+      return pick('Échec du transfert. Veuillez réessayer.',
+          'Transfer failed. Please try again.');
+    }
+    if (lower.contains('invalid referral')) {
+      return pick('Code de parrainage invalide.', 'Invalid referral code');
+    }
+    if (lower.contains('referral code is required')) {
+      return pick('Le code de parrainage est requis.',
+          'Referral code is required');
+    }
+    if (lower.contains('already registered') || lower.contains('already exists')) {
+      return pick('Ce numéro ou email est déjà enregistré.',
+          'Phone number or email already registered');
+    }
+    if (lower.contains('invalid credentials')) {
+      return pick('Identifiants incorrects.', 'Invalid credentials');
+    }
+    if (lower.contains('rate limit') || lower.contains('too many requests')) {
+      return pick('Trop de requêtes. Veuillez réessayer plus tard.',
+          'Rate limit exceeded. Please retry later.');
+    }
+    if (lower.contains('session') && lower.contains('expired')) {
+      return pick('Votre session a expiré. Veuillez vous reconnecter.',
+          'Your session has expired. Please sign in again.');
+    }
+    if (lower.contains('invalid or missing') || lower.contains('unauthorized')) {
+      return pick('Session invalide. Veuillez vous reconnecter.',
+          'Invalid or expired session. Please sign in again.');
+    }
+    if (lower.contains('admin access')) {
+      return pick('Accès administrateur requis.', 'Admin access required');
+    }
+    if (lower.contains('method must be') || lower.contains('invalid method')) {
+      return pick('Méthode de retrait invalide.', 'Invalid withdrawal method');
+    }
+    if (lower.contains('provider must be')) {
+      return pick('Opérateur invalide.', 'Invalid provider');
+    }
+    if (lower.contains('amount must be')) {
+      return pick('Montant invalide.', 'Invalid amount');
+    }
+    if (lower.contains('transaction not found')) {
+      return pick('Transaction introuvable.', 'Transaction not found');
+    }
+    if (lower.contains('notification not found')) {
+      return pick('Notification introuvable.', 'Notification not found');
+    }
+    if (lower.contains('user not found') ||
+        lower.contains('no user found')) {
+      return pick('Utilisateur introuvable.', 'User not found');
+    }
+    if (lower.contains('not found') || lower.contains('introuvable')) {
+      return pick('Élément introuvable.', 'Not found');
+    }
+    if (lower.contains('file too large') || lower.contains('image too large')) {
+      return pick('Fichier trop volumineux (max 5 Mo).',
+          'File too large (max 5MB)');
+    }
+    if (lower.contains('only image')) {
+      return pick('Seuls les fichiers image sont acceptés.',
+          'Only image files allowed');
+    }
+    if (lower.contains('upload')) {
+      return pick('Échec du téléchargement de l\'image.',
+          'Failed to upload image');
+    }
+    if (lower.contains('message too long')) {
+      return pick('Message trop long.', 'Message too long');
+    }
+    if (lower.contains('not a participant')) {
+      return pick('Vous n\'êtes pas participant de cette conversation.',
+          'Not a participant in this conversation');
+    }
+    if (lower.contains('failed to send')) {
+      return pick('Échec de l\'envoi du message.', 'Failed to send message');
+    }
+    if (lower.contains('withdrawal rejected')) {
+      return pick('Retrait rejeté.', 'Withdrawal rejected');
+    }
+    if (lower.contains('awaiting admin')) {
+      return pick('En attente de validation.', 'Awaiting admin approval');
+    }
+    if (lower.contains('message is required')) {
+      return pick('Le message est requis.', 'Message is required');
+    }
+    return msg;
+  }
+
+  /// Returns a localized message for any error thrown by API calls.
+  String apiError(Object error) {
+    if (error is ApiException) return translateApiMessage(error.message);
+    return translateApiMessage(error.toString());
+  }
+
+  String get depositLabel => _isFrench ? 'Dépôt' : 'Deposit';
+  String get recipientMustHaveWatsim => _isFrench
+      ? 'Le destinataire doit avoir un compte Watsim'
+      : 'Recipient must have a Watsim account';
 }
 
 // ─── InheritedNotifier wrapper ─────────────────────────────────────────────

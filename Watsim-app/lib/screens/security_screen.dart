@@ -93,7 +93,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update setting: $e'),
+            content: Text(
+                '${LanguageService().updateSettingFailed}: ${e is ApiException ? LanguageService().apiError(e) : e}'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -109,11 +110,12 @@ class _SecurityScreenState extends State<SecurityScreen> {
     bool currentValue,
     ValueChanged<bool> onChanged,
     String settingKey,
+    String storageType,
   ) async {
     if (!currentValue) {
       // Enable biometric - first verify with device biometric
       final authenticated = await BiometricService.authenticate(
-        localizedReason: 'Verify your $label to enable biometric login',
+        localizedReason: LanguageService().biometricEnableReason(label),
       );
 
       if (!authenticated) {
@@ -121,9 +123,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(LanguageService().isFrench
-                  ? 'Vérification biométrique échouée. Veuillez réessayer.'
-                  : 'Biometric verification failed. Please try again.'),
+              content: Text(LanguageService().biometricVerifyFailed),
               backgroundColor: AppColors.error,
             ),
           );
@@ -137,7 +137,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
       // Save local preference
       await BiometricService.setBiometricEnabled(true);
-      await BiometricService.setBiometricType(label);
+      await BiometricService.setBiometricType(storageType);
 
       // Show success dialog
       if (mounted) {
@@ -160,7 +160,9 @@ class _SecurityScreenState extends State<SecurityScreen> {
   void _showFreezeConfirmation(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) {
+        final lang = LanguageService();
+        return AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
@@ -175,22 +177,22 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   color: AppColors.error, size: 20),
             ),
             const SizedBox(width: 12),
-            const Text('Freeze Account',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            Text(lang.freezeAccount,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           ],
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Are you sure you want to freeze your account?',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              lang.freezeConfirm,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'While frozen, all transactions and logins will be blocked. You can unfreeze at any time by contacting support.',
-              style: TextStyle(
+              lang.freezeBody,
+              style: const TextStyle(
                   fontSize: 13, color: AppColors.textMuted, height: 1.5),
             ),
           ],
@@ -198,8 +200,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textMuted)),
+            child: Text(lang.cancel,
+                style: const TextStyle(color: AppColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -223,17 +225,19 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Failed to freeze account: $e'),
+                      content: Text(
+                          '${lang.freezeAccountFailed}: ${e is ApiException ? lang.apiError(e) : e}'),
                       backgroundColor: AppColors.error,
                     ),
                   );
                 }
               }
             },
-            child: const Text('Freeze Account'),
+            child: Text(lang.freezeAccount),
           ),
         ],
-      ),
+      );
+      },
     );
   }
 
@@ -262,7 +266,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text(
-                'Failed to load security settings',
+                lang.loadSecurityFailed,
                 style:
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
@@ -276,7 +280,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
               ElevatedButton.icon(
                 onPressed: _loadSecuritySettings,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(lang.retryLabel),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryGreen,
                   foregroundColor: Colors.white,
@@ -362,23 +366,25 @@ class _SecurityScreenState extends State<SecurityScreen> {
               onFingerprintChanged: _fingerprintAvailable
                   ? (_) => _handleBiometricToggle(
                         context,
-                        'Fingerprint',
+                        lang.fingerprintLabel,
                         Icons.fingerprint_rounded,
                         AppColors.deepTeal,
                         _fingerprintEnabled,
                         (v) => setState(() => _fingerprintEnabled = v),
                         'fingerprintEnabled',
+                        'Fingerprint',
                       )
                   : null,
               onFaceIdChanged: _faceIdAvailable
                   ? (_) => _handleBiometricToggle(
                         context,
-                        'Face ID',
+                        lang.faceIdLabel,
                         Icons.face_retouching_natural_rounded,
                         AppColors.secondaryGreen,
                         _faceIdEnabled,
                         (v) => setState(() => _faceIdEnabled = v),
                         'faceIdEnabled',
+                        'Face ID',
                       )
                   : null,
               onIrisChanged: null, // Iris not implemented yet
@@ -590,10 +596,10 @@ class _BiometricsCard extends StatelessWidget {
                                 color: AppColors.textPrimary)),
                         Text(
                           !biometricsAvailable
-                              ? 'Not available on this device'
+                              ? lang.notAvailableDevice
                               : anyEnabled
-                                  ? '$_enabledCount method${_enabledCount > 1 ? 's' : ''} active'
-                                  : 'Fingerprint / Face ID / Iris',
+                                  ? lang.methodsActive(_enabledCount)
+                                  : lang.biometricTypes,
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.textMuted),
                         ),
@@ -609,7 +615,7 @@ class _BiometricsCard extends StatelessWidget {
                         color: AppColors.primaryGreen.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text('ON',
+                      child: Text(LanguageService().onBadge,
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -642,7 +648,7 @@ class _BiometricsCard extends StatelessWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Biometric authentication is not available on this device or not enrolled. Please check your device settings.',
+                                LanguageService().biometricNotEnrolled,
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: AppColors.textMuted,
@@ -661,7 +667,7 @@ class _BiometricsCard extends StatelessWidget {
                         _biometricRow(
                           icon: Icons.fingerprint_rounded,
                           color: AppColors.deepTeal,
-                          label: 'Fingerprint',
+                          label: LanguageService().fingerprintLabel,
                           value: fingerprintEnabled,
                           onChanged: onFingerprintChanged,
                         ),
@@ -672,7 +678,7 @@ class _BiometricsCard extends StatelessWidget {
                         _biometricRow(
                           icon: Icons.face_retouching_natural_rounded,
                           color: AppColors.secondaryGreen,
-                          label: 'Face ID',
+                          label: LanguageService().faceIdLabel,
                           value: faceIdEnabled,
                           onChanged: onFaceIdChanged,
                         ),
@@ -828,7 +834,9 @@ class _BiometricScanDialogState extends State<_BiometricScanDialog>
             ),
             const SizedBox(height: 20),
             Text(
-              _success ? 'Verified!' : 'Scanning…',
+              _success
+                  ? LanguageService().verifiedExcl
+                  : LanguageService().scanningLabel,
               style: TextStyle(
                 color: _success ? AppColors.primaryGreen : Colors.white,
                 fontSize: 18,
@@ -837,9 +845,12 @@ class _BiometricScanDialogState extends State<_BiometricScanDialog>
             ),
             const SizedBox(height: 6),
             Text(
-              _success
-                  ? '${widget.label} enabled'
-                  : 'Place your ${widget.label.toLowerCase()} on the sensor',
+              () {
+                final lang = LanguageService();
+                return _success
+                    ? lang.enabledSuffix(widget.label)
+                    : lang.placeOnSensor(widget.label.toLowerCase());
+              }(),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white60, fontSize: 13),
             ),
@@ -881,11 +892,10 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
   String _newPin = '';
   bool _loading = false;
 
-  final _stepLabels = [
-    'Enter your current PIN',
-    'Enter your new PIN',
-    'Confirm your new PIN',
-  ];
+  List<String> get _stepLabels {
+    final lang = LanguageService();
+    return [lang.stepCurrentPin, lang.stepNewPin, lang.stepConfirmPin];
+  }
 
   void _addDigit(String d) {
     if (_pin.length < 4) setState(() => _pin += d);
@@ -933,7 +943,7 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
       });
     } else {
       if (_pin != _newPin) {
-        _showError('PINs do not match. Try again.');
+        _showError(LanguageService().pinsDontMatch);
         setState(() {
           _step = 1;
           _newPin = '';
@@ -951,10 +961,10 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Row(children: [
-                Icon(Icons.check_circle_rounded, color: Colors.white),
-                SizedBox(width: 10),
-                Text('PIN changed successfully'),
+              content: Row(children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white),
+                const SizedBox(width: 10),
+                Text(LanguageService().pinChangedSuccess),
               ]),
               backgroundColor: AppColors.primaryGreen,
               behavior: SnackBarBehavior.floating,
@@ -964,7 +974,8 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
           );
         }
       } catch (e) {
-        _showError('Failed to change PIN: $e');
+        _showError(LanguageService().changePinFailed(
+            e is ApiException ? e.message : e.toString()));
         if (mounted) {
           setState(() {
             _loading = false;
@@ -995,9 +1006,9 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
                             color: Colors.white, size: 20),
                         onPressed: () => Navigator.pop(context),
                       ),
-                      const Expanded(
+                      Expanded(
                         child: Center(
-                          child: Text('Change PIN',
+                          child: Text(LanguageService().changePinTitle,
                               style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,
@@ -1147,7 +1158,9 @@ class _FreezeSimulationDialogState extends State<_FreezeSimulationDialog>
             ),
             const SizedBox(height: 20),
             Text(
-              _done ? 'Account Frozen' : 'Freezing Account…',
+              _done
+                  ? LanguageService().accountFrozenDone
+                  : LanguageService().freezingAccount,
               style: TextStyle(
                 color: _done ? AppColors.primaryGreen : Colors.white,
                 fontSize: 18,
@@ -1157,8 +1170,8 @@ class _FreezeSimulationDialogState extends State<_FreezeSimulationDialog>
             const SizedBox(height: 6),
             Text(
               _done
-                  ? 'Your account has been frozen.\nContact support to unfreeze.'
-                  : 'Please wait while we secure your account',
+                  ? LanguageService().frozenBody
+                  : LanguageService().securingAccount,
               textAlign: TextAlign.center,
               style: const TextStyle(
                   color: Colors.white60, fontSize: 13, height: 1.5),

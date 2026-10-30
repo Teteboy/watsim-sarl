@@ -29,7 +29,6 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   String _statusFilter = 'All';
   final _statusFilterKeys = ['All', 'Pending', 'Completed'];
-  final _statusFilterLabels = ['All', 'Pending', 'Completed'];
 
   // Period filter state
   DateTime? _periodStart;
@@ -167,29 +166,15 @@ class _HistoryScreenState extends State<HistoryScreen>
     final today = DateTime(now.year, now.month, now.day);
     final txDay = DateTime(dt.year, dt.month, dt.day);
     final diff = today.difference(txDay).inDays;
+    final lang = LanguageService();
     if (diff == 0) {
       final h = dt.hour.toString().padLeft(2, '0');
       final m = dt.minute.toString().padLeft(2, '0');
-      return 'Today, $h:$m';
+      return '${lang.today}, $h:$m';
     } else if (diff == 1) {
-      return 'Yesterday';
+      return lang.yesterday;
     }
-    const months = [
-      '',
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
-    return '${months[dt.month]} ${dt.day}, ${dt.year}';
+    return '${lang.monthAbbr(dt.month)} ${dt.day}, ${dt.year}';
   }
 
   Widget _buildTransactions() {
@@ -200,6 +185,11 @@ class _HistoryScreenState extends State<HistoryScreen>
       lang.filterWithdrawals,
       lang.filterTransfers,
       lang.filterBNPL
+    ];
+    final statusFilterLabels = [
+      lang.filterAll,
+      lang.pendingLabel,
+      lang.tabCompleted
     ];
     final filtered = _filtered;
     final all = WalletState.instance.transactions;
@@ -273,7 +263,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               scrollDirection: Axis.horizontal,
               children: List.generate(_statusFilterKeys.length, (idx) {
                 final key = _statusFilterKeys[idx];
-                final label = _statusFilterLabels[idx];
+                final label = statusFilterLabels[idx];
                 final sel = key == _statusFilter;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -311,18 +301,18 @@ class _HistoryScreenState extends State<HistoryScreen>
             child: Row(
               children: [
                 Expanded(
-                  child: _summaryChip('+${_fmt(totalReceived)}', 'Received',
-                      AppColors.primaryGreen),
+                  child: _summaryChip('+${_fmt(totalReceived)}',
+                      lang.receivedLabel, AppColors.primaryGreen),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _summaryChip(
-                      '-${_fmt(totalSpent)}', 'Spent', AppColors.error),
+                      '-${_fmt(totalSpent)}', lang.spentLabel, AppColors.error),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child:
-                      _summaryChip(_fmt(net.abs()), 'Net', AppColors.deepTeal),
+                  child: _summaryChip(
+                      _fmt(net.abs()), lang.netLabel, AppColors.deepTeal),
                 ),
               ],
             ),
@@ -392,8 +382,8 @@ class _HistoryScreenState extends State<HistoryScreen>
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary)),
               const SizedBox(height: 8),
-              const Text(
-                'Browse our catalogue and place your first\nBNPL order to see it here.',
+              Text(
+                lang.browseOrdersBody,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: 13, color: AppColors.textSecondary, height: 1.5),
@@ -456,8 +446,8 @@ class _HistoryScreenState extends State<HistoryScreen>
             const SizedBox(height: 18),
             Text(
               isFiltered
-                  ? 'No transactions match your filters'
-                  : 'No transactions yet',
+                  ? lang.noTxMatchFilters
+                  : lang.noTransactionsYet,
               style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -466,8 +456,8 @@ class _HistoryScreenState extends State<HistoryScreen>
             const SizedBox(height: 8),
             Text(
               isFiltered
-                  ? 'Try a different filter to see your history.'
-                  : 'Make your first deposit to start\ntracking your transactions here.',
+                  ? lang.tryDifferentFilter
+                  : lang.firstDepositBody,
               textAlign: TextAlign.center,
               style: const TextStyle(
                   fontSize: 13, color: AppColors.textSecondary, height: 1.5),
@@ -530,13 +520,13 @@ class _HistoryScreenState extends State<HistoryScreen>
         final today = DateTime(now.year, now.month, now.day);
         final periods = [
           (
-            'This Week',
+            lang.thisWeek,
             today.subtract(Duration(days: today.weekday - 1)),
             today
           ),
-          ('This Month', DateTime(now.year, now.month, 1), today),
-          ('Last 3 Months', DateTime(now.year, now.month - 2, 1), today),
-          ('This Year', DateTime(now.year, 1, 1), today),
+          (lang.thisMonth, DateTime(now.year, now.month, 1), today),
+          (lang.last3Months, DateTime(now.year, now.month - 2, 1), today),
+          (lang.thisYear, DateTime(now.year, 1, 1), today),
         ];
         return Padding(
           padding: const EdgeInsets.all(24),
@@ -561,10 +551,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                     },
                   )),
               ListTile(
-                title: Text(
-                    LanguageService().isFrench
-                        ? 'Effacer le filtre'
-                        : 'Clear Filter',
+                title: Text(lang.clearFilter,
                     style: const TextStyle(color: AppColors.primaryGreen)),
                 trailing:
                     const Icon(Icons.clear, color: AppColors.primaryGreen),
@@ -620,6 +607,19 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   String _period = 'Month';
   final _periods = ['Week', 'Month', 'Quarter', 'Year'];
 
+  String _periodLabel(String key, LanguageService lang) {
+    switch (key) {
+      case 'Week':
+        return lang.periodWeek;
+      case 'Quarter':
+        return lang.periodQuarter;
+      case 'Year':
+        return lang.periodYear;
+      default:
+        return lang.periodMonth;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -642,34 +642,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   // Compute bar data from real transactions grouped by month
   List<_MonthBar> _computeBarData() {
     final txs = WalletState.instance.transactions;
-    final Map<String, double> byMonth = {};
-    const months = [
-      '',
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
+    final Map<int, double> byMonth = {};
     for (final t in txs) {
       if (!t.isCredit) {
-        final key = months[t.date.month];
-        byMonth[key] = (byMonth[key] ?? 0) + t.amount / 1000.0;
+        byMonth[t.date.month] = (byMonth[t.date.month] ?? 0) + t.amount / 1000.0;
       }
     }
-    return byMonth.entries.map((e) => _MonthBar(e.key, e.value)).toList()
-      ..sort((a, b) {
-        final order =
-            months.indexOf(a.label).compareTo(months.indexOf(b.label));
-        return order;
-      });
+    final lang = LanguageService();
+    return byMonth.entries
+        .map((e) => _MonthBar(lang.monthAbbr(e.key), e.value, e.key))
+        .toList()
+      ..sort((a, b) => a.monthIndex.compareTo(b.monthIndex));
   }
 
   List<_Cat> _computeCategories() {
@@ -681,10 +664,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     for (final t in txs) {
       byType[t.type] = (byType[t.type] ?? 0) + t.amount;
     }
+    final lang = LanguageService();
     final labels = {
       TxType.bnpl: ('BNPL', AppColors.primaryGreen),
-      TxType.withdrawal: ('Withdrawals', AppColors.secondaryGreen),
-      TxType.transfer: ('Transfers', AppColors.deepTeal),
+      TxType.withdrawal: (lang.filterWithdrawals, AppColors.secondaryGreen),
+      TxType.transfer: (lang.filterTransfers, AppColors.deepTeal),
     };
     return byType.entries.where((e) => labels.containsKey(e.key)).map((e) {
       final info = labels[e.key]!;
@@ -704,7 +688,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.offWhite,
-      appBar: const WatsimAppBar(title: 'Statistics', showBack: true),
+      appBar: WatsimAppBar(
+          title: LanguageProvider.of(context).statisticsTitle, showBack: true),
       body: body,
     );
   }
@@ -734,8 +719,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
             const SizedBox(height: 8),
-            const Text(
-              'Your spending statistics will appear\nhere once you make transactions.',
+            Text(
+              lang.statsAppearBody,
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 13, color: AppColors.textSecondary, height: 1.5),
@@ -820,7 +805,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                         borderRadius: BorderRadius.circular(9),
                       ),
                       child: Center(
-                        child: Text(p,
+                        child: Text(_periodLabel(p, lang),
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -838,11 +823,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           Row(
             children: [
               Expanded(
-                  child: _kpiCard('Income', _fmt(totalReceived),
+                  child: _kpiCard(lang.incomeLabel, _fmt(totalReceived),
                       AppColors.primaryGreen, Icons.trending_up_rounded)),
               const SizedBox(width: 12),
               Expanded(
-                  child: _kpiCard('Expenses', _fmtSpent(totalSpent),
+                  child: _kpiCard(lang.expensesLabel, _fmtSpent(totalSpent),
                       AppColors.error, Icons.trending_down_rounded)),
             ],
           ),
@@ -850,12 +835,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           Row(
             children: [
               Expanded(
-                  child: _kpiCard('Transactions', '${txs.length}',
+                  child: _kpiCard(lang.transactions, '${txs.length}',
                       AppColors.deepTeal, Icons.receipt_long_rounded)),
               const SizedBox(width: 12),
               Expanded(
                   child: _kpiCard(
-                      'Net Balance',
+                      lang.netBalance,
                       _fmt(totalReceived - totalSpent),
                       AppColors.secondaryGreen,
                       Icons.account_balance_wallet_rounded)),
@@ -1029,23 +1014,8 @@ class _OrderCardState extends State<_OrderCard> {
 
   ConfirmedOrder get order => widget.order;
 
-  String _monthName(int m) => [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ][m - 1];
-
   String _fmtDate(DateTime dt) =>
-      '${dt.day} ${_monthName(dt.month)} ${dt.year}';
+      '${dt.day} ${LanguageService().monthAbbr(dt.month)} ${dt.year}';
 
   String _fmt(int v) =>
       '${v ~/ 1000},${(v % 1000).toString().padLeft(3, '0')} FCFA';
@@ -1246,7 +1216,7 @@ class _OrderCardState extends State<_OrderCard> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFFFFB74D)),
                       ),
-                      child: const Row(
+                      child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Icon(Icons.info_outline_rounded,
@@ -1254,7 +1224,7 @@ class _OrderCardState extends State<_OrderCard> {
                             SizedBox(width: 10),
                             Expanded(
                                 child: Text(
-                              'No payments made yet. Make at least one instalment before transferring.',
+                              lang.noPaymentsMadeYet,
                               style: TextStyle(
                                   fontSize: 13,
                                   color: Color(0xFFF57C00),
@@ -1269,8 +1239,8 @@ class _OrderCardState extends State<_OrderCard> {
                       keyboardType: TextInputType.phone,
                       maxLength: 15,
                       decoration: InputDecoration(
-                        labelText: 'Recipient phone number',
-                        hintText: 'e.g. 655000001',
+                        labelText: lang.recipientPhoneLabel,
+                        hintText: lang.hintPhoneNum,
                         prefixIcon: const Icon(Icons.phone_outlined),
                         counterText: '',
                         errorText: phoneError,
@@ -1287,8 +1257,8 @@ class _OrderCardState extends State<_OrderCard> {
                       },
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Recipient must have an active WatSim account.',
+                    Text(
+                      lang.recipientMustHaveWatsim,
                       style: TextStyle(
                           fontSize: 11,
                           color: AppColors.textMuted,
@@ -1322,8 +1292,7 @@ class _OrderCardState extends State<_OrderCard> {
                                           color: Color(0xFFB71C1C))),
                                   SizedBox(height: 4),
                                   Text(
-                                    'This number does not have a verified WatSim account. '
-                                    'Check the number or ask the recipient to register on WatSim.',
+                                    lang.noWatsimAccountBody,
                                     style: TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFFE53935),
@@ -1353,12 +1322,12 @@ class _OrderCardState extends State<_OrderCard> {
                               .replaceAll(RegExp(r'[\s\-]'), '');
                           if (phone.isEmpty) {
                             setSheet(() =>
-                                phoneError = 'Please enter a phone number.');
+                                phoneError = lang.enterPhoneRequired);
                             return;
                           }
                           if (phone.length < 8) {
                             setSheet(() =>
-                                phoneError = 'Enter a valid phone number.');
+                                phoneError = lang.enterValidPhone);
                             return;
                           }
                           setSheet(() {
@@ -1390,8 +1359,8 @@ class _OrderCardState extends State<_OrderCard> {
                           color: AppColors.textPrimary)),
                   const SizedBox(height: 6),
                   Text(
-                    'Enter your 4-digit PIN to send ${fmt(netAmount)} '
-                    'to ${phoneCtrl.text.trim()}.',
+                    lang.pinToSendAmount(
+                        fmt(netAmount), phoneCtrl.text.trim()),
                     style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,
@@ -1493,7 +1462,7 @@ class _OrderCardState extends State<_OrderCard> {
                     obscureText: true,
                     maxLength: 4,
                     decoration: InputDecoration(
-                      labelText: '4-digit PIN',
+                      labelText: lang.pin4Label,
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
                       counterText: '',
                       errorText: pinError,
@@ -1535,8 +1504,7 @@ class _OrderCardState extends State<_OrderCard> {
                       ),
                       onPressed: () async {
                         if (order.id == null) {
-                          setSheet(() => pinError =
-                              'Order is not linked to a backend purchase.');
+                          setSheet(() => pinError = lang.orderNotLinked);
                           return;
                         }
                         final phone = phoneCtrl.text
@@ -1544,11 +1512,11 @@ class _OrderCardState extends State<_OrderCard> {
                             .replaceAll(RegExp(r'[\s\-]'), '');
                         if (phone.isEmpty) {
                           setSheet(
-                              () => pinError = 'Please enter a phone number.');
+                              () => pinError = lang.enterPhoneRequired);
                           return;
                         }
                         if (pinCtrl.text.isEmpty) {
-                          setSheet(() => pinError = 'Please enter your PIN.');
+                          setSheet(() => pinError = lang.enterPinRequired);
                           return;
                         }
                         setSheet(() => pinError = null);
@@ -1558,9 +1526,7 @@ class _OrderCardState extends State<_OrderCard> {
                         );
                         if (!pinValid) {
                           setSheet(
-                            () => pinError = lang.isFrench
-                                ? 'PIN incorrect. Veuillez réessayer.'
-                                : 'Incorrect PIN. Please try again.',
+                            () => pinError = lang.incorrectPinFull,
                           );
                           return;
                         }
@@ -1580,7 +1546,7 @@ class _OrderCardState extends State<_OrderCard> {
                           );
                           setSheet(() => step = 2);
                         } on ApiException catch (e) {
-                          setSheet(() => pinError = e.message);
+                          setSheet(() => pinError = lang.apiError(e));
                         }
                       },
                       child: Text(lang.confirmTransfer),
@@ -1616,8 +1582,8 @@ class _OrderCardState extends State<_OrderCard> {
                           color: AppColors.textPrimary)),
                   const SizedBox(height: 8),
                   Text(
-                    '${fmt(netAmount)} has been sent to\n'
-                    '${phoneCtrl.text.trim()}\'s WatSim wallet.',
+                    lang.sentToWallet(
+                        fmt(netAmount), phoneCtrl.text.trim()),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         fontSize: 14,
@@ -1639,8 +1605,7 @@ class _OrderCardState extends State<_OrderCard> {
                       const SizedBox(width: 10),
                       Flexible(
                           child: Text(
-                        '20% service fee of ${fmt(deduction)} was deducted '
-                        'from your accumulated funds.',
+                        lang.feeDeducted20(fmt(deduction)),
                         style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFFF57C00),
@@ -1730,8 +1695,8 @@ class _OrderCardState extends State<_OrderCard> {
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary)),
               const SizedBox(height: 6),
-              const Text(
-                'A 30% chargeback fee applies to all withdrawals.',
+              Text(
+                lang.chargebackNote,
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
@@ -1745,12 +1710,12 @@ class _OrderCardState extends State<_OrderCard> {
                 ),
                 child: Column(
                   children: [
-                    _sheetRow('Total Paid', _fmt(totalPaid)),
+                    _sheetRow(lang.totalPaidOnOrders, _fmt(totalPaid)),
                     const Divider(height: 16),
-                    _sheetRow('30% Chargeback', '− ${_fmt(chargeback)}',
+                    _sheetRow(lang.chargeback30, '− ${_fmt(chargeback)}',
                         valueColor: AppColors.warning),
                     const Divider(height: 16),
-                    _sheetRow('You will receive', _fmt(refund),
+                    _sheetRow(lang.youWillReceive, _fmt(refund),
                         valueColor: AppColors.primaryGreen),
                   ],
                 ),
@@ -1766,9 +1731,7 @@ class _OrderCardState extends State<_OrderCard> {
 
                   if (order.id == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text(
-                              'Order is not linked to a backend purchase')),
+                      SnackBar(content: Text(lang.orderNotLinked)),
                     );
                     return;
                   }
@@ -1782,15 +1745,16 @@ class _OrderCardState extends State<_OrderCard> {
                     final msg = result['message'] as String?;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content:
-                            Text(msg ?? lang.refundedToWallet(_fmt(refund))),
+                        content: Text(msg != null
+                            ? lang.translateApiMessage(msg)
+                            : lang.refundedToWallet(_fmt(refund))),
                         backgroundColor: AppColors.primaryGreen,
                       ),
                     );
                   } on ApiException catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                          content: Text(e.message),
+                          content: Text(lang.apiError(e)),
                           backgroundColor: Colors.red),
                     );
                   }
@@ -1893,19 +1857,19 @@ class _OrderCardState extends State<_OrderCard> {
 
     if (order.deliveryCompleted) {
       statusColor = AppColors.primaryGreen;
-      statusLabel = 'Delivered';
+      statusLabel = lang.deliveredStatus;
       statusIcon = Icons.verified_rounded;
     } else if (order.deliveryRequested) {
       statusColor = const Color(0xFF1565C0);
-      statusLabel = 'Delivery Requested';
+      statusLabel = lang.deliveryRequestedTitle;
       statusIcon = Icons.local_shipping_rounded;
     } else if (isComplete) {
       statusColor = AppColors.primaryGreen;
-      statusLabel = 'Completed';
+      statusLabel = lang.tabCompleted;
       statusIcon = Icons.check_circle_rounded;
     } else {
       statusColor = AppColors.deepTeal;
-      statusLabel = 'In Progress';
+      statusLabel = lang.inProgressStatus;
       statusIcon = Icons.timelapse_rounded;
     }
 
@@ -2034,7 +1998,7 @@ class _OrderCardState extends State<_OrderCard> {
                     Expanded(
                       child: _detailChip(
                         Icons.calendar_today_rounded,
-                        'Ordered',
+                        lang.orderedLabel,
                         _fmtDate(order.confirmedAt),
                         AppColors.textMuted,
                       ),
@@ -2045,8 +2009,10 @@ class _OrderCardState extends State<_OrderCard> {
                         isComplete
                             ? Icons.check_circle_outline_rounded
                             : Icons.schedule_rounded,
-                        isComplete ? 'Completed' : 'Next due',
-                        isComplete ? 'All paid ✓' : _fmtDate(order.nextDue),
+                        isComplete ? lang.tabCompleted : lang.nextDueLabel,
+                        isComplete
+                            ? lang.allPaidCheck
+                            : _fmtDate(order.nextDue),
                         statusColor,
                       ),
                     ),
@@ -2054,7 +2020,7 @@ class _OrderCardState extends State<_OrderCard> {
                     Expanded(
                       child: _detailChip(
                         Icons.date_range_rounded,
-                        'Plan',
+                        lang.planLabel,
                         order.planDurationLabel,
                         AppColors.deepTeal,
                       ),
@@ -2070,8 +2036,8 @@ class _OrderCardState extends State<_OrderCard> {
                       Expanded(
                         child: _actionBtn(
                           icon: Icons.swap_horiz_rounded,
-                          label: 'Transfer',
-                          subtitle: 'Move to another plan',
+                          label: lang.transferLabel,
+                          subtitle: lang.transferSubLabel,
                           color: const Color(0xFF1565C0),
                           onTap: () => _showTransfer(context),
                         ),
@@ -2080,8 +2046,11 @@ class _OrderCardState extends State<_OrderCard> {
                       Expanded(
                         child: _actionBtn(
                           icon: Icons.account_balance_wallet_outlined,
-                          label: _withdrawn ? 'Withdrawn' : 'Withdraw',
-                          subtitle: _withdrawn ? null : '30% charge applies',
+                          label: _withdrawn
+                              ? lang.withdrawnLabel
+                              : lang.withdrawLabel,
+                          subtitle:
+                              _withdrawn ? null : lang.withdrawSubLabel,
                           color: const Color(0xFFF57C00),
                           disabled: _withdrawn,
                           onTap:
@@ -2206,11 +2175,12 @@ class _OrderCardState extends State<_OrderCard> {
                         Expanded(
                           child: _actionBtn(
                             icon: Icons.swap_horiz_rounded,
-                            label:
-                                _exchangeRequested ? 'Requested' : 'Exchange',
+                            label: _exchangeRequested
+                                ? lang.requestedLabel
+                                : lang.exchangeLabel,
                             subtitle: _exchangeRequested
                                 ? null
-                                : 'Swap for same price',
+                                : lang.exchangeSubLabel,
                             color: const Color(0xFF607D8B),
                             disabled: _exchangeRequested,
                             onTap: _exchangeRequested
@@ -2222,8 +2192,11 @@ class _OrderCardState extends State<_OrderCard> {
                         Expanded(
                           child: _actionBtn(
                             icon: Icons.undo_rounded,
-                            label: _withdrawn ? 'Withdrawn' : 'Withdraw',
-                            subtitle: _withdrawn ? null : '30% charge applies',
+                            label: _withdrawn
+                                ? lang.withdrawnLabel
+                                : lang.withdrawLabel,
+                            subtitle:
+                                _withdrawn ? null : lang.withdrawSubLabel,
                             color: AppColors.warning,
                             disabled: _withdrawn,
                             onTap: _withdrawn
@@ -2235,8 +2208,8 @@ class _OrderCardState extends State<_OrderCard> {
                         Expanded(
                           child: _actionBtn(
                             icon: Icons.local_shipping_outlined,
-                            label: 'Delivery',
-                            subtitle: 'Request delivery',
+                            label: lang.deliveryAction,
+                            subtitle: lang.deliverSubLabel,
                             color: AppColors.primaryGreen,
                             onTap: () => _showDeliveryDetails(context),
                           ),
@@ -2346,7 +2319,8 @@ class _Cat {
 class _MonthBar {
   final String label;
   final double value;
-  const _MonthBar(this.label, this.value);
+  final int monthIndex;
+  const _MonthBar(this.label, this.value, [this.monthIndex = 0]);
 }
 
 int _parseHistoryProductPrice(String priceStr) {

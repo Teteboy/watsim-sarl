@@ -53,13 +53,13 @@ class WatsimAppBar extends StatelessWidget implements PreferredSizeWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Hello, $title',
+                Text(LanguageProvider.of(context).helloComma(title),
                     style: const TextStyle(
                         color: AppColors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w600)),
-                const Text('Welcome back',
-                    style: TextStyle(
+                Text(LanguageProvider.of(context).welcomeBackLabel,
+                    style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 12,
                         fontWeight: FontWeight.w400)),
@@ -431,13 +431,14 @@ class ProductStockBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = LanguageProvider.of(context);
     final label = stock == null
-        ? 'Stock: --'
+        ? lang.stockUnknown
         : stock! <= 0
-            ? 'Out of stock'
+            ? lang.outOfStock
             : stock! <= 5
-                ? 'Low stock: $stock'
-                : 'In stock: $stock';
+                ? lang.lowStock(stock!)
+                : lang.inStock(stock!);
     final color = stock == null
         ? AppColors.textSecondary
         : stock! <= 0

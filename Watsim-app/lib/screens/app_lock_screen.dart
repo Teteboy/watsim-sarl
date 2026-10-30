@@ -47,7 +47,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
 
       await AppLockManager().unlock();
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      setState(() => _error = LanguageService().apiError(e));
     } catch (e) {
       setState(() => _error = LanguageService().isFrench
           ? 'Une erreur est survenue. Réessayez.'

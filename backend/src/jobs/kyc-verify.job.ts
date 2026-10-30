@@ -17,9 +17,9 @@ async function applyOutcome(docId: string, userId: string, outcome: 'VERIFIED' |
   });
   if (outcome === 'VERIFIED') {
     await recomputeScore(userId);
-    await notifyUser(userId, 'Votre KYC a été vérifié. Vous pouvez utiliser le BNPL.');
+    await notifyUser(userId, 'kyc.verified');
   } else {
-    await notifyUser(userId, 'Votre KYC a été rejeté. Veuillez recommencer.');
+    await notifyUser(userId, 'kyc.rejected');
   }
 }
 

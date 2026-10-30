@@ -2,6 +2,7 @@
 // Singleton holding balance + full transaction history.
 import 'package:flutter/foundation.dart';
 import 'services/api_service.dart';
+import 'services/language_service.dart';
 
 enum TxType { deposit, withdrawal, bnpl, transfer }
 
@@ -105,7 +106,7 @@ class WalletState extends ChangeNotifier {
     _balance += amount;
     _addTx(WalletTransaction(
       type: TxType.deposit,
-      title: 'Deposit via $operator',
+      title: LanguageService().depositVia(operator),
       amount: amount,
       isCredit: true,
       date: DateTime.now(),
@@ -114,14 +115,16 @@ class WalletState extends ChangeNotifier {
   }
 
   void deduct(int amount,
-      {String reason = 'Withdrawal',
+      {String? reason,
       TxType type = TxType.withdrawal,
       String tag = 'PROCESSED'}) {
-    if (_balance < amount) throw Exception('Insufficient funds');
+    if (_balance < amount) {
+      throw Exception(LanguageService().insufficientFunds);
+    }
     _balance -= amount;
     _addTx(WalletTransaction(
       type: type,
-      title: reason,
+      title: reason ?? LanguageService().withdrawalTx,
       amount: amount,
       isCredit: false,
       date: DateTime.now(),
@@ -147,7 +150,7 @@ class WalletState extends ChangeNotifier {
     _balance += amount;
     _addTx(WalletTransaction(
       type: TxType.deposit,
-      title: 'Refund — $productName',
+      title: LanguageService().refundFor(productName),
       amount: amount,
       isCredit: true,
       date: DateTime.now(),
@@ -159,7 +162,7 @@ class WalletState extends ChangeNotifier {
     _balance += amount;
     _addTx(WalletTransaction(
       type: TxType.transfer,
-      title: 'Transfer Received — $sender',
+      title: LanguageService().transferReceivedTx(sender),
       amount: amount,
       isCredit: true,
       date: DateTime.now(),
@@ -171,8 +174,8 @@ class WalletState extends ChangeNotifier {
 
   /// Step 1: User finalises a Pay in Cash deposit.
   /// Records a PENDING transaction and returns its id.
-  static const String cashDepositTitle =
-      'Dépôt en espèces via un agent Watsim';
+  static String get cashDepositTitle =>
+      LanguageService().cashDepositTxTitle;
   static int _idCounter = 0;
 
   String cashDepositPending(int requestedAmount, {String? transactionId}) {
@@ -218,8 +221,8 @@ class WalletState extends ChangeNotifier {
       _addTx(WalletTransaction(
         type: TxType.deposit,
         title: diff > 0
-            ? 'Ajustement de dépôt en espèces (+)'
-            : 'Ajustement de dépôt en espèces',
+            ? LanguageService().cashAdjustmentPlus
+            : LanguageService().cashAdjustment,
         amount: diff.abs(),
         isCredit: diff > 0,
         date: DateTime.now(),
@@ -330,20 +333,21 @@ class WalletState extends ChangeNotifier {
   String _formatTxTitle(Map<String, dynamic> tx) {
     final type = tx['type'] as String?;
     final provider = tx['provider'] as String?;
+    final lang = LanguageService();
 
     switch (type) {
       case 'DEPOSIT':
-        return 'Deposit via ${provider ?? 'Mobile Money'}';
+        return lang.depositVia(provider ?? 'Mobile Money');
       case 'WITHDRAWAL':
-        return 'Withdrawal via ${provider ?? 'Mobile Money'}';
+        return lang.withdrawalVia(provider ?? 'Mobile Money');
       case 'PURCHASE':
-        return 'BNPL Purchase';
+        return lang.bnplPurchaseTx;
       case 'REPAYMENT':
-        return 'BNPL Repayment';
+        return lang.bnplRepaymentTx;
       case 'REFUND':
-        return 'Refund';
+        return lang.refundTx;
       default:
-        return type ?? 'Transaction';
+        return type ?? lang.transactionTx;
     }
   }
 

@@ -8,7 +8,8 @@ class PublicityDetailScreen extends StatelessWidget {
 
   const PublicityDetailScreen({super.key, required this.publicity});
 
-  String get _name => publicity['name']?.toString() ?? 'Publicité';
+  String get _name =>
+      publicity['name']?.toString() ?? LanguageService().adNameFallback;
 
   String get _imageUrl {
     final raw = publicity['imageUrl']?.toString() ?? '';

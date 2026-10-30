@@ -215,9 +215,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       });
       if (outcome === 'VERIFIED') {
         await recomputeScore(doc.userId);
-        await notifyUser(doc.userId, 'Votre KYC a été vérifié. Vous pouvez utiliser le BNPL.');
+        await notifyUser(doc.userId, 'kyc.verified');
       } else {
-        await notifyUser(doc.userId, 'Votre KYC a été rejeté. Veuillez recommencer.');
+        await notifyUser(doc.userId, 'kyc.rejected');
       }
     }
     return { received: true };

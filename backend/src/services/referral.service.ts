@@ -182,7 +182,11 @@ export async function processFirstReward(userId: string): Promise<void> {
   
   await notifyUser(
     referral.referrerId,
-    `Félicitations! Vous avez gagné ${referral.firstRewardAmount} XAF grâce à votre filleul ${referral.referred.fullName || referral.referred.phone}.`
+    'referral.firstReward',
+    {
+      amount: referral.firstRewardAmount,
+      name: referral.referred.fullName || referral.referred.phone,
+    }
   );
   
   logger.info({ referralId: referral.id, amount: referral.firstRewardAmount }, 'First referral reward paid');
@@ -250,7 +254,11 @@ export async function processSecondReward(purchaseId: string): Promise<void> {
   
   await notifyUser(
     referral.referrerId,
-    `Excellent! Votre filleul ${referral.referred.fullName || referral.referred.phone} a finalisé son achat. Vous recevez ${rewardAmount} XAF (0.6%)!`
+    'referral.secondReward',
+    {
+      amount: rewardAmount,
+      name: referral.referred.fullName || referral.referred.phone,
+    }
   );
   
   logger.info({ 

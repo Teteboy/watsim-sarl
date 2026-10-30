@@ -35,10 +35,12 @@ export async function processReminderJob(): Promise<{ reminded: number }> {
 
     if (amount <= 0) continue; // Already fully paid
 
-    const message = `Rappel: Votre échéance de ${amount} FCFA pour "${productName}" est due le ${dueDate}. Pensez à effectuer votre paiement.`;
-
     try {
-      await notifyUser(inst.purchase.userId, message);
+      await notifyUser(inst.purchase.userId, 'instalment.reminder', {
+        amount,
+        product: productName,
+        date: dueDate,
+      });
       reminded += 1;
     } catch (e) {
       logger.warn({ err: e, instalmentId: inst.id }, 'Failed to send reminder');
